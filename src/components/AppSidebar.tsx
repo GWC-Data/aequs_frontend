@@ -1,0 +1,84 @@
+import { Home, List, Heart, PenTool, Settings, LogOut } from "lucide-react";
+import { NavLink } from "@/components/NavLink";
+import { useLocation } from "react-router-dom";
+import Logo from '../assets/logo.png';
+import SmallLogo from '../assets/small_logo.png'
+
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+  SidebarFooter,
+} from "@/components/ui/sidebar";
+
+const navigationItems = [
+  { title: "Home", url: "/", icon: Home },
+  // { title: "Category", url: "/category", icon: List },
+  // { title: "Favourite", url: "/favourite", icon: Heart },
+  // { title: "Author", url: "/author", icon: PenTool },
+  // { title: "Settings", url: "/settings", icon: Settings },
+];
+
+export function AppSidebar() {
+  const { open } = useSidebar();
+  const location = useLocation();
+  const currentPath = location.pathname;
+
+  const isActive = (path: string) => currentPath === path;
+
+  return (
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+      <SidebarContent>
+        <div className="px-4 py-2">
+          <h1 className={`font-bold transition-all duration-300 ${open ? 'text-2xl' : 'text-lg'}`}>
+            {open ?  <img src={Logo} alt=""  className="w-48 h-20" />: <img src={SmallLogo} alt="" className="w-20 h-8 object-full"  /> }
+          </h1>
+         
+        </div>
+
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navigationItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton 
+                    asChild 
+                    className={`transition-all duration-300 ${
+                      isActive(item.url) 
+                        ? 'bg-[#e0413a] text-white hover:bg-#e0413a hover:text-white font-semibold' 
+                        : 'hover:bg-[#e0413a] hover:text-white'
+                    }`}
+                  >
+                    <NavLink to={item.url} end>
+                      <item.icon className="h-20 w-20" />
+                      <span>{item.title}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton 
+              className="hover:bg-[#e0413a] hover:text-destructive-foreground transition-all duration-300"
+              onClick={() => console.log('Logout clicked')}
+            >
+              <LogOut className="h-5 w-5" />
+              <span>Logout</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
