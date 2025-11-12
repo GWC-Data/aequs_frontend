@@ -70,7 +70,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 
-              className="hover:bg-[#e0413a] hover:text-destructive-foreground transition-all duration-300"
+              className="hover:bg-[#e0413a] hover:text-destructive-foreground transition-all duration-300 hover:text-white"
               onClick={() => console.log('Logout clicked')}
             >
               <LogOut className="h-5 w-5" />

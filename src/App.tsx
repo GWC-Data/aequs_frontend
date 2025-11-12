@@ -22,11 +22,11 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <SidebarProvider defaultOpen={true}>
-          <div className="flex min-h-screen w-full">
+          <div className="flex min-h-screen w-full overflow-hidden">
             <AppSidebar />
-            <div className="flex flex-1 flex-col">
+            <div className="flex flex-1 flex-col overflow-hidden">
               <Navbar />
-              <main className="flex-1 bg-background">
+              <main className="flex-1 overflow-hidden bg-gray-50">
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/category" element={<Category />} />
