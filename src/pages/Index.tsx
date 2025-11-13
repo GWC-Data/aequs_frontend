@@ -27,7 +27,7 @@ const Index = () => {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="p-6 space-y-6 max-w-full">
+      <div className="p-4 space-y-4 max-w-full">
         {/* Header */}
         <div className="flex items-center gap-2 mb-2">
           <div className="h-8 w-1 bg-red-500 rounded"></div>
@@ -47,7 +47,7 @@ const Index = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-gray-900">{stats.activeTests}</div>
+              <div className="text-xl font-bold text-gray-900">{stats.activeTests}</div>
             </CardContent>
           </Card>
 
@@ -59,7 +59,7 @@ const Index = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-gray-900">{stats.totalProducts}</div>
+              <div className="text-xl font-bold text-gray-900">{stats.totalProducts}</div>
             </CardContent>
           </Card>
 
@@ -71,7 +71,7 @@ const Index = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600">{stats.onTime}</div>
+              <div className="text-xl font-bold text-green-600">{stats.onTime}</div>
             </CardContent>
           </Card>
 
@@ -83,21 +83,21 @@ const Index = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-600">{stats.overdue}</div>
+              <div className="text-xl font-bold text-red-600">{stats.overdue}</div>
             </CardContent>
           </Card>
         </div>
 
         {/* Live Test Progress Table */}
-        <Card>
+        <Card className="">
           <CardHeader>
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
-              <CardTitle className="text-lg font-semibold">Live Test Progress</CardTitle>
+              <CardTitle className="text-lg font-bold">Live Test Progress</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
+            <div className="rounded-md border h-[300px] overflow-y-auto">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>

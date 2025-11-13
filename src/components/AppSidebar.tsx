@@ -1,4 +1,4 @@
-import { Home, List, Heart, PenTool, Settings, LogOut } from "lucide-react";
+import { Home, List, LogOut,Check ,PenTool,Settings ,Gauge, FlaskConical} from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import Logo from '../assets/logo.png';
@@ -18,10 +18,10 @@ import {
 
 const navigationItems = [
   { title: "Home", url: "/", icon: Home },
-  // { title: "Category", url: "/category", icon: List },
-  // { title: "Favourite", url: "/favourite", icon: Heart },
-  // { title: "Author", url: "/author", icon: PenTool },
-  // { title: "Settings", url: "/settings", icon: Settings },
+  { title: "OQC Form", url: "/oqcpage", icon: List },
+  { title: "QRT Check List", url: "/qrtchecklist", icon: Check },
+  { title: "Testing", url: "/author", icon: FlaskConical },
+  { title: "ORT Dashboard", url: "/settings", icon: Gauge },
 ];
 
 export function AppSidebar() {
@@ -50,7 +50,7 @@ export function AppSidebar() {
                     asChild 
                     className={`transition-all duration-300 ${
                       isActive(item.url) 
-                        ? 'bg-[#e0413a] text-white hover:bg-#e0413a hover:text-white font-semibold' 
+                        ? 'bg-[#e0413a] text-white hover:bg-[#e0413a] hover:text-white font-semibold' 
                         : 'hover:bg-[#e0413a] hover:text-white'
                     }`}
                   >

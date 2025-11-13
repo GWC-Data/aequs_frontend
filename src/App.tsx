@@ -7,8 +7,8 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Navbar } from "@/components/Navbar";
 import Index from "./pages/Index";
-import Category from "./pages/Category";
-import Favourite from "./pages/Favourite";
+import OqcformPage from "./pages/OqcFormPage";
+import QrtCheckList from "./pages/QrtCheckList";
 import Author from "./pages/Author";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -29,8 +29,8 @@ const App = () => (
               <main className="flex-1 overflow-hidden bg-gray-50">
                 <Routes>
                   <Route path="/" element={<Index />} />
-                  <Route path="/category" element={<Category />} />
-                  <Route path="/favourite" element={<Favourite />} />
+                  <Route path="/oqcpage" element={<OqcformPage />} />
+                  <Route path="/qrtchecklist" element={<QrtCheckList />} />
                   <Route path="/author" element={<Author />} />
                   <Route path="/settings" element={<Settings />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
