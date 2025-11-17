@@ -1,184 +1,529 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Upload, X, Camera, Download } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Upload, X, ChevronRight, ChevronLeft, CheckCircle, AlertCircle } from "lucide-react";
+import FootPushOutForm from "@/components/FootPushOutForm";
+import ShearTestForm from '@/components/ShearTestForm';
+import PullTestCleatForm from '@/components/PullTestCleatForm';
+import HeatSoakForm from '@/components/HeatSoakForm';
+import SideSnapForm from '@/components/SideSnapForm';
 
-const REFERENCE_IMAGE_PATH = "/assets/yellow.png";
+// Reference image dimensions (based on your static reference image)
+const REFERENCE_IMAGE_WIDTH = 480;
+const REFERENCE_IMAGE_HEIGHT = 320;
 
-export default function TestFormWithCropper() {
-  const [formData, setFormData] = useState({
-    testName: "Heat Soak",
-    frs: "",
-    moduleNumber: "099-95562 N199 & Q80-1654",
-    testCondition: "65°C/90%RH",
-    date: "",
-    failureCriteria: "Any sample with corrosion spot ≥250 μm",
-    testStage: "After Assy",
-    project: "Light Blue",
-    sampleQty: "32",
+// Predefined regions based on the reference image
+// These coordinates are measured from your reference image with yellow boxes
+const PREDEFINED_REGIONS = [
+  // Row 1 - Top row with F1, Cleats, F2
+  { x: 32, y: 20, width: 60, height: 50, label: "F1" },
+  { x: 112, y: 20, width: 50, height: 50, label: "Cleat 1" },
+  { x: 170, y: 20, width: 50, height: 50, label: "Cleat 2" },
+  { x: 228, y: 20, width: 50, height: 50, label: "Cleat 3" },
+  { x: 286, y: 20, width: 50, height: 50, label: "Cleat 4" },
+  { x: 360, y: 20, width: 60, height: 50, label: "F2" },
+  
+  // Row 2 - Middle row with Side snaps
+  { x: 32, y: 85, width: 55, height: 45, label: "Side snap 1" },
+  { x: 370, y: 85, width: 55, height: 45, label: "Side snap 4" },
+  
+  // Side regions for F4 and F3
+  { x: 32, y: 210, width: 55, height: 70, label: "F4" },
+  { x: 370, y: 210, width: 55, height: 70, label: "F3" },
+  
+  // Row 3 - Bottom row with Side snaps
+  { x: 100, y: 250, width: 60, height: 50, label: "Side snap 2" },
+  { x: 280, y: 250, width: 60, height: 50, label: "Side snap 3" },
+];
+
+// Enhanced OCR simulation for both marked and unmarked images
+const detectLabelText = (imageData: string, regionId: number, regions: any[], hasYellowMarks: boolean): string => {
+  if (hasYellowMarks) {
+    // For images with yellow marks - use position-based detection
+    const sortedRegions = [...regions].sort((a, b) => {
+      if (Math.abs(a.y - b.y) > 20) return a.y - b.y;
+      return a.x - b.x;
+    });
+
+    const sortedIndex = sortedRegions.findIndex(region => 
+      region.x === regions[regionId].x && region.y === regions[regionId].y
+    );
+
+    const labels = [
+      "F1", "Cleat 1", "Cleat 2", "Cleat 3", "Cleat 4", "F2",
+      "Side snap 1", "Side snap 4", "F4", "F3", 
+      "Side snap 2", "Side snap 3"
+    ];
+    
+    return labels[sortedIndex] || `Region ${sortedIndex + 1}`;
+  } else {
+    // For images without yellow marks - manual region assignment
+    const manualLabels = [
+      "F1", "Cleat 1", "Cleat 2", "Cleat 3", "Cleat 4", "F2",
+      "Side snap 1", "Side snap 4", "F4", "F3", 
+      "Side snap 2", "Side snap 3"
+    ];
+    return manualLabels[regionId] || `Region ${regionId + 1}`;
+  }
+};
+
+// Improved label to form mapping
+const getLabelCategory = (label: string) => {
+  if (!label) return null;
+  
+  const lower = label.toLowerCase().trim();
+  
+  // Foot Push Out mapping
+  if (lower.includes('f1') || lower.includes('f2') || lower.includes('f3') || lower.includes('f4')) {
+    return { form: 'footPushOut', id: label.toUpperCase().replace('F', 'F') };
+  }
+  
+  // Pull Test Cleat mapping - handle both spellings
+  if (lower.includes('cleat') || lower.includes('clear')) {
+    const cleanLabel = label.replace(/clear/gi, 'Cleat');
+    return { form: 'pullTestCleat', id: cleanLabel };
+  }
+  
+  // Side Snap mapping
+  if (lower.includes('side snap') || lower.includes('sidesnap')) {
+    return { form: 'sidesnap', id: label };
+  }
+  
+  return null;
+};
+
+// Define types for better TypeScript support
+interface FormRow {
+  id: number;
+  srNo: number;
+  [key: string]: unknown;
+}
+
+interface FormData {
+  testName: string;
+  rows: FormRow[];
+  [key: string]: unknown;
+}
+
+interface FormsState {
+  footPushOut: FormData;
+  shearTestSideSnap: FormData;
+  pullTestCleat: FormData;
+  heatSoak: FormData;
+  sidesnap: FormData;
+}
+
+interface CroppedRegion {
+  id: number;
+  data: string;
+  label: string;
+  category: any;
+  rect: any;
+}
+
+interface Stage {
+  id: number;
+  name: string;
+  icon: any;
+  formKey?: string;
+}
+
+// Test name options
+const TEST_NAME_OPTIONS = [
+  { id: 'footPushOut', name: 'Foot Push Out' },
+  { id: 'shearTestSideSnap', name: 'Shear Test Side Snap' },
+  { id: 'pullTestCleat', name: 'Pull Test Cleat' },
+  { id: 'heatSoak', name: 'Heat Soak' },
+  { id: 'sidesnap', name: 'Side Snap' },
+];
+
+// All available stages
+const ALL_STAGES: Stage[] = [
+  { id: 0, name: "Image Upload", icon: Upload },
+  { id: 1, name: "Foot Push Out", icon: CheckCircle, formKey: "footPushOut" },
+  { id: 2, name: "Shear Test", icon: CheckCircle, formKey: "shearTestSideSnap" },
+  { id: 3, name: "Pull Test Cleat", icon: CheckCircle, formKey: "pullTestCleat" },
+  { id: 4, name: "Heat Soak", icon: CheckCircle, formKey: "heatSoak" },
+  { id: 5, name: "Side Snap", icon: CheckCircle, formKey: "sidesnap" },
+];
+
+// Extend Window interface for OpenCV
+declare global {
+  interface Window {
+    cv: any;
+  }
+}
+
+export default function MultiStageTestForm() {
+  const [currentStage, setCurrentStage] = useState(0);
+  const [cvLoaded, setCvLoaded] = useState(false);
+  const [regions, setRegions] = useState<unknown[]>([]);
+  const [processing, setProcessing] = useState(false);
+  const [selectedTests, setSelectedTests] = useState<string[]>([]);
+  const [hasYellowMarks, setHasYellowMarks] = useState<boolean | null>(null);
+  
+  // Shared images across all forms
+  const [sharedImages, setSharedImages] = useState({
+    cosmetic: null as string | null,
+    nonCosmetic: null as string | null
+  });
+  
+  // Cropped regions with detected labels
+  const [croppedRegions, setCroppedRegions] = useState<CroppedRegion[]>([]);
+  
+  // Form data for all forms
+  const [forms, setForms] = useState<FormsState>({
+    footPushOut: {
+      testName: "Foot Push Out",
+      ers: "",
+      partNumber: "",
+      machineName: "Instron",
+      testCondition: "Room Temperature(RT)",
+      roomTemp: "RT",
+      date: "07-11-2025",
+      passCriteria: "Food Push Out > 100N",
+      testStage: "After Assy",
+      project: "Light_Blue",
+      sampleQty: "32",
+      rows: [
+        { id: 1, srNo: 1, testDate: "", sampleId: "", footNumber: "F1", visual: "OK", 
+          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "B", 
+          glueCondition: "F", criteria: "100", observation: "", forceDeflection: "", 
+          displacement: "", status: "Pass" },
+        { id: 2, srNo: 2, testDate: "", sampleId: "", footNumber: "F2", visual: "OK", 
+          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "B", 
+          glueCondition: "F", criteria: "100", observation: "", forceDeflection: "", 
+          displacement: "", status: "" },
+        { id: 3, srNo: 3, testDate: "", sampleId: "", footNumber: "F3", visual: "OK", 
+          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "B", 
+          glueCondition: "F", criteria: "100", observation: "", forceDeflection: "", 
+          displacement: "", status: "" },
+        { id: 4, srNo: 4, testDate: "", sampleId: "", footNumber: "F4", visual: "OK", 
+          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "B", 
+          glueCondition: "F", criteria: "100", observation: "", forceDeflection: "", 
+          displacement: "", status: "" }
+      ]
+    },
+    shearTestSideSnap: {
+      testName: "Shear test of Side Snap",
+      ers: "",
+      partNumber: "089-23089-A",
+      machineName: "Instron",
+      testCondition: "",
+      roomTemp: "RT",
+      date: "",
+      passCriteria: "Data Collection",
+      testStage: "After Assy",
+      project: "Light_Blue",
+      sampleQty: "32",
+      rows: [
+        { id: 1, srNo: 1, testDate: "", sampleId: "", ssShear: "", visual: "OK", 
+          prePhoto: null, postPhoto: null, partPicture: null, criteria: "Data collection", 
+          observation: "", forceDeflection: "", displacement: "", status: "Pass" }
+      ]
+    },
+    pullTestCleat: {
+      testName: "Pull test of Cleat",
+      ers: "089-23089-A",
+      machineName: "Instron",
+      testCondition: "RT",
+      date: "",
+      passCriteria: "Clear > 150N",
+      testStage: "After Assy",
+      project: "Light_Blue",
+      sampleQty: "32",
+      rows: [
+        { id: 1, srNo: 1, testDate: "", sampleId: "", cleatNumber: "Cleat 1", visual: "OK", 
+          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "A", 
+          glueCondition: "B", criteria: "150", observation: "", forceDeflection: "", 
+          displacement: "", status: "Pass" },
+        { id: 2, srNo: 2, testDate: "", sampleId: "", cleatNumber: "Cleat 2", visual: "OK", 
+          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "A", 
+          glueCondition: "B", criteria: "150", observation: "", forceDeflection: "", 
+          displacement: "", status: "" },
+        { id: 3, srNo: 3, testDate: "", sampleId: "", cleatNumber: "Cleat 3", visual: "OK", 
+          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "A", 
+          glueCondition: "B", criteria: "150", observation: "", forceDeflection: "", 
+          displacement: "", status: "" },
+        { id: 4, srNo: 4, testDate: "", sampleId: "", cleatNumber: "Cleat 4", visual: "OK", 
+          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "A", 
+          glueCondition: "B", criteria: "150", observation: "", forceDeflection: "", 
+          displacement: "", status: "" }
+      ]
+    },
+    heatSoak: {
+      testName: "Heat Soak",
+      ers: "099-35562 N199 & 080-1654-1",
+      testCondition: "65°C/90%RH",
+      date: "",
+      failureCriteria: [
+        "Any sample with corrosion spot ≥250 μm",
+        "≥2 corrosion spots of any size",
+        "Discoloration grade of C or worse in test"
+      ],
+      testStage: "After Assy",
+      project: "Light Blue",
+      sampleQty: "32",
+      rows: [
+        { id: 1, srNo: 1, sampleId: "", startDate: "", endDate: "", 
+          t0Cosmetic: null, t0NonCosmetic: null, t168Cosmetic: null, 
+          t168NonCosmetic: null, status: "Pass" }
+      ]
+    },
+    sidesnap: {
+      testName: "Side Snap Test",
+      ers: "",
+      partNumber: "",
+      machineName: "Instron",
+      testCondition: "Room Temperature(RT)",
+      roomTemp: "RT",
+      date: "",
+      passCriteria: "Data Collection",
+      testStage: "After Assy",
+      project: "Light_Blue",
+      sampleQty: "32",
+      rows: [
+        { 
+          id: 1, 
+          srNo: 1, 
+          testDate: "", 
+          sampleId: "", 
+          sideSnapNumber: "Side snap 1", 
+          visual: "OK", 
+          prePhoto: null, 
+          postPhoto: null, 
+          partPicture: null, 
+          failureMode: "", 
+          glueCondition: "", 
+          criteria: "Data collection", 
+          observation: "", 
+          forceDeflection: "", 
+          displacement: "", 
+          status: "" 
+        },
+        { 
+          id: 2, 
+          srNo: 2, 
+          testDate: "", 
+          sampleId: "", 
+          sideSnapNumber: "Side snap 2", 
+          visual: "OK", 
+          prePhoto: null, 
+          postPhoto: null, 
+          partPicture: null, 
+          failureMode: "", 
+          glueCondition: "", 
+          criteria: "Data collection", 
+          observation: "", 
+          forceDeflection: "", 
+          displacement: "", 
+          status: "" 
+        },
+        { 
+          id: 3, 
+          srNo: 3, 
+          testDate: "", 
+          sampleId: "", 
+          sideSnapNumber: "Side snap 3", 
+          visual: "OK", 
+          prePhoto: null, 
+          postPhoto: null, 
+          partPicture: null, 
+          failureMode: "", 
+          glueCondition: "", 
+          criteria: "Data collection", 
+          observation: "", 
+          forceDeflection: "", 
+          displacement: "", 
+          status: "" 
+        },
+        { 
+          id: 4, 
+          srNo: 4, 
+          testDate: "", 
+          sampleId: "", 
+          sideSnapNumber: "Side snap 4", 
+          visual: "OK", 
+          prePhoto: null, 
+          postPhoto: null, 
+          partPicture: null, 
+          failureMode: "", 
+          glueCondition: "", 
+          criteria: "Data collection", 
+          observation: "", 
+          forceDeflection: "", 
+          displacement: "", 
+          status: "" 
+        }
+      ]
+    }
   });
 
-  const [cosmeticImage, setCosmeticImage] = useState(null);
-  const [nonCosmeticImage, setNonCosmeticImage] = useState(null);
-  const [cvLoaded, setCvLoaded] = useState(false);
-  const [regions, setRegions] = useState([]);
-  const [croppedImages, setCroppedImages] = useState([]);
-  const [showCroppedPreview, setShowCroppedPreview] = useState(false);
-  const [processing, setProcessing] = useState(false);
-  const [imageFormat] = useState("png");
-  const [imageQuality] = useState(1.0);
+  // Load selected tests from localStorage on component mount
+  useEffect(() => {
+    const storedData = localStorage.getItem("testRecords");
+    if (storedData) {
+      try {
+        const records = JSON.parse(storedData);
+        if (records.length > 0) {
+          const latestRecord = records[records.length - 1];
+          if (latestRecord.testName && Array.isArray(latestRecord.testName) && latestRecord.testName.length > 0) {
+            setSelectedTests(latestRecord.testName);
+          }
+        }
+      } catch (error) {
+        console.error("Error parsing test records:", error);
+      }
+    }
+  }, []);
 
-  // Table state for cosmetic inspection
-  const [tableRows, setTableRows] = useState([
-    { 
-      id: 1, 
-      srNo: 1, 
-      sampleId: "", 
-      startDate: "", 
-      endDate: "", 
-      t0Cosmetic: null, 
-      t0NonCosmetic: null, 
-      t168Cosmetic: null, 
-      t168NonCosmetic: null, 
-      status: "Pass" 
-    },
-    { 
-      id: 2, 
-      srNo: 2, 
-      sampleId: "", 
-      startDate: "", 
-      endDate: "", 
-      t0Cosmetic: null, 
-      t0NonCosmetic: null, 
-      t168Cosmetic: null, 
-      t168NonCosmetic: null, 
-      status: "" 
-    },
-  ]);
+  // Filter stages based on selected tests
+  const filteredStages = React.useMemo(() => {
+    const imageUploadStage = ALL_STAGES[0];
+    const formStages = ALL_STAGES.slice(1).filter(stage => 
+      stage.formKey && selectedTests.includes(stage.formKey)
+    );
+    return [imageUploadStage, ...formStages];
+  }, [selectedTests]);
+
+  // Get current stage data
+  const currentStageData = filteredStages[currentStage];
 
   // Load OpenCV
   useEffect(() => {
-    // Check if OpenCV is already loaded
     if (window.cv && window.cv.Mat) {
-      console.log("✅ OpenCV.js already loaded");
       setCvLoaded(true);
-      loadReferenceImage();
       return;
     }
 
-    // Check if script is already being loaded
     const existingScript = document.querySelector('script[src*="opencv.js"]');
     if (existingScript) {
       existingScript.onload = () => {
         if (window.cv && window.cv.onRuntimeInitialized) {
           window.cv.onRuntimeInitialized = () => {
-            console.log("✅ OpenCV.js loaded");
             setCvLoaded(true);
-            loadReferenceImage();
           };
         }
       };
       return;
     }
 
-    // Load new script
     const script = document.createElement("script");
     script.src = "https://docs.opencv.org/4.x/opencv.js";
     script.async = true;
-    script.id = "opencv-script";
     script.onload = () => {
       if (window.cv) {
         window.cv.onRuntimeInitialized = () => {
-          console.log("✅ OpenCV.js loaded");
           setCvLoaded(true);
-          loadReferenceImage();
         };
       }
     };
-    script.onerror = () => {
-      console.error("Failed to load OpenCV.js");
-    };
     document.body.appendChild(script);
-
-    return () => {
-      // Cleanup: Don't remove script as it might be used by other instances
-      // Just clear the callback
-      if (window.cv && window.cv.onRuntimeInitialized) {
-        window.cv.onRuntimeInitialized = null;
-      }
-    };
   }, []);
 
-  const loadReferenceImage = () => {
-    if (!window.cv || !window.cv.Mat) {
-      console.warn("OpenCV not ready yet");
-      return;
+  // Detect if image has yellow marks
+  const detectYellowMarks = (src: any): boolean => {
+    try {
+      const cv = window.cv;
+      const hsv = new cv.Mat();
+      cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
+      cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
+
+      const lower = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [20, 100, 100, 0]);
+      const upper = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [40, 255, 255, 255]);
+      const mask = new cv.Mat();
+      cv.inRange(hsv, lower, upper, mask);
+
+      // Count yellow pixels
+      const yellowPixels = cv.countNonZero(mask);
+      const totalPixels = mask.rows * mask.cols;
+      const yellowRatio = yellowPixels / totalPixels;
+
+      hsv.delete(); mask.delete(); lower.delete(); upper.delete();
+
+      // If more than 1% of pixels are yellow, consider it as having yellow marks
+      return yellowRatio > 0.01;
+    } catch (error) {
+      console.error("Error detecting yellow marks:", error);
+      return false;
+    }
+  };
+
+  // Process image with yellow marks (automatic detection)
+  const processImageWithYellowMarks = (src: any, img: HTMLImageElement) => {
+    const cv = window.cv;
+    const hsv = new cv.Mat();
+    cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
+    cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
+
+    const lower = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [15, 80, 80, 0]);
+    const upper = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [45, 255, 255, 255]);
+    const mask = new cv.Mat();
+    cv.inRange(hsv, lower, upper, mask);
+
+    // Morphological operations to clean up the mask
+    const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+    cv.morphologyEx(mask, mask, cv.MORPH_CLOSE, kernel);
+    cv.morphologyEx(mask, mask, cv.MORPH_OPEN, kernel);
+
+    const contours = new cv.MatVector();
+    const hierarchy = new cv.Mat();
+    cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+    let detectedRegions: any[] = [];
+    const minArea = 300;
+    const maxArea = 50000;
+    
+    for (let i = 0; i < contours.size(); ++i) {
+      const rect = cv.boundingRect(contours.get(i));
+      const area = rect.width * rect.height;
+      const aspectRatio = rect.width / rect.height;
+      if (area >= minArea && area <= maxArea && aspectRatio > 0.5 && aspectRatio < 5) {
+        detectedRegions.push(rect);
+      }
     }
 
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      try {
-        const cv = window.cv;
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0);
-        
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const src = cv.matFromImageData(imgData);
-        
-        const hsv = new cv.Mat();
-        cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
-        cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
-
-        const lower = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [20, 100, 100, 0]);
-        const upper = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [40, 255, 255, 255]);
-        const mask = new cv.Mat();
-        cv.inRange(hsv, lower, upper, mask);
-
-        const contours = new cv.MatVector();
-        const hierarchy = new cv.Mat();
-        cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-        let boxes = [];
-        const minArea = 100;
-        
-        for (let i = 0; i < contours.size(); ++i) {
-          const rect = cv.boundingRect(contours.get(i));
-          const area = rect.width * rect.height;
-          if (area >= minArea) boxes.push(rect);
-        }
-
-        setRegions(boxes);
-        console.log(`✅ Loaded ${boxes.length} regions from template`);
-
-        src.delete(); hsv.delete(); mask.delete(); lower.delete(); upper.delete();
-        contours.delete(); hierarchy.delete();
-      } catch (err) {
-        console.error("Error processing reference:", err);
+    // Sort regions
+    detectedRegions.sort((a, b) => {
+      const rowTolerance = 30;
+      if (Math.abs(a.y - b.y) > rowTolerance) {
+        return a.y - b.y;
       }
-    };
-    img.onerror = () => {
-      console.warn("Could not load reference image from:", REFERENCE_IMAGE_PATH);
-      console.info("You can still manually upload and process images");
-    };
-    img.src = REFERENCE_IMAGE_PATH;
+      return a.x - b.x;
+    });
+
+    hsv.delete();
+    mask.delete();
+    kernel.delete();
+    contours.delete();
+    hierarchy.delete();
+
+    return detectedRegions;
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  // Process image without yellow marks (predefined regions)
+  const processImageWithoutYellowMarks = (src: any, img: HTMLImageElement) => {
+    // Calculate scale factors based on reference image dimensions
+    const scaleX = img.width / REFERENCE_IMAGE_WIDTH;
+    const scaleY = img.height / REFERENCE_IMAGE_HEIGHT;
+    
+    console.log(`Image dimensions: ${img.width}x${img.height}`);
+    console.log(`Reference dimensions: ${REFERENCE_IMAGE_WIDTH}x${REFERENCE_IMAGE_HEIGHT}`);
+    console.log(`Scale factors: X=${scaleX.toFixed(2)}, Y=${scaleY.toFixed(2)}`);
+    
+    const scaledRegions = PREDEFINED_REGIONS.map(region => ({
+      x: Math.round(region.x * scaleX),
+      y: Math.round(region.y * scaleY),
+      width: Math.round(region.width * scaleX),
+      height: Math.round(region.height * scaleY),
+      label: region.label
+    }));
+    
+    console.log("Scaled regions:", scaledRegions);
+    return scaledRegions;
   };
 
-  const handleTableChange = (id, field, value) => {
-    setTableRows(prev => prev.map(row => 
-      row.id === id ? { ...row, [field]: value } : row
-    ));
-  };
-
-  const processNonCosmeticImage = (file) => {
-    if (!regions.length || !cvLoaded) {
-      alert("Template not loaded yet. Please wait...");
+  const processNonCosmeticImage = (file: File) => {
+    if (!cvLoaded) {
+      alert("OpenCV not loaded yet. Please wait...");
       return;
     }
 
@@ -186,26 +531,55 @@ export default function TestFormWithCropper() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         try {
           const cv = window.cv;
           const canvas = document.createElement("canvas");
           canvas.width = img.width;
           canvas.height = img.height;
           const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            setProcessing(false);
+            return;
+          }
+          
           ctx.drawImage(img, 0, 0);
-          
           const src = cv.imread(canvas);
-          const newCroppedImages = [];
+
+          // Detect if image has yellow marks
+          const srcForDetection = cv.imread(canvas);
+          const hasMarks = detectYellowMarks(srcForDetection);
+          srcForDetection.delete();
+          setHasYellowMarks(hasMarks);
           
-          regions.forEach((rect, i) => {
+          console.log(`Image has yellow marks: ${hasMarks}`);
+
+          let detectedRegions: any[] = [];
+          
+          if (hasMarks) {
+            // Process with yellow mark detection
+            detectedRegions = processImageWithYellowMarks(src, img);
+          } else {
+            // Process with predefined regions
+            detectedRegions = processImageWithoutYellowMarks(src, img);
+          }
+
+          console.log("Detected regions:", detectedRegions);
+
+          // Crop each region
+          const croppedImages: CroppedRegion[] = [];
+          detectedRegions.forEach((rect, i) => {
             try {
+              // Ensure coordinates are within image bounds
               const x = Math.max(0, Math.min(rect.x, src.cols - 1));
               const y = Math.max(0, Math.min(rect.y, src.rows - 1));
               const width = Math.min(rect.width, src.cols - x);
               const height = Math.min(rect.height, src.rows - y);
               
-              if (width <= 0 || height <= 0) return;
+              if (width <= 0 || height <= 0) {
+                console.warn(`Invalid dimensions for region ${i}: ${width}x${height}`);
+                return;
+              }
               
               const validRect = new cv.Rect(x, y, width, height);
               const roi = src.roi(validRect);
@@ -213,19 +587,26 @@ export default function TestFormWithCropper() {
               const cropCanvas = document.createElement("canvas");
               cropCanvas.width = width;
               cropCanvas.height = height;
-              const cropCtx = cropCanvas.getContext("2d", { alpha: true });
-              cropCtx.imageSmoothingEnabled = false;
-              
               cv.imshow(cropCanvas, roi);
               
-              const croppedData = cropCanvas.toDataURL(imageFormat === "png" ? "image/png" : "image/jpeg", imageQuality);
+              const croppedData = cropCanvas.toDataURL("image/png", 1.0);
               
-              newCroppedImages.push({
+              // Use the label from predefined regions if no yellow marks, otherwise detect
+              const detectedLabel = hasMarks 
+                ? detectLabelText(croppedData, i, detectedRegions, true)
+                : rect.label;
+              
+              const category = getLabelCategory(detectedLabel);
+              
+              croppedImages.push({
                 id: i,
                 data: croppedData,
-                name: `region_${i + 1}.${imageFormat}`,
-                width, height
+                label: detectedLabel,
+                category: category,
+                rect: { x, y, width, height }
               });
+              
+              console.log(`Region ${i}: ${detectedLabel} → ${category?.form} (${x},${y} ${width}x${height})`);
               
               roi.delete();
             } catch (err) {
@@ -233,579 +614,561 @@ export default function TestFormWithCropper() {
             }
           });
 
-          setCroppedImages(newCroppedImages);
-          setShowCroppedPreview(true);
+          setCroppedRegions(croppedImages);
+          distributeImagesToForms(croppedImages);
+          
           src.delete();
         } catch (err) {
           console.error("Error processing image:", err);
-          alert("Failed to process image");
+          alert("Failed to process image. Please try again.");
         } finally {
           setProcessing(false);
         }
       };
-      img.src = e.target.result;
+      img.src = e.target?.result as string;
     };
     reader.readAsDataURL(file);
   };
 
-  const handleFileUpload = (type, file) => {
-    if (type === "cosmetic") {
-      setCosmeticImage(URL.createObjectURL(file));
-    } else {
-      setNonCosmeticImage(URL.createObjectURL(file));
+  const distributeImagesToForms = (croppedImages: CroppedRegion[]) => {
+    const updatedForms = JSON.parse(JSON.stringify(forms));
+    
+    console.log("Starting image distribution with:", croppedImages);
+  
+    let distributionCount = 0;
+    
+    // First, clear existing part pictures
+    Object.keys(updatedForms).forEach(formKey => {
+      updatedForms[formKey as keyof FormsState].rows.forEach((row: any) => {
+        row.partPicture = null;
+      });
+    });
+  
+    croppedImages.forEach(region => {
+      if (!region.category) {
+        console.log("No category found for region:", region.label);
+        return;
+      }
+      
+      const { form, id } = region.category;
+      const formData = updatedForms[form as keyof FormsState];
+      
+      if (!formData) {
+        console.log("Form not found:", form);
+        return;
+      }
+      
+      console.log(`Attempting to distribute ${region.label} to ${form} form`);
+      
+      // Find matching row
+      let matched = false;
+      formData.rows.forEach((row: any) => {
+        const rowId = row.footNumber || row.cleatNumber || row.sideSnapNumber;
+        
+        if (rowId) {
+          const normalizedRowId = rowId.toString().toLowerCase().replace(/\s+/g, ' ').trim();
+          const normalizedRegionId = id.toString().toLowerCase().replace(/\s+/g, ' ').trim();
+          
+          console.log(`Comparing: "${normalizedRowId}" with "${normalizedRegionId}"`);
+          
+          // Flexible matching
+          if (normalizedRowId === normalizedRegionId || 
+              normalizedRegionId.includes(normalizedRowId) ||
+              normalizedRowId.includes(normalizedRegionId.replace('cleat', 'clear')) ||
+              normalizedRowId.includes(normalizedRegionId.replace('clear', 'cleat'))) {
+            
+            console.log(`✓ MATCHED: ${region.label} with row ${rowId}`);
+            row.partPicture = region.data;
+            matched = true;
+            distributionCount++;
+          }
+        }
+      });
+      
+      if (!matched) {
+        console.log(`✗ NO MATCH: ${region.label} in ${form}`);
+      }
+    });
+    
+    console.log(`Distribution complete: ${distributionCount} images assigned`);
+    setForms(updatedForms);
+  };
+
+  const handleImageUpload = (type: 'cosmetic' | 'nonCosmetic', file: File) => {
+    const imageUrl = URL.createObjectURL(file);
+    setSharedImages(prev => ({ ...prev, [type]: imageUrl }));
+    
+    if (type === "nonCosmetic") {
       processNonCosmeticImage(file);
     }
+    
+    // Distribute shared images to all forms
+    const updatedForms = { ...forms };
+    Object.keys(updatedForms).forEach(formKey => {
+      (updatedForms[formKey as keyof FormsState].rows as any[]).forEach((row: any) => {
+        if (type === "cosmetic") {
+          row.prePhoto = imageUrl;
+          if (row.t0Cosmetic !== undefined) row.t0Cosmetic = imageUrl;
+          if (row.t168Cosmetic !== undefined) row.t168Cosmetic = imageUrl;
+        } else {
+          row.postPhoto = imageUrl;
+          if (row.t0NonCosmetic !== undefined) row.t0NonCosmetic = imageUrl;
+          if (row.t168NonCosmetic !== undefined) row.t168NonCosmetic = imageUrl;
+        }
+      });
+    });
+    setForms(updatedForms);
   };
 
-  const addTableRow = () => {
-    const newId = Math.max(...tableRows.map(r => r.id)) + 1;
-    setTableRows([...tableRows, {
-      id: newId,
-      srNo: tableRows.length + 1,
-      sampleId: "",
-      startDate: "",
-      endDate: "",
-      t0Cosmetic: null,
-      t0NonCosmetic: null,
-      t168Cosmetic: null,
-      t168NonCosmetic: null,
-      status: ""
-    }]);
+  const updateFormField = (formKey: keyof FormsState, field: string, value: string) => {
+    setForms(prev => ({
+      ...prev,
+      [formKey]: { ...prev[formKey], [field]: value }
+    }));
   };
 
-  const handleCellImageUpload = (rowId, field, file) => {
-    const imageUrl = URL.createObjectURL(file);
-    handleTableChange(rowId, field, imageUrl);
+  const updateRowField = (formKey: keyof FormsState, rowId: number, field: string, value: string) => {
+    setForms(prev => ({
+      ...prev,
+      [formKey]: {
+        ...prev[formKey],
+        rows: prev[formKey].rows.map(row => 
+          row.id === rowId ? { ...row, [field]: value } : row
+        )
+      }
+    }));
   };
 
-  const downloadAllCroppedImages = () => {
-    croppedImages.forEach((img, index) => {
-      setTimeout(() => {
-        const link = document.createElement("a");
-        link.href = img.data;
-        link.download = img.name;
-        link.click();
-      }, index * 100);
+  const addRow = (formKey: keyof FormsState) => {
+    setForms(prev => {
+      const currentForm = prev[formKey];
+      const newId = Math.max(...currentForm.rows.map(r => r.id)) + 1;
+      const newRow = { 
+        id: newId, 
+        srNo: currentForm.rows.length + 1,
+        ...Object.keys(currentForm.rows[0]).reduce((acc, key) => {
+          if (!['id', 'srNo'].includes(key)) {
+            (acc as any)[key] = "";
+          }
+          return acc;
+        }, {} as any)
+      };
+      
+      return {
+        ...prev,
+        [formKey]: {
+          ...currentForm,
+          rows: [...currentForm.rows, newRow]
+        }
+      };
     });
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-7xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
-        {/* Header Section */}
-        
-          <h1 className="text-xl font-bold text-center">Test Form - FRS Inspection</h1>
-
-        {/* Form Section */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Test Name</label>
-              <input
-                name="testName"
-                value={formData.testName}
-                onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Heat Soak"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">FRS</label>
-              <input
-                name="frs"
-                value={formData.frs}
-                onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Module Number</label>
-              <input
-                name="moduleNumber"
-                value={formData.moduleNumber}
-                onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="099-95562 N199 & Q80-1654"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Test Condition</label>
-              <input
-                name="testCondition"
-                value={formData.testCondition}
-                onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="65°C/90%RH"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Date</label>
-              <input
-                type="date"
-                name="date"
-                value={formData.date}
-                onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Sample Quantity</label>
-              <input
-                name="sampleQty"
-                value={formData.sampleQty}
-                onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="32"
-              />
-            </div>
-            
-            <div className="space-y-2 md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">Failure Criteria</label>
-              <textarea
-                name="failureCriteria"
-                value={formData.failureCriteria}
-                onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows="2"
-                placeholder="Any sample with corrosion spot ≥250 μm"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Test Stage</label>
-              <input
-                name="testStage"
-                value={formData.testStage}
-                onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="After Assy"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Project</label>
-              <input
-                name="project"
-                value={formData.project}
-                onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Light Blue"
-              />
-            </div>
+  const renderImageUploadStage = () => (
+    <div className="p-6">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Step 1: Upload Images</h2>
+      
+      {/* Image Type Detection Status */}
+      {hasYellowMarks !== null && (
+        <div className={`mb-4 p-3 rounded-lg ${
+          hasYellowMarks ? 'bg-yellow-50 border border-yellow-200' : 'bg-blue-50 border border-blue-200'
+        }`}>
+          <div className="flex items-center">
+            <AlertCircle size={20} className={hasYellowMarks ? 'text-yellow-600 mr-2' : 'text-blue-600 mr-2'} />
+            <span className={hasYellowMarks ? 'text-yellow-800 font-medium' : 'text-blue-800 font-medium'}>
+              {hasYellowMarks 
+                ? 'Yellow marks detected - Using automatic region detection' 
+                : 'No yellow marks found - Using predefined regions based on reference image'
+              }
+            </span>
           </div>
         </div>
+      )}
 
-        {/* Image Upload Section */}
-        <div className="p-6 bg-gray-50 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Image Upload Section</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Cosmetic Image Upload */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-              <div className="flex items-center mb-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-2">
-                  <Upload className="text-blue-600" size={16} />
-                </div>
-                <h3 className="font-semibold text-gray-800">Cosmetic Image</h3>
-              </div>
-              <p className="text-xs text-gray-500 mb-3">Upload a single cosmetic image manually</p>
-              
-              <label className="flex flex-col items-center justify-center h-40 cursor-pointer border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition-colors bg-gray-50">
-                {cosmeticImage ? (
-                  <div className="relative w-full h-full">
-                    <img src={cosmeticImage} alt="Cosmetic" className="w-full h-full object-contain p-2" />
-                    <button 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setCosmeticImage(null);
-                      }}
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-center p-4">
-                    <Upload className="mx-auto mb-2 text-gray-400" size={32} />
-                    <span className="text-sm text-gray-600">Click to upload cosmetic image</span>
-                    <span className="text-xs text-gray-400 block mt-1">Supports JPG, PNG, etc.</span>
-                  </div>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => e.target.files[0] && handleFileUpload("cosmetic", e.target.files[0])}
-                />
-              </label>
+      {/* Selected Tests Display */}
+      {selectedTests.length > 0 && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h3 className="font-semibold text-blue-800 mb-2">Selected Tests:</h3>
+          <div className="flex flex-wrap gap-2">
+            {selectedTests.map(testId => {
+              const test = TEST_NAME_OPTIONS.find(t => t.id === testId);
+              return test ? (
+                <span key={testId} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                  {test.name}
+                </span>
+              ) : null;
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {/* Cosmetic Image */}
+        <div className="bg-white rounded-lg border-2 border-gray-200 p-6 shadow-sm">
+          <div className="flex items-center mb-4">
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+              <Upload className="text-blue-600" size={20} />
             </div>
-
-            {/* Non-Cosmetic Image Upload */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-              <div className="flex items-center mb-3">
-                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-2">
-                  <Camera className="text-green-600" size={16} />
-                </div>
-                <h3 className="font-semibold text-gray-800">Non-Cosmetic Image</h3>
+            <div>
+              <h3 className="font-semibold text-gray-800">Cosmetic Image</h3>
+              <p className="text-xs text-gray-500">Pre-Photo for all forms</p>
+            </div>
+          </div>
+          
+          <label className="flex flex-col items-center justify-center h-48 cursor-pointer border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-400 transition-colors bg-blue-50">
+            {sharedImages.cosmetic ? (
+              <div className="relative w-full h-full">
+                <img src={sharedImages.cosmetic} alt="Cosmetic" className="w-full h-full object-contain p-2" />
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSharedImages(prev => ({ ...prev, cosmetic: null }));
+                  }}
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
+                >
+                  <X size={16} />
+                </button>
               </div>
-              <p className="text-xs text-gray-500 mb-3">
-                Upload image with yellow labels - will auto-crop into {regions.length} regions
+            ) : (
+              <div className="text-center p-4">
+                <Upload className="mx-auto mb-3 text-blue-400" size={40} />
+                <span className="text-sm font-medium text-gray-700">Upload Cosmetic Image</span>
+                <span className="text-xs text-gray-500 block mt-2">JPG, PNG supported</span>
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && handleImageUpload("cosmetic", e.target.files[0])}
+            />
+          </label>
+        </div>
+
+        {/* Non-Cosmetic Image */}
+        <div className="bg-white rounded-lg border-2 border-gray-200 p-6 shadow-sm">
+          <div className="flex items-center mb-4">
+            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
+              <Upload className="text-green-600" size={20} />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-800">Non-Cosmetic Image</h3>
+              <p className="text-xs text-gray-500">
+                {hasYellowMarks 
+                  ? "Post-Photo + Auto-crop yellow regions" 
+                  : "Post-Photo + Crop using reference coordinates"
+                }
               </p>
-              
-              <label className="flex flex-col items-center justify-center h-40 cursor-pointer border-2 border-dashed border-gray-300 rounded-lg hover:border-green-400 transition-colors bg-gray-50 relative">
-                {processing && (
-                  <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg z-10">
-                    <div className="text-white text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-                      <span className="font-semibold">Processing...</span>
-                    </div>
-                  </div>
-                )}
-                
-                {nonCosmeticImage ? (
-                  <div className="relative w-full h-full">
-                    <img src={nonCosmeticImage} alt="Non-Cosmetic" className="w-full h-full object-contain p-2" />
-                    <button 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setNonCosmeticImage(null);
-                      }}
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-center p-4">
-                    <Camera className="mx-auto mb-2 text-gray-400" size={32} />
-                    <span className="text-sm text-gray-600">Click to upload non-cosmetic image</span>
-                    <span className="text-xs text-gray-400 block mt-1">Auto-cropping enabled</span>
-                  </div>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => e.target.files[0] && handleFileUpload("nonCosmetic", e.target.files[0])}
-                  disabled={processing || !cvLoaded}
-                />
-              </label>
-              
-              <div className="mt-2 text-xs">
-                {!cvLoaded ? (
-                  <div className="text-amber-600 flex items-center">
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-amber-600 mr-1"></div>
-                    Loading OpenCV library...
-                  </div>
-                ) : regions.length > 0 ? (
-                  <div className="text-green-600">✅ Template loaded with {regions.length} regions</div>
-                ) : (
-                  <div className="text-amber-600">⚠️ Template not available, using fallback</div>
-                )}
-              </div>
             </div>
-          </div>
-        </div>
-
-        {/* Cosmetic Inspection Table */}
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">Cosmetic Inspection</h2>
-            <button
-              onClick={addTableRow}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
-            >
-              <span className="mr-1">+</span> Add Row
-            </button>
           </div>
           
-          <div className="overflow-x-auto border border-gray-200 rounded-lg">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="border border-gray-300 p-3 text-left font-semibold">SR No.</th>
-                  <th className="border border-gray-300 p-3 text-left font-semibold">Sample ID</th>
-                  <th className="border border-gray-300 p-3 text-left font-semibold">Start Date</th>
-                  <th className="border border-gray-300 p-3 text-left font-semibold">End Date</th>
-                  
-                  <th className="border border-gray-300 p-3 text-center font-semibold bg-blue-50" colSpan="2">
-                    T0 Pictures
-                  </th>
-                  
-                  <th className="border border-gray-300 p-3 text-center font-semibold bg-green-50" colSpan="2">
-                    T168 Pictures
-                  </th>
-                  
-                  <th className="border border-gray-300 p-3 text-left font-semibold">Status</th>
-                </tr>
-                <tr>
-                  <th className="border border-gray-300 p-3"></th>
-                  <th className="border border-gray-300 p-3"></th>
-                  <th className="border border-gray-300 p-3"></th>
-                  <th className="border border-gray-300 p-3"></th>
-                  
-                  <th className="border border-gray-300 p-2 text-center font-medium bg-blue-50 text-blue-700">
-                    Cosmetic
-                  </th>
-                  <th className="border border-gray-300 p-2 text-center font-medium bg-blue-50 text-blue-700">
-                    Non-Cosmetic
-                  </th>
-                  
-                  <th className="border border-gray-300 p-2 text-center font-medium bg-green-50 text-green-700">
-                    Cosmetic
-                  </th>
-                  <th className="border border-gray-300 p-2 text-center font-medium bg-green-50 text-green-700">
-                    Non-Cosmetic
-                  </th>
-                  
-                  <th className="border border-gray-300 p-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {tableRows.map((row) => (
-                  <tr key={row.id} className={row.id % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                    <td className="border border-gray-300 p-3 text-center font-medium">{row.srNo}</td>
-                    <td className="border border-gray-300 p-2">
-                      <input
-                        type="text"
-                        value={row.sampleId}
-                        onChange={(e) => handleTableChange(row.id, "sampleId", e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Enter sample ID"
-                      />
-                    </td>
-                    <td className="border border-gray-300 p-2">
-                      <input
-                        type="date"
-                        value={row.startDate}
-                        onChange={(e) => handleTableChange(row.id, "startDate", e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </td>
-                    <td className="border border-gray-300 p-2">
-                      <input
-                        type="date"
-                        value={row.endDate}
-                        onChange={(e) => handleTableChange(row.id, "endDate", e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </td>
-                    
-                    {/* T0 Cosmetic */}
-                    <td className="border border-gray-300 p-2">
-                      <label className="cursor-pointer flex flex-col items-center">
-                        {row.t0Cosmetic ? (
-                          <div className="relative">
-                            <img src={row.t0Cosmetic} alt="T0 Cosmetic" className="h-16 w-16 object-cover rounded border" />
-                            <button 
-                              onClick={(e) => {
-                                e.preventDefault();
-                                handleTableChange(row.id, "t0Cosmetic", null);
-                              }}
-                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1"
-                            >
-                              <X size={10} />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="h-16 w-16 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400 hover:border-blue-400 transition-colors">
-                            <Upload size={20} />
-                          </div>
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => e.target.files[0] && handleCellImageUpload(row.id, "t0Cosmetic", e.target.files[0])}
-                        />
-                        <span className="text-xs text-gray-500 mt-1">T0 Cosmetic</span>
-                      </label>
-                    </td>
-                    
-                    {/* T0 Non-Cosmetic */}
-                    <td className="border border-gray-300 p-2">
-                      <label className="cursor-pointer flex flex-col items-center">
-                        {row.t0NonCosmetic ? (
-                          <div className="relative">
-                            <img src={row.t0NonCosmetic} alt="T0 Non-Cosmetic" className="h-16 w-16 object-cover rounded border" />
-                            <button 
-                              onClick={(e) => {
-                                e.preventDefault();
-                                handleTableChange(row.id, "t0NonCosmetic", null);
-                              }}
-                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1"
-                            >
-                              <X size={10} />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="h-16 w-16 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400 hover:border-blue-400 transition-colors">
-                            <Upload size={20} />
-                          </div>
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => e.target.files[0] && handleCellImageUpload(row.id, "t0NonCosmetic", e.target.files[0])}
-                        />
-                        <span className="text-xs text-gray-500 mt-1">T0 Non-Cosmetic</span>
-                      </label>
-                    </td>
-                    
-                    {/* T168 Cosmetic */}
-                    <td className="border border-gray-300 p-2">
-                      <label className="cursor-pointer flex flex-col items-center">
-                        {row.t168Cosmetic ? (
-                          <div className="relative">
-                            <img src={row.t168Cosmetic} alt="T168 Cosmetic" className="h-16 w-16 object-cover rounded border" />
-                            <button 
-                              onClick={(e) => {
-                                e.preventDefault();
-                                handleTableChange(row.id, "t168Cosmetic", null);
-                              }}
-                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1"
-                            >
-                              <X size={10} />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="h-16 w-16 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400 hover:border-green-400 transition-colors">
-                            <Upload size={20} />
-                          </div>
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => e.target.files[0] && handleCellImageUpload(row.id, "t168Cosmetic", e.target.files[0])}
-                        />
-                        <span className="text-xs text-gray-500 mt-1">T168 Cosmetic</span>
-                      </label>
-                    </td>
-                    
-                    {/* T168 Non-Cosmetic */}
-                    <td className="border border-gray-300 p-2">
-                      <label className="cursor-pointer flex flex-col items-center">
-                        {row.t168NonCosmetic ? (
-                          <div className="relative">
-                            <img src={row.t168NonCosmetic} alt="T168 Non-Cosmetic" className="h-16 w-16 object-cover rounded border" />
-                            <button 
-                              onClick={(e) => {
-                                e.preventDefault();
-                                handleTableChange(row.id, "t168NonCosmetic", null);
-                              }}
-                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1"
-                            >
-                              <X size={10} />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="h-16 w-16 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400 hover:border-green-400 transition-colors">
-                            <Upload size={20} />
-                          </div>
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => e.target.files[0] && handleCellImageUpload(row.id, "t168NonCosmetic", e.target.files[0])}
-                        />
-                        <span className="text-xs text-gray-500 mt-1">T168 Non-Cosmetic</span>
-                      </label>
-                    </td>
-                    
-                    <td className="border border-gray-300 p-2">
-                      <select
-                        value={row.status}
-                        onChange={(e) => handleTableChange(row.id, "status", e.target.value)}
-                        className={`w-full px-2 py-1 border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                          row.status === "Pass" 
-                            ? "bg-green-100 text-green-800 border-green-200" 
-                            : row.status === "Fail"
-                            ? "bg-red-100 text-red-800 border-red-200"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        <option value="">Select Status</option>
-                        <option value="Pass">Pass</option>
-                        <option value="Fail">Fail</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Cropped Images Preview Modal */}
-        {showCroppedPreview && croppedImages.length > 0 && (
-          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-              <div className="p-4 border-b flex justify-between items-center bg-white sticky top-0 z-10">
-                <h3 className="text-xl font-semibold text-gray-800">
-                  Auto-Cropped Regions ({croppedImages.length} found)
-                </h3>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={downloadAllCroppedImages}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center"
-                  >
-                    <Download size={16} className="mr-2" />
-                    Download All
-                  </button>
-                  <button
-                    onClick={() => setShowCroppedPreview(false)}
-                    className="text-gray-500 hover:text-gray-700 p-1"
-                  >
-                    <X size={24} />
-                  </button>
+          <label className="flex flex-col items-center justify-center h-48 cursor-pointer border-2 border-dashed border-green-300 rounded-lg hover:border-green-400 transition-colors bg-green-50 relative">
+            {processing && (
+              <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center rounded-lg z-10">
+                <div className="text-white text-center">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white mx-auto mb-3"></div>
+                  <span className="font-semibold">
+                    {hasYellowMarks !== null 
+                      ? (hasYellowMarks ? "Detecting yellow regions..." : "Applying reference coordinates...")
+                      : "Analyzing image..."
+                    }
+                  </span>
                 </div>
               </div>
-              
-              <div className="p-6 overflow-auto">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {croppedImages.map((img) => (
-                    <div key={img.id} className="border border-gray-200 rounded-lg p-3 bg-white shadow-sm">
-                      <div className="text-sm font-medium mb-2 text-center text-gray-700">
-                        Region {img.id + 1}
-                        <div className="text-xs text-gray-500 mt-1">
-                          {img.width}×{img.height}px
-                        </div>
-                      </div>
-                      <img 
-                        src={img.data} 
-                        alt={`Region ${img.id + 1}`}
-                        className="w-full h-32 object-contain border rounded bg-gray-50 mb-2"
-                      />
-                      <button
-                        onClick={() => {
-                          const link = document.createElement("a");
-                          link.href = img.data;
-                          link.download = img.name;
-                          link.click();
-                        }}
-                        className="w-full px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 flex items-center justify-center"
-                      >
-                        <Download size={14} className="mr-1" />
-                        Download
-                      </button>
-                    </div>
-                  ))}
+            )}
+            
+            {sharedImages.nonCosmetic ? (
+              <div className="relative w-full h-full">
+                <img src={sharedImages.nonCosmetic} alt="Non-Cosmetic" className="w-full h-full object-contain p-2" />
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSharedImages(prev => ({ ...prev, nonCosmetic: null }));
+                    setCroppedRegions([]);
+                    setHasYellowMarks(null);
+                  }}
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="text-center p-4">
+                <Upload className="mx-auto mb-3 text-green-400" size={40} />
+                <span className="text-sm font-medium text-gray-700">Upload Non-Cosmetic Image</span>
+                <span className="text-xs text-gray-500 block mt-2">
+                  {hasYellowMarks === null 
+                    ? "Supports images with or without yellow labels" 
+                    : hasYellowMarks 
+                      ? "Yellow marks detected" 
+                      : "Using reference coordinates"
+                  }
+                </span>
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && handleImageUpload("nonCosmetic", e.target.files[0])}
+              disabled={processing || !cvLoaded}
+            />
+          </label>
+          
+          <div className="mt-3 text-xs">
+            {!cvLoaded ? (
+              <div className="text-amber-600 flex items-center">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-amber-600 mr-2"></div>
+                Loading OpenCV...
+              </div>
+            ) : (
+              <div className="text-green-600 flex items-center">
+                <CheckCircle size={14} className="mr-1" />
+                Ready to process
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Cropped Regions Preview */}
+      {croppedRegions.length > 0 && (
+        <div className="bg-gray-50 rounded-lg border border-gray-200 p-6">
+          <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
+            <CheckCircle className="text-green-600 mr-2" size={20} />
+            Detected Regions ({croppedRegions.length})
+            <span className="text-sm font-normal text-gray-600 ml-2">
+              {hasYellowMarks ? '(Auto-detected from yellow marks)' : '(Using reference image coordinates)'}
+            </span>
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {croppedRegions.map((region) => (
+              <div key={region.id} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow">
+                <img 
+                  src={region.data} 
+                  alt={region.label}
+                  className="w-full h-20 object-contain border rounded bg-gray-50 mb-2"
+                />
+                <div className="text-xs text-center">
+                  <div className="font-semibold text-gray-700">{region.label}</div>
+                  <div className="text-gray-500 mt-1">
+                    {region.category ? `→ ${region.category.form}` : "Unknown"}
+                  </div>
                 </div>
-              </div> 
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-end mt-8">
+        <button
+          onClick={() => setCurrentStage(1)}
+          disabled={!sharedImages.cosmetic || !sharedImages.nonCosmetic || selectedTests.length === 0}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center font-semibold transition-colors"
+        >
+          Continue to Forms
+          <ChevronRight size={20} className="ml-2" />
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderCurrentForm = () => {
+    if (!currentStageData?.formKey) return null;
+
+    const formKey = currentStageData.formKey as keyof FormsState;
+
+    switch (formKey) {
+      case 'footPushOut':
+        return (
+          <FootPushOutForm
+            formData={forms.footPushOut}
+            updateFormField={(field, value) => updateFormField('footPushOut', field, value)}
+            updateRowField={(rowId, field, value) => updateRowField('footPushOut', rowId, field, value)}
+            addRow={() => addRow('footPushOut')}
+          />
+        );
+      case 'shearTestSideSnap':
+        return (
+          <ShearTestForm
+            formData={forms.shearTestSideSnap}
+            updateFormField={(field, value) => updateFormField('shearTestSideSnap', field, value)}
+            updateRowField={(rowId, field, value) => updateRowField('shearTestSideSnap', rowId, field, value)}
+            addRow={() => addRow('shearTestSideSnap')}
+          />
+        );
+      case 'pullTestCleat':
+        return (
+          <PullTestCleatForm
+            formData={forms.pullTestCleat}
+            updateFormField={(field, value) => updateFormField('pullTestCleat', field, value)}
+            updateRowField={(rowId, field, value) => updateRowField('pullTestCleat', rowId, field, value)}
+            addRow={() => addRow('pullTestCleat')}
+          />
+        );
+      case 'heatSoak':
+        return (
+          <HeatSoakForm
+            formData={forms.heatSoak}
+            updateFormField={(field, value) => updateFormField('heatSoak', field, value)}
+            updateRowField={(rowId, field, value) => updateRowField('heatSoak', rowId, field, value)}
+            addRow={() => addRow('heatSoak')}
+          />
+        );
+      case 'sidesnap':
+        return (
+          <SideSnapForm
+            formData={forms.sidesnap}
+            updateFormField={(field, value) => updateFormField('sidesnap', field, value)}
+            updateRowField={(rowId, field, value) => updateRowField('sidesnap', rowId, field, value)}
+            addRow={() => addRow('sidesnap')}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  const isLastStage = currentStage === filteredStages.length - 1;
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Progress Bar */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            {filteredStages.map((stage, index) => (
+              <React.Fragment key={stage.id}>
+                <div 
+                  className="flex items-center cursor-pointer"
+                  onClick={() => setCurrentStage(index)}
+                >
+                  <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors ${
+                    currentStage === index 
+                      ? "bg-blue-600 text-white" 
+                      : currentStage > index
+                      ? "bg-green-500 text-white"
+                      : "bg-gray-200 text-gray-600"
+                  }`}>
+                    {currentStage > index ? (
+                      <CheckCircle size={20} />
+                    ) : (
+                      <span>{index + 1}</span>
+                    )}
+                  </div>
+                  <span className={`ml-2 text-sm font-medium hidden md:block ${
+                    currentStage === index ? "text-blue-600" : "text-gray-600"
+                  }`}>
+                    {stage.name}
+                  </span>
+                </div>
+                {index < filteredStages.length - 1 && (
+                  <div className={`flex-1 h-1 mx-2 transition-colors ${
+                    currentStage > index ? "bg-green-500" : "bg-gray-200"
+                  }`} />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-9xl mx-auto">
+        <div className="bg-white rounded-lg shadow-lg m-4">
+          {currentStage === 0 && renderImageUploadStage()}
+          
+          {currentStage > 0 && renderCurrentForm()}
+
+          {/* Navigation Buttons */}
+          {currentStage > 0 && (
+            <div className="p-6 border-t border-gray-200 flex justify-between">
+              <button
+                onClick={() => setCurrentStage(currentStage - 1)}
+                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center font-semibold transition-colors"
+              >
+                <ChevronLeft size={20} className="mr-2" />
+                Previous
+              </button>
+              
+              {!isLastStage ? (
+                <button
+                  onClick={() => setCurrentStage(currentStage + 1)}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center font-semibold transition-colors"
+                >
+                  Next Form
+                  <ChevronRight size={20} className="ml-2" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    alert("All forms completed! Data ready for submission.");
+                    console.log("Final Form Data:", forms);
+                  }}
+                  className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center font-semibold transition-colors"
+                >
+                  <CheckCircle size={20} className="mr-2" />
+                  Complete & Submit
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Summary Panel */}
+      {/* {currentStage > 0 && croppedRegions.length > 0 && (
+        <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-xl border border-gray-200 p-4 max-w-sm">
+          <h3 className="font-semibold text-gray-800 mb-2 flex items-center">
+            <AlertCircle size={16} className="mr-2 text-blue-600" />
+            Image Distribution Status
+          </h3>
+          <div className="text-xs space-y-1">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Detection Type:</span>
+              <span className="font-semibold">{hasYellowMarks ? 'Auto' : 'Reference'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Regions Detected:</span>
+              <span className="font-semibold">{croppedRegions.length}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Cosmetic Image:</span>
+              <span className={`font-semibold ${sharedImages.cosmetic ? "text-green-600" : "text-red-600"}`}>
+                {sharedImages.cosmetic ? "✓ Loaded" : "✗ Missing"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Non-Cosmetic Image:</span>
+              <span className={`font-semibold ${sharedImages.nonCosmetic ? "text-green-600" : "text-red-600"}`}>
+                {sharedImages.nonCosmetic ? "✓ Loaded" : "✗ Missing"}
+              </span>
             </div>
           </div>
-        )}
-      </div>
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <div className="text-xs text-gray-600">
+              <div className="font-semibold mb-1">Distributed to Forms:</div>
+              <div className="space-y-1">
+                {['footPushOut', 'shearTestSideSnap', 'pullTestCleat', 'heatSoak', 'sidesnap'].map(formKey => {
+                  const form = forms[formKey as keyof FormsState];
+                  const hasImages = form.rows.some((row: any) => row.partPicture || row.prePhoto || row.postPhoto);
+                  return (
+                    <div key={formKey} className="flex justify-between">
+                      <span>{form.testName}:</span>
+                      <span className={hasImages ? "text-green-600" : "text-gray-400"}>
+                        {hasImages ? "✓" : "—"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )} */}
     </div>
   );
 }
