@@ -45,10 +45,45 @@ export default function PullTestCleatForm({
   updateRowField, 
   addRow 
 }: PullTestCleatFormProps) {
+
+  // Debug function to check image distribution
+  const debugImageDistribution = () => {
+    console.log("PullTestCleatForm - Current form data:", formData);
+    formData.rows.forEach((row, index) => {
+      console.log(`Row ${index + 1} (${row.cleatNumber}):`, {
+        prePhoto: row.prePhoto ? "✓ Loaded" : "✗ Missing",
+        postPhoto: row.postPhoto ? "✓ Loaded" : "✗ Missing",
+        partPicture: row.partPicture ? "✓ Loaded" : "✗ Missing"
+      });
+    });
+  };
+
+  // Call debug on component mount and when formData changes
+  React.useEffect(() => {
+    debugImageDistribution();
+  }, [formData]);
+
+  const handleImageClick = (imageUrl: string | null, type: string, rowId: number, cleatNumber: string) => {
+    if (imageUrl) {
+      // Open image in new tab for larger view
+      window.open(imageUrl, '_blank');
+    } else {
+      console.log(`No ${type} image for ${cleatNumber} (Row ${rowId})`);
+    }
+  };
+
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="max-w-full mx-auto">
-        <h2 className="text-3xl font-bold text-gray-900 mb-8">Pull Test of Cleat</h2>
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="text-3xl font-bold text-gray-900">Pull Test of Cleat</h2>
+          <button
+            onClick={debugImageDistribution}
+            className="px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700"
+          >
+            Debug Images
+          </button>
+        </div>
         
         {/* Header Fields */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
@@ -97,6 +132,19 @@ export default function PullTestCleatForm({
           </div>
         </div>
 
+        {/* Image Distribution Status */}
+        {formData.rows.some(row => row.partPicture) && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <h3 className="font-semibold text-green-800 mb-2 flex items-center">
+              <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+              Auto-Distributed Part Pictures
+            </h3>
+            <div className="text-sm text-green-700">
+              {formData.rows.filter(row => row.partPicture).length} out of {formData.rows.length} cleats have auto-detected part pictures
+            </div>
+          </div>
+        )}
+
         {/* Table */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
@@ -140,7 +188,11 @@ export default function PullTestCleatForm({
                       />
                     </td>
                     <td className="px-4 py-4">
-                      <input value={row.cleatNumber} readOnly className="w-full min-w-[100px] px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 font-medium" />
+                      <input 
+                        value={row.cleatNumber} 
+                        readOnly 
+                        className="w-full min-w-[100px] px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 font-medium" 
+                      />
                     </td>
                     <td className="px-4 py-4">
                       <select
@@ -152,33 +204,89 @@ export default function PullTestCleatForm({
                         <option value="NG">NG</option>
                       </select>
                     </td>
+                    
+                    {/* Pre-Photo Column */}
                     <td className="px-4 py-4">
                       <div className="flex justify-center">
-                        {row.prePhoto ? (
-                          <img src={row.prePhoto} alt="Pre" className="h-16 w-16 object-cover rounded-lg border-2 border-gray-200 shadow-sm" />
-                        ) : (
-                          <div className="h-16 w-16 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-xs text-gray-400">No image</div>
-                        )}
+                        <button
+                          onClick={() => handleImageClick(row.prePhoto, 'Pre-Photo', row.id, row.cleatNumber)}
+                          className={`flex flex-col items-center justify-center ${
+                            row.prePhoto ? 'cursor-zoom-in' : 'cursor-default'
+                          }`}
+                        >
+                          {row.prePhoto ? (
+                            <>
+                              <img 
+                                src={row.prePhoto} 
+                                alt={`Pre-${row.cleatNumber}`} 
+                                className="h-16 w-16 object-cover rounded-lg border-2 border-green-200 shadow-sm hover:border-green-400 transition-colors"
+                              />
+                              <span className="text-xs text-green-600 mt-1 font-medium">Shared</span>
+                            </>
+                          ) : (
+                            <div className="h-16 w-16 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-xs text-gray-400">
+                              No image
+                            </div>
+                          )}
+                        </button>
                       </div>
                     </td>
+                    
+                    {/* Post-Photo Column */}
                     <td className="px-4 py-4">
                       <div className="flex justify-center">
-                        {row.postPhoto ? (
-                          <img src={row.postPhoto} alt="Post" className="h-16 w-16 object-cover rounded-lg border-2 border-gray-200 shadow-sm" />
-                        ) : (
-                          <div className="h-16 w-16 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-xs text-gray-400">No image</div>
-                        )}
+                        <button
+                          onClick={() => handleImageClick(row.postPhoto, 'Post-Photo', row.id, row.cleatNumber)}
+                          className={`flex flex-col items-center justify-center ${
+                            row.postPhoto ? 'cursor-zoom-in' : 'cursor-default'
+                          }`}
+                        >
+                          {row.postPhoto ? (
+                            <>
+                              <img 
+                                src={row.postPhoto} 
+                                alt={`Post-${row.cleatNumber}`} 
+                                className="h-16 w-16 object-cover rounded-lg border-2 border-blue-200 shadow-sm hover:border-blue-400 transition-colors"
+                              />
+                              <span className="text-xs text-blue-600 mt-1 font-medium">Shared</span>
+                            </>
+                          ) : (
+                            <div className="h-16 w-16 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-xs text-gray-400">
+                              No image
+                            </div>
+                          )}
+                        </button>
                       </div>
                     </td>
+                    
+                    {/* Part Picture Column */}
                     <td className="px-4 py-4">
                       <div className="flex justify-center">
-                        {row.partPicture ? (
-                          <img src={row.partPicture} alt="Part" className="h-16 w-16 object-cover rounded-lg border-2 border-gray-200 shadow-sm" />
-                        ) : (
-                          <div className="h-16 w-16 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-xs text-gray-400">No image</div>
-                        )}
+                        <button
+                          onClick={() => handleImageClick(row.partPicture, 'Part Picture', row.id, row.cleatNumber)}
+                          className={`flex flex-col items-center justify-center ${
+                            row.partPicture ? 'cursor-zoom-in' : 'cursor-default'
+                          }`}
+                        >
+                          {row.partPicture ? (
+                            <>
+                              <img 
+                                src={row.partPicture} 
+                                alt={`Part-${row.cleatNumber}`} 
+                                className="h-16 w-16 object-cover rounded-lg border-2 border-purple-200 shadow-sm hover:border-purple-400 transition-colors"
+                              />
+                              <span className="text-xs text-purple-600 mt-1 font-medium">Auto-Crop</span>
+                            </>
+                          ) : (
+                            <div className="h-16 w-16 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-xs text-gray-400">
+                              <span>No</span>
+                              <span>image</span>
+                            </div>
+                          )}
+                        </button>
                       </div>
                     </td>
+                    
                     <td className="px-4 py-4">
                       <input
                         value={row.failureMode}
@@ -242,12 +350,32 @@ export default function PullTestCleatForm({
           </div>
         </div>
 
-        <button
-          onClick={addRow}
-          className="mt-6 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 transition-colors shadow-sm"
-        >
-          + Add Row
-        </button>
+        <div className="flex justify-between items-center mt-6">
+          <div className="text-sm text-gray-600">
+            <strong>Image Legend:</strong>
+            <div className="flex items-center space-x-4 mt-2">
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-green-200 border border-green-400 mr-1"></div>
+                <span>Pre-Photo (Shared)</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-blue-200 border border-blue-400 mr-1"></div>
+                <span>Post-Photo (Shared)</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-purple-200 border border-purple-400 mr-1"></div>
+                <span>Part Picture (Auto-Crop)</span>
+              </div>
+            </div>
+          </div>
+          
+          <button
+            onClick={addRow}
+            className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 transition-colors shadow-sm"
+          >
+            + Add Row
+          </button>
+        </div>
       </div>
     </div>
   );

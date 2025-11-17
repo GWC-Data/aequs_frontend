@@ -614,6 +614,7 @@ const TEST_NAME_OPTIONS = [
   { id: 'shearTestSideSnap', name: 'Shear Test Side Snap' },
   { id: 'pullTestCleat', name: 'Pull Test Cleat' },
   { id: 'heatSoak', name: 'Heat Soak' },
+  { id: 'sidesnap', name: 'Side Snap' },
 ];
 
 const TestForm: React.FC = () => {
