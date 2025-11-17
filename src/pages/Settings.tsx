@@ -74,9 +74,9 @@ const Dashboard = () => {
   // ];
 
   // Get test records from localStorage
+  // Get test records from localStorage
   const testRecords = JSON.parse(localStorage.getItem('testRecords') || '[]');
-  console.log('Loaded test records:', testRecords);
- 
+
   // Transform test records to product format and count status
   const allProducts = testRecords.map((record: any) => ({
     id: record.documentNumber,
@@ -85,49 +85,45 @@ const Dashboard = () => {
     qqc: record.testStartDate,
     cmr: record.testCompletionDate,
     testProgress: {
-      completed: record.status === 'completed' ? record.sampleQty : 0,
-      total: record.sampleQty
+      completed: record.status === 'Completed' ? parseInt(record.sampleQty) : 0,
+      total: parseInt(record.sampleQty)
     },
-    status: record.status === 'received' ? 'Under Testing' :
-      record.status === 'completed' ? 'Completed' : 'Scheduled',
-    statusColor: record.status === 'received' ? 'bg-blue-800' :
-      record.status === 'completed' ? 'bg-green-800' : 'bg-orange-800'
+    status: record.status === 'Completed' ? 'Completed' : 'Under Testing',
+    statusColor: record.status === 'Completed' ? 'bg-green-800' : 'bg-blue-800'
   }));
- 
+
   // Count status for stats
   const statusCounts = allProducts.reduce((acc: any, product: any) => {
     if (product.status === 'Under Testing') acc.underTesting++;
     if (product.status === 'Completed') acc.completed++;
     if (product.status === 'Scheduled') acc.scheduled++;
     return acc;
-  }, { underTesting: 0, completed: 0, scheduled: 0 });
- 
+  }, { underTesting: 0, completed: 0 });
+
   const stats = {
-    totalProducts: allProducts.length,
-    underTesting: statusCounts.underTesting,
-    completed: statusCounts.completed,
-    scheduled: statusCounts.scheduled
+    totalProducts: allProducts.length || 0,
+    underTesting: statusCounts.underTesting || 0,
+    completed: statusCounts.completed || 0,
+    scheduled: statusCounts.scheduled || 0
   };
- 
+
   // Get top 5 products (most recent or by some criteria)
   const topProducts = allProducts.slice(0, 5);
- 
+
   // Use topProducts instead of allProducts in filteredProducts
   const filteredProducts = topProducts.filter((product: { id: string; batch: string; owner: string; status: string; }) => {
     const matchesSearch = searchQuery === "" ||
       product.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.batch.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.owner.toLowerCase().includes(searchQuery.toLowerCase());
- 
+
     const matchesStatus = statusFilter === "all" ||
       (statusFilter === "testing" && product.status === "Under Testing") ||
-      (statusFilter === "complete" && product.status === "Complete") ||
-      (statusFilter === "scheduled" && product.status === "Scheduled") ||
-      (statusFilter === "inqueue" && product.status === "In Queue");
- 
+      (statusFilter === "complete" && product.status === "Completed");
+
     return matchesSearch && matchesStatus;
   });
- 
+
 
   const activeTests = [
     { name: "Salt Spray", status: "not done", statusColor: "bg-gray-700" },

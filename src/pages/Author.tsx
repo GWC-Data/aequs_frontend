@@ -375,6 +375,67 @@ export default function MultiStageTestForm() {
     }
   }, []);
 
+    const handleSubmit = () => {
+    // Get existing records from localStorage
+    const storedData = localStorage.getItem("testRecords");
+    const records = storedData ? JSON.parse(storedData) : [];
+
+    // Find the current record (assuming it's the latest one)
+    if (records.length > 0) {
+      const currentRecord = records[records.length - 1];
+
+      // Create updated record with form data
+      const updatedRecord = {
+        ...currentRecord,
+        // Update with form values that have been modified
+        forms: {
+          footPushOut: forms.footPushOut,
+          shearTestSideSnap: forms.shearTestSideSnap,
+          pullTestCleat: forms.pullTestCleat,
+          heatSoak: forms.heatSoak,
+          sidesnap: forms.sidesnap,
+        },
+        // Update status to completed
+        status: "Completed",
+        // Add completion timestamp
+        completedAt: new Date().toISOString(),
+        // Add image references
+        sharedImages: sharedImages,
+        // Add any other dynamic fields that might have changed
+        sampleQty: calculateTotalSampleQty(), // You might want to add this function
+        testCompletionDate: new Date().toISOString().split('T')[0]
+      };
+
+      // Replace the record in the array
+      records[records.length - 1] = updatedRecord;
+
+      // Save back to localStorage
+      localStorage.setItem("testRecords", JSON.stringify(records));
+
+      alert("All forms completed! Data has been saved successfully.");
+      console.log("Final Form Data:", updatedRecord);
+
+      // Optional: Navigate to results page or reset form
+      // window.location.href = "/test-results";
+    } else {
+      alert("No test record found. Please start a new test.");
+    }
+  };
+
+  const calculateTotalSampleQty = (): string => {
+    // Calculate total samples from all selected forms
+    let total = 0;
+
+    selectedTests.forEach(testId => {
+      const form = forms[testId as keyof FormsState];
+      if (form && form.sampleQty) {
+        total += parseInt(form.sampleQty.toString()) || 0;
+      }
+    });
+
+    return total.toString();
+  };
+
   // Filter stages based on selected tests
   const filteredStages = React.useMemo(() => {
     const imageUploadStage = ALL_STAGES[0];
@@ -1104,10 +1165,7 @@ export default function MultiStageTestForm() {
                 </button>
               ) : (
                 <button
-                  onClick={() => {
-                    alert("All forms completed! Data ready for submission.");
-                    console.log("Final Form Data:", forms);
-                  }}
+                  onClick={handleSubmit}
                   className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center font-semibold transition-colors"
                 >
                   <CheckCircle size={20} className="mr-2" />
