@@ -40,7 +40,7 @@ export default function TestFormWithCropper() {
     script.async = true;
     script.onload = () => {
       window.cv["onRuntimeInitialized"] = () => {
-        console.log("✅ OpenCV.js loaded");
+        console.log("OpenCV.js loaded");
         setCvLoaded(true);
         // Auto-process reference image
         loadReferenceImage();

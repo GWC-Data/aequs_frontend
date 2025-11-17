@@ -276,318 +276,6 @@
 
 // export default TestForm;
 
-
-// import { Input } from "@/components/ui/input";
-// import { Check } from "lucide-react";
-// import React from "react";
-
-// // Form Component
-// interface TestData {
-//   testName: string[];
-//   documentNumber: string;
-//   documentTitle: string;
-//   projectName: string;
-//   color: string;
-//   testLocation: string;
-//   sampleQty: string;
-//   testStartDate: string;
-//   testCompletionDate: string;
-//   sampleConfig: string;
-//   testCondition: string;
-//   status: string;
-// }
-
-// // Test name options
-// const TEST_NAME_OPTIONS = [
-//   { id: 'footPushOut', name: 'Foot Push Out' },
-//   { id: 'shearTestSideSnap', name: 'Shear Test Side Snap' },
-//   { id: 'pullTestCleat', name: 'Pull Test Cleat' },
-//   { id: 'heatSoak', name: 'Heat Soak' }
-// ];
-
-// const TestForm: React.FC = () => {
-//   const [formData, setFormData] = React.useState<TestData>({
-//     testName: [],
-//     documentNumber: "",
-//     documentTitle: "",
-//     projectName: "",
-//     color: "",
-//     testLocation: "",
-//     sampleQty: "",
-//     testStartDate: "",
-//     testCompletionDate: "",
-//     sampleConfig: "",
-//     testCondition: "",
-//     status: "",
-//   });
-
-//   // Load existing data from localStorage on component mount
-//   React.useEffect(() => {
-//     const storedData = localStorage.getItem("testRecords");
-//     if (storedData) {
-//       console.log("Existing records:", JSON.parse(storedData));
-//     }
-//   }, []);
-
-//   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-//     const { name, value } = e.target;
-//     setFormData(prev => ({
-//       ...prev,
-//       [name]: value
-//     }));
-//   };
-
-//   const handleTestNameChange = (testId: string) => {
-//     setFormData(prev => {
-//       const currentTestNames = prev.testName;
-//       if (currentTestNames.includes(testId)) {
-//         return {
-//           ...prev,
-//           testName: currentTestNames.filter(id => id !== testId)
-//         };
-//       } else {
-//         return {
-//           ...prev,
-//           testName: [...currentTestNames, testId]
-//         };
-//       }
-//     });
-//   };
-
-//   const handleSubmit = (e: React.FormEvent) => {
-//     e.preventDefault();
-    
-//     if (formData.testName.length === 0) {
-//       alert("Please select at least one test name");
-//       return;
-//     }
-    
-//     // Get existing data from localStorage
-//     const existingData = localStorage.getItem("testRecords");
-//     const records = existingData ? JSON.parse(existingData) : [];
-    
-//     // Add new record
-//     const newRecord = {
-//       ...formData,
-//       id: Date.now(), // Add unique ID
-//       createdAt: new Date().toISOString()
-//     };
-    
-//     records.push(newRecord);
-    
-//     // Save back to localStorage
-//     localStorage.setItem("testRecords", JSON.stringify(records));
-    
-//     // Reset form
-//     setFormData({
-//       testName: [],
-//       documentNumber: "",
-//       documentTitle: "",
-//       projectName: "",
-//       color: "",
-//       testLocation: "",
-//       sampleQty: "",
-//       testStartDate: "",
-//       testCompletionDate: "",
-//       sampleConfig: "",
-//       testCondition: "",
-//       status: "",
-//     });
-
-//     alert("Data saved successfully!");
-    
-//     // Log current records
-//     console.log("All records:", records);
-//   };
-
-//   return (
-//     <div className="max-w-6xl mx-auto mt-6">
-//       <div className="px-6 py-4 border rounded-lg">
-//         <h1 className="text-2xl font-bold mb-6 text-center">Test Data Form</h1>
-        
-//         <form onSubmit={handleSubmit} className="space-y-6">
-//           {/* Test Name Multi-Select */}
-//           <div className="space-y-2">
-//             <label className="text-sm font-medium">Test Name *</label>
-//             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 border rounded-lg bg-gray-50">
-//               {TEST_NAME_OPTIONS.map((test) => (
-//                 <div
-//                   key={test.id}
-//                   className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all ${
-//                     formData.testName.includes(test.id)
-//                       ? "border-blue-500 bg-blue-50"
-//                       : "border-gray-200 bg-white hover:border-gray-300"
-//                   }`}
-//                   onClick={() => handleTestNameChange(test.id)}
-//                 >
-//                   <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
-//                     formData.testName.includes(test.id)
-//                       ? "border-blue-500 bg-blue-500"
-//                       : "border-gray-300"
-//                   }`}>
-//                     {formData.testName.includes(test.id) && (
-//                       <Check className="w-3 h-3 text-white" />
-//                     )}
-//                   </div>
-//                   <span className="font-medium text-gray-800">{test.name}</span>
-//                 </div>
-//               ))}
-//             </div>
-//             {formData.testName.length === 0 && (
-//               <p className="text-red-500 text-sm">Please select at least one test name</p>
-//             )}
-//           </div>
-
-//           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-//             <div className="space-y-2">
-//               <label className="text-sm font-medium">Document Number</label>
-//               <Input
-//                 type="text"
-//                 name="documentNumber"
-//                 value={formData.documentNumber}
-//                 onChange={handleInputChange}
-//                 placeholder="Enter document number"
-//                 required
-//               />
-//             </div>
-
-//             <div className="space-y-2">
-//               <label className="text-sm font-medium">Document Title</label>
-//               <Input
-//                 type="text"
-//                 name="documentTitle"
-//                 value={formData.documentTitle}
-//                 onChange={handleInputChange}
-//                 placeholder="Enter document title"
-//                 required
-//               />
-//             </div>
-
-//             <div className="space-y-2">
-//               <label className="text-sm font-medium">Project Name</label>
-//               <Input
-//                 type="text"
-//                 name="projectName"
-//                 value={formData.projectName}
-//                 onChange={handleInputChange}
-//                 placeholder="Enter project name"
-//                 required
-//               />
-//             </div>
-
-//             <div className="space-y-2">
-//               <label className="text-sm font-medium">Color</label>
-//               <Input
-//                 type="text"
-//                 name="color"
-//                 value={formData.color}
-//                 onChange={handleInputChange}
-//                 placeholder="Enter color"
-//                 required
-//               />
-//             </div>
-
-//             <div className="space-y-2">
-//               <label className="text-sm font-medium">Test Location</label>
-//               <Input
-//                 type="text"
-//                 name="testLocation"
-//                 value={formData.testLocation}
-//                 onChange={handleInputChange}
-//                 placeholder="Enter test location"
-//                 required
-//               />
-//             </div>
-
-//             <div className="space-y-2">
-//               <label className="text-sm font-medium">Sample Quantity</label>
-//               <Input
-//                 type="number"
-//                 name="sampleQty"
-//                 value={formData.sampleQty}
-//                 onChange={handleInputChange}
-//                 placeholder="Enter sample quantity"
-//                 required
-//               />
-//             </div>
-
-//             <div className="space-y-2">
-//               <label className="text-sm font-medium">Test Start Date</label>
-//               <Input
-//                 type="date"
-//                 name="testStartDate"
-//                 value={formData.testStartDate}
-//                 onChange={handleInputChange}
-//                 required
-//               />
-//             </div>
-
-//             <div className="space-y-2">
-//               <label className="text-sm font-medium">Test Completion Date</label>
-//               <Input
-//                 type="date"
-//                 name="testCompletionDate"
-//                 value={formData.testCompletionDate}
-//                 onChange={handleInputChange}
-//                 required
-//               />
-//             </div>
-
-//             <div className="space-y-2">
-//               <label className="text-sm font-medium">Sample Config Overview</label>
-//               <Input
-//                 type="text"
-//                 name="sampleConfig"
-//                 value={formData.sampleConfig}
-//                 onChange={handleInputChange}
-//                 placeholder="Enter sample configuration"
-//                 required
-//               />
-//             </div>
-
-//             <div className="space-y-2">
-//               <label className="text-sm font-medium">Test Condition</label>
-//               <Input
-//                 type="text"
-//                 name="testCondition"
-//                 value={formData.testCondition}
-//                 onChange={handleInputChange}
-//                 placeholder="Enter test condition"
-//                 required
-//               />
-//             </div>
-
-//             <div className="space-y-2">
-//               <label className="text-sm font-medium">Status</label>
-//               <Input
-//                 type="text"
-//                 name="status"
-//                 value={formData.status}
-//                 onChange={handleInputChange}
-//                 placeholder="Enter status"
-//                 required
-//               />
-//             </div>
-//           </div>
-          
-//           <div className="flex justify-end">
-//             <button
-//               type="submit"
-//               className="flex items-center w-fit border rounded-full bg-white text-black py-2 px-4 hover:bg-[#EE161F] hover:text-white transition-colors"
-//             >
-//               <Check className="w-5 h-5" />
-//               <span>Submit</span>
-//             </button>
-//           </div>
-//         </form>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default TestForm;
-
-
 import { Input } from "@/components/ui/input";
 import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
 import React from "react";
@@ -630,7 +318,7 @@ const TestForm: React.FC = () => {
     testCompletionDate: "",
     sampleConfig: "",
     testCondition: "",
-    status: "",
+    status: "In-Progress",
   });
 
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
@@ -741,20 +429,22 @@ const TestForm: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto mt-6">
-      <div className="px-6 py-4 border rounded-lg">
-        <h1 className="text-2xl font-bold mb-6 text-center">Test Data Form</h1>
+      <div className="px-6 py-4">
+        <h1 className="text-2xl font-bold mb-6">Test Data Form</h1>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Test Name Dropdown */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Test Name *</label>
+            <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+              Test Name <span className="text-red-600">*</span>
+            </label>
             <div className="relative">
               <button
                 type="button"
                 onClick={toggleDropdown}
-                className={`w-full p-3 border rounded-lg text-left bg-white hover:bg-gray-50 transition-colors flex justify-between items-center ${
+                className={`w-full h-14 px-5 border-2 rounded-xl text-left bg-white transition-all duration-200 flex justify-between items-center font-medium ${
                   formData.testName.length > 0 ? 'border-blue-500' : 'border-gray-300'
                 } ${isDropdownOpen ? 'border-blue-500 ring-2 ring-blue-100' : ''}`}
               >
@@ -848,132 +538,166 @@ const TestForm: React.FC = () => {
             )}
           </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Document Number</label>
+             <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                  Document Number <span className="text-red-600">*</span>
+                </label>
               <Input
                 type="text"
                 name="documentNumber"
                 value={formData.documentNumber}
                 onChange={handleInputChange}
                 placeholder="Enter document number"
+                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none transition-all shadow-sm"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Document Title</label>
+              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                  Document Title <span className="text-red-600">*</span>
+              </label>
               <Input
                 type="text"
                 name="documentTitle"
                 value={formData.documentTitle}
                 onChange={handleInputChange}
                 placeholder="Enter document title"
+                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Project Name</label>
+              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                  Project Name <span className="text-red-600">*</span>
+              </label>
               <Input
                 type="text"
                 name="projectName"
                 value={formData.projectName}
                 onChange={handleInputChange}
                 placeholder="Enter project name"
+                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Color</label>
+              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                  Color <span className="text-red-600">*</span>
+                </label>
               <Input
                 type="text"
                 name="color"
                 value={formData.color}
                 onChange={handleInputChange}
                 placeholder="Enter color"
+                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Test Location</label>
+              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                  Test Location <span className="text-red-600">*</span>
+                </label>
               <Input
                 type="text"
                 name="testLocation"
                 value={formData.testLocation}
                 onChange={handleInputChange}
                 placeholder="Enter test location"
+                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Sample Quantity</label>
+              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                  Sample Quantity <span className="text-red-600">*</span>
+                </label>
               <Input
                 type="number"
                 name="sampleQty"
                 value={formData.sampleQty}
                 onChange={handleInputChange}
                 placeholder="Enter sample quantity"
+                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Test Start Date</label>
+              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                  Test Start Date <span className="text-red-600">*</span>
+                </label>
               <Input
                 type="date"
                 name="testStartDate"
                 value={formData.testStartDate}
                 onChange={handleInputChange}
+                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Test Completion Date</label>
+              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                  Test Completion Date <span className="text-red-600">*</span>
+                </label>
               <Input
                 type="date"
                 name="testCompletionDate"
                 value={formData.testCompletionDate}
                 onChange={handleInputChange}
+                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Sample Config Overview</label>
+              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                  Sample Configuration Overview <span className="text-red-600">*</span>
+                </label>
               <Input
                 type="text"
                 name="sampleConfig"
                 value={formData.sampleConfig}
                 onChange={handleInputChange}
                 placeholder="Enter sample configuration"
+                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Test Condition</label>
+             <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                  Test Condition <span className="text-red-600">*</span>
+                </label>
               <Input
                 type="text"
                 name="testCondition"
                 value={formData.testCondition}
                 onChange={handleInputChange}
                 placeholder="Enter test condition"
+                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Status</label>
+              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                  Status <span className="text-red-600">*</span>
+                </label>
               <Input
                 type="text"
                 name="status"
                 value={formData.status}
                 onChange={handleInputChange}
                 placeholder="Enter status"
+                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
                 required
+                disabled
               />
             </div>
           </div>
@@ -981,7 +705,7 @@ const TestForm: React.FC = () => {
           <div className="flex justify-end">
             <button
               type="submit"
-              className="flex items-center w-fit border rounded-full bg-white text-black py-2 px-4 hover:bg-[#EE161F] hover:text-white transition-colors"
+              className="flex items-center w-fit border rounded-full bg-[#f35b62] text-white py-2 px-4 hover:bg-[#EE161F] hover:text-white transition-colors"
             >
               <Check className="w-5 h-5" />
               <span>Submit</span>

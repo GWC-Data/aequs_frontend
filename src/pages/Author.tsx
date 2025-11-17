@@ -6,23 +6,66 @@ import PullTestCleatForm from '@/components/PullTestCleatForm';
 import HeatSoakForm from '@/components/HeatSoakForm';
 import SideSnapForm from '@/components/SideSnapForm';
 
-const REFERENCE_IMAGE_PATH = "/assets/sample.jpg";
+// Reference image dimensions (based on your static reference image)
+const REFERENCE_IMAGE_WIDTH = 480;
+const REFERENCE_IMAGE_HEIGHT = 320;
 
-// Improved OCR simulation based on your image labels
-const detectLabelText = (imageData: string, regionId: number): string => {
-  // In a real application, this would use Tesseract.js OCR
-  // For now, we'll simulate detection based on region order and common patterns
-  const labels = [
-    "F1", "Cleat 1", "Cleat 2", "Cleat 3", "Cleat 4", "F2",
-    "Side snap 1", "Side snap 4", "F4", "F3", 
-    "Side snap 2", "Side snap 3"
-  ];
+// Predefined regions based on the reference image
+// These coordinates are measured from your reference image with yellow boxes
+const PREDEFINED_REGIONS = [
+  // Row 1 - Top row with F1, Cleats, F2
+  { x: 32, y: 20, width: 60, height: 50, label: "F1" },
+  { x: 112, y: 20, width: 50, height: 50, label: "Cleat 1" },
+  { x: 170, y: 20, width: 50, height: 50, label: "Cleat 2" },
+  { x: 228, y: 20, width: 50, height: 50, label: "Cleat 3" },
+  { x: 286, y: 20, width: 50, height: 50, label: "Cleat 4" },
+  { x: 360, y: 20, width: 60, height: 50, label: "F2" },
   
-  // Return label based on region ID (in order of detection)
-  return labels[regionId] || `Unknown ${regionId + 1}`;
+  // Row 2 - Middle row with Side snaps
+  { x: 32, y: 85, width: 55, height: 45, label: "Side snap 1" },
+  { x: 370, y: 85, width: 55, height: 45, label: "Side snap 4" },
+  
+  // Side regions for F4 and F3
+  { x: 32, y: 210, width: 55, height: 70, label: "F4" },
+  { x: 370, y: 210, width: 55, height: 70, label: "F3" },
+  
+  // Row 3 - Bottom row with Side snaps
+  { x: 100, y: 250, width: 60, height: 50, label: "Side snap 2" },
+  { x: 280, y: 250, width: 60, height: 50, label: "Side snap 3" },
+];
+
+// Enhanced OCR simulation for both marked and unmarked images
+const detectLabelText = (imageData: string, regionId: number, regions: any[], hasYellowMarks: boolean): string => {
+  if (hasYellowMarks) {
+    // For images with yellow marks - use position-based detection
+    const sortedRegions = [...regions].sort((a, b) => {
+      if (Math.abs(a.y - b.y) > 20) return a.y - b.y;
+      return a.x - b.x;
+    });
+
+    const sortedIndex = sortedRegions.findIndex(region => 
+      region.x === regions[regionId].x && region.y === regions[regionId].y
+    );
+
+    const labels = [
+      "F1", "Cleat 1", "Cleat 2", "Cleat 3", "Cleat 4", "F2",
+      "Side snap 1", "Side snap 4", "F4", "F3", 
+      "Side snap 2", "Side snap 3"
+    ];
+    
+    return labels[sortedIndex] || `Region ${sortedIndex + 1}`;
+  } else {
+    // For images without yellow marks - manual region assignment
+    const manualLabels = [
+      "F1", "Cleat 1", "Cleat 2", "Cleat 3", "Cleat 4", "F2",
+      "Side snap 1", "Side snap 4", "F4", "F3", 
+      "Side snap 2", "Side snap 3"
+    ];
+    return manualLabels[regionId] || `Region ${regionId + 1}`;
+  }
 };
 
-// Improved label to form mapping based on your image
+// Improved label to form mapping
 const getLabelCategory = (label: string) => {
   if (!label) return null;
   
@@ -30,16 +73,17 @@ const getLabelCategory = (label: string) => {
   
   // Foot Push Out mapping
   if (lower.includes('f1') || lower.includes('f2') || lower.includes('f3') || lower.includes('f4')) {
-    return { form: 'footPushOut', id: label };
+    return { form: 'footPushOut', id: label.toUpperCase().replace('F', 'F') };
   }
   
-  // Pull Test Cleat mapping
-  if (lower.includes('cleat')) {
-    return { form: 'pullTestCleat', id: label };
+  // Pull Test Cleat mapping - handle both spellings
+  if (lower.includes('cleat') || lower.includes('clear')) {
+    const cleanLabel = label.replace(/clear/gi, 'Cleat');
+    return { form: 'pullTestCleat', id: cleanLabel };
   }
   
   // Side Snap mapping
-  if (lower.includes('side snap')) {
+  if (lower.includes('side snap') || lower.includes('sidesnap')) {
     return { form: 'sidesnap', id: label };
   }
   
@@ -82,7 +126,7 @@ interface Stage {
   formKey?: string;
 }
 
-// Test name options - must match TestForm.tsx
+// Test name options
 const TEST_NAME_OPTIONS = [
   { id: 'footPushOut', name: 'Foot Push Out' },
   { id: 'shearTestSideSnap', name: 'Shear Test Side Snap' },
@@ -114,6 +158,7 @@ export default function MultiStageTestForm() {
   const [regions, setRegions] = useState<unknown[]>([]);
   const [processing, setProcessing] = useState(false);
   const [selectedTests, setSelectedTests] = useState<string[]>([]);
+  const [hasYellowMarks, setHasYellowMarks] = useState<boolean | null>(null);
   
   // Shared images across all forms
   const [sharedImages, setSharedImages] = useState({
@@ -318,12 +363,10 @@ export default function MultiStageTestForm() {
     if (storedData) {
       try {
         const records = JSON.parse(storedData);
-        // Get the latest record's selected tests
         if (records.length > 0) {
           const latestRecord = records[records.length - 1];
           if (latestRecord.testName && Array.isArray(latestRecord.testName) && latestRecord.testName.length > 0) {
             setSelectedTests(latestRecord.testName);
-            console.log("Loaded selected tests:", latestRecord.testName);
           }
         }
       } catch (error) {
@@ -334,7 +377,7 @@ export default function MultiStageTestForm() {
 
   // Filter stages based on selected tests
   const filteredStages = React.useMemo(() => {
-    const imageUploadStage = ALL_STAGES[0]; // Always include image upload stage
+    const imageUploadStage = ALL_STAGES[0];
     const formStages = ALL_STAGES.slice(1).filter(stage => 
       stage.formKey && selectedTests.includes(stage.formKey)
     );
@@ -348,7 +391,6 @@ export default function MultiStageTestForm() {
   useEffect(() => {
     if (window.cv && window.cv.Mat) {
       setCvLoaded(true);
-      loadReferenceImage();
       return;
     }
 
@@ -358,7 +400,6 @@ export default function MultiStageTestForm() {
         if (window.cv && window.cv.onRuntimeInitialized) {
           window.cv.onRuntimeInitialized = () => {
             setCvLoaded(true);
-            loadReferenceImage();
           };
         }
       };
@@ -372,65 +413,112 @@ export default function MultiStageTestForm() {
       if (window.cv) {
         window.cv.onRuntimeInitialized = () => {
           setCvLoaded(true);
-          loadReferenceImage();
         };
       }
     };
     document.body.appendChild(script);
   }, []);
 
-  const loadReferenceImage = () => {
-    if (!window.cv || !window.cv.Mat) return;
+  // Detect if image has yellow marks
+  const detectYellowMarks = (src: any): boolean => {
+    try {
+      const cv = window.cv;
+      const hsv = new cv.Mat();
+      cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
+      cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
 
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      try {
-        const cv = window.cv;
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        
-        ctx.drawImage(img, 0, 0);
-        
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const src = cv.matFromImageData(imgData);
-        
-        const hsv = new cv.Mat();
-        cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
-        cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
+      const lower = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [20, 100, 100, 0]);
+      const upper = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [40, 255, 255, 255]);
+      const mask = new cv.Mat();
+      cv.inRange(hsv, lower, upper, mask);
 
-        const lower = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [20, 100, 100, 0]);
-        const upper = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [40, 255, 255, 255]);
-        const mask = new cv.Mat();
-        cv.inRange(hsv, lower, upper, mask);
+      // Count yellow pixels
+      const yellowPixels = cv.countNonZero(mask);
+      const totalPixels = mask.rows * mask.cols;
+      const yellowRatio = yellowPixels / totalPixels;
 
-        const contours = new cv.MatVector();
-        const hierarchy = new cv.Mat();
-        cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+      hsv.delete(); mask.delete(); lower.delete(); upper.delete();
 
-        let boxes = [];
-        const minArea = 100;
-        
-        for (let i = 0; i < contours.size(); ++i) {
-          const rect = cv.boundingRect(contours.get(i));
-          const area = rect.width * rect.height;
-          if (area >= minArea) boxes.push(rect);
-        }
+      // If more than 1% of pixels are yellow, consider it as having yellow marks
+      return yellowRatio > 0.01;
+    } catch (error) {
+      console.error("Error detecting yellow marks:", error);
+      return false;
+    }
+  };
 
-        setRegions(boxes);
-        src.delete(); hsv.delete(); mask.delete(); lower.delete(); upper.delete();
-        contours.delete(); hierarchy.delete();
-      } catch (err) {
-        console.error("Error processing reference:", err);
+  // Process image with yellow marks (automatic detection)
+  const processImageWithYellowMarks = (src: any, img: HTMLImageElement) => {
+    const cv = window.cv;
+    const hsv = new cv.Mat();
+    cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
+    cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
+
+    const lower = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [15, 80, 80, 0]);
+    const upper = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [45, 255, 255, 255]);
+    const mask = new cv.Mat();
+    cv.inRange(hsv, lower, upper, mask);
+
+    // Morphological operations to clean up the mask
+    const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+    cv.morphologyEx(mask, mask, cv.MORPH_CLOSE, kernel);
+    cv.morphologyEx(mask, mask, cv.MORPH_OPEN, kernel);
+
+    const contours = new cv.MatVector();
+    const hierarchy = new cv.Mat();
+    cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+    let detectedRegions: any[] = [];
+    const minArea = 300;
+    const maxArea = 50000;
+    
+    for (let i = 0; i < contours.size(); ++i) {
+      const rect = cv.boundingRect(contours.get(i));
+      const area = rect.width * rect.height;
+      const aspectRatio = rect.width / rect.height;
+      if (area >= minArea && area <= maxArea && aspectRatio > 0.5 && aspectRatio < 5) {
+        detectedRegions.push(rect);
       }
-    };
-    img.onerror = () => {
-      console.warn("Reference image not found, using fallback");
-    };
-    img.src = REFERENCE_IMAGE_PATH;
+    }
+
+    // Sort regions
+    detectedRegions.sort((a, b) => {
+      const rowTolerance = 30;
+      if (Math.abs(a.y - b.y) > rowTolerance) {
+        return a.y - b.y;
+      }
+      return a.x - b.x;
+    });
+
+    hsv.delete();
+    mask.delete();
+    kernel.delete();
+    contours.delete();
+    hierarchy.delete();
+
+    return detectedRegions;
+  };
+
+  // Process image without yellow marks (predefined regions)
+  const processImageWithoutYellowMarks = (src: any, img: HTMLImageElement) => {
+    // Calculate scale factors based on reference image dimensions
+    const scaleX = img.width / REFERENCE_IMAGE_WIDTH;
+    const scaleY = img.height / REFERENCE_IMAGE_HEIGHT;
+    
+    console.log(`Image dimensions: ${img.width}x${img.height}`);
+    console.log(`Reference dimensions: ${REFERENCE_IMAGE_WIDTH}x${REFERENCE_IMAGE_HEIGHT}`);
+    console.log(`Scale factors: X=${scaleX.toFixed(2)}, Y=${scaleY.toFixed(2)}`);
+    
+    const scaledRegions = PREDEFINED_REGIONS.map(region => ({
+      x: Math.round(region.x * scaleX),
+      y: Math.round(region.y * scaleY),
+      width: Math.round(region.width * scaleX),
+      height: Math.round(region.height * scaleY),
+      label: region.label
+    }));
+    
+    console.log("Scaled regions:", scaledRegions);
+    return scaledRegions;
   };
 
   const processNonCosmeticImage = (file: File) => {
@@ -443,7 +531,7 @@ export default function MultiStageTestForm() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         try {
           const cv = window.cv;
           const canvas = document.createElement("canvas");
@@ -456,50 +544,42 @@ export default function MultiStageTestForm() {
           }
           
           ctx.drawImage(img, 0, 0);
-          
           const src = cv.imread(canvas);
+
+          // Detect if image has yellow marks
+          const srcForDetection = cv.imread(canvas);
+          const hasMarks = detectYellowMarks(srcForDetection);
+          srcForDetection.delete();
+          setHasYellowMarks(hasMarks);
           
-          // Detect yellow regions
-          const hsv = new cv.Mat();
-          cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
-          cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
-
-          const lower = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [20, 100, 100, 0]);
-          const upper = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [40, 255, 255, 255]);
-          const mask = new cv.Mat();
-          cv.inRange(hsv, lower, upper, mask);
-
-          const contours = new cv.MatVector();
-          const hierarchy = new cv.Mat();
-          cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+          console.log(`Image has yellow marks: ${hasMarks}`);
 
           let detectedRegions: any[] = [];
-          const minArea = 500;
           
-          for (let i = 0; i < contours.size(); ++i) {
-            const rect = cv.boundingRect(contours.get(i));
-            const area = rect.width * rect.height;
-            if (area >= minArea) {
-              detectedRegions.push(rect);
-            }
+          if (hasMarks) {
+            // Process with yellow mark detection
+            detectedRegions = processImageWithYellowMarks(src, img);
+          } else {
+            // Process with predefined regions
+            detectedRegions = processImageWithoutYellowMarks(src, img);
           }
 
-          // Sort regions by position (top to bottom, left to right)
-          detectedRegions.sort((a, b) => {
-            if (a.y !== b.y) return a.y - b.y;
-            return a.x - b.x;
-          });
+          console.log("Detected regions:", detectedRegions);
 
           // Crop each region
           const croppedImages: CroppedRegion[] = [];
           detectedRegions.forEach((rect, i) => {
             try {
+              // Ensure coordinates are within image bounds
               const x = Math.max(0, Math.min(rect.x, src.cols - 1));
               const y = Math.max(0, Math.min(rect.y, src.rows - 1));
               const width = Math.min(rect.width, src.cols - x);
               const height = Math.min(rect.height, src.rows - y);
               
-              if (width <= 0 || height <= 0) return;
+              if (width <= 0 || height <= 0) {
+                console.warn(`Invalid dimensions for region ${i}: ${width}x${height}`);
+                return;
+              }
               
               const validRect = new cv.Rect(x, y, width, height);
               const roi = src.roi(validRect);
@@ -511,8 +591,11 @@ export default function MultiStageTestForm() {
               
               const croppedData = cropCanvas.toDataURL("image/png", 1.0);
               
-              // Improved label detection based on your image
-              const detectedLabel = detectLabelText(croppedData, i);
+              // Use the label from predefined regions if no yellow marks, otherwise detect
+              const detectedLabel = hasMarks 
+                ? detectLabelText(croppedData, i, detectedRegions, true)
+                : rect.label;
+              
               const category = getLabelCategory(detectedLabel);
               
               croppedImages.push({
@@ -520,8 +603,10 @@ export default function MultiStageTestForm() {
                 data: croppedData,
                 label: detectedLabel,
                 category: category,
-                rect: rect
+                rect: { x, y, width, height }
               });
+              
+              console.log(`Region ${i}: ${detectedLabel} → ${category?.form} (${x},${y} ${width}x${height})`);
               
               roi.delete();
             } catch (err) {
@@ -532,11 +617,10 @@ export default function MultiStageTestForm() {
           setCroppedRegions(croppedImages);
           distributeImagesToForms(croppedImages);
           
-          src.delete(); hsv.delete(); mask.delete(); lower.delete(); upper.delete();
-          contours.delete(); hierarchy.delete();
+          src.delete();
         } catch (err) {
           console.error("Error processing image:", err);
-          alert("Failed to process image");
+          alert("Failed to process image. Please try again.");
         } finally {
           setProcessing(false);
         }
@@ -547,10 +631,19 @@ export default function MultiStageTestForm() {
   };
 
   const distributeImagesToForms = (croppedImages: CroppedRegion[]) => {
-    const updatedForms = { ...forms };
+    const updatedForms = JSON.parse(JSON.stringify(forms));
     
-    console.log("Distributing images to forms:", croppedImages);
+    console.log("Starting image distribution with:", croppedImages);
+  
+    let distributionCount = 0;
     
+    // First, clear existing part pictures
+    Object.keys(updatedForms).forEach(formKey => {
+      updatedForms[formKey as keyof FormsState].rows.forEach((row: any) => {
+        row.partPicture = null;
+      });
+    });
+  
     croppedImages.forEach(region => {
       if (!region.category) {
         console.log("No category found for region:", region.label);
@@ -565,18 +658,39 @@ export default function MultiStageTestForm() {
         return;
       }
       
-      console.log(`Distributing ${region.label} to ${form}`);
+      console.log(`Attempting to distribute ${region.label} to ${form} form`);
       
-      // Find matching row and add part picture
+      // Find matching row
+      let matched = false;
       formData.rows.forEach((row: any) => {
         const rowId = row.footNumber || row.cleatNumber || row.sideSnapNumber;
-        if (rowId && id.toLowerCase().includes(rowId.toLowerCase().replace('-', ' '))) {
-          console.log(`Matched ${region.label} with row ${rowId}`);
-          row.partPicture = region.data;
+        
+        if (rowId) {
+          const normalizedRowId = rowId.toString().toLowerCase().replace(/\s+/g, ' ').trim();
+          const normalizedRegionId = id.toString().toLowerCase().replace(/\s+/g, ' ').trim();
+          
+          console.log(`Comparing: "${normalizedRowId}" with "${normalizedRegionId}"`);
+          
+          // Flexible matching
+          if (normalizedRowId === normalizedRegionId || 
+              normalizedRegionId.includes(normalizedRowId) ||
+              normalizedRowId.includes(normalizedRegionId.replace('cleat', 'clear')) ||
+              normalizedRowId.includes(normalizedRegionId.replace('clear', 'cleat'))) {
+            
+            console.log(`✓ MATCHED: ${region.label} with row ${rowId}`);
+            row.partPicture = region.data;
+            matched = true;
+            distributionCount++;
+          }
         }
       });
+      
+      if (!matched) {
+        console.log(`✗ NO MATCH: ${region.label} in ${form}`);
+      }
     });
     
+    console.log(`Distribution complete: ${distributionCount} images assigned`);
     setForms(updatedForms);
   };
 
@@ -654,6 +768,23 @@ export default function MultiStageTestForm() {
     <div className="p-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Step 1: Upload Images</h2>
       
+      {/* Image Type Detection Status */}
+      {hasYellowMarks !== null && (
+        <div className={`mb-4 p-3 rounded-lg ${
+          hasYellowMarks ? 'bg-yellow-50 border border-yellow-200' : 'bg-blue-50 border border-blue-200'
+        }`}>
+          <div className="flex items-center">
+            <AlertCircle size={20} className={hasYellowMarks ? 'text-yellow-600 mr-2' : 'text-blue-600 mr-2'} />
+            <span className={hasYellowMarks ? 'text-yellow-800 font-medium' : 'text-blue-800 font-medium'}>
+              {hasYellowMarks 
+                ? 'Yellow marks detected - Using automatic region detection' 
+                : 'No yellow marks found - Using predefined regions based on reference image'
+              }
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Selected Tests Display */}
       {selectedTests.length > 0 && (
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -723,7 +854,12 @@ export default function MultiStageTestForm() {
             </div>
             <div>
               <h3 className="font-semibold text-gray-800">Non-Cosmetic Image</h3>
-              <p className="text-xs text-gray-500">Post-Photo + Auto-crop regions</p>
+              <p className="text-xs text-gray-500">
+                {hasYellowMarks 
+                  ? "Post-Photo + Auto-crop yellow regions" 
+                  : "Post-Photo + Crop using reference coordinates"
+                }
+              </p>
             </div>
           </div>
           
@@ -732,7 +868,12 @@ export default function MultiStageTestForm() {
               <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center rounded-lg z-10">
                 <div className="text-white text-center">
                   <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white mx-auto mb-3"></div>
-                  <span className="font-semibold">Processing & Detecting Labels...</span>
+                  <span className="font-semibold">
+                    {hasYellowMarks !== null 
+                      ? (hasYellowMarks ? "Detecting yellow regions..." : "Applying reference coordinates...")
+                      : "Analyzing image..."
+                    }
+                  </span>
                 </div>
               </div>
             )}
@@ -746,6 +887,7 @@ export default function MultiStageTestForm() {
                     e.stopPropagation();
                     setSharedImages(prev => ({ ...prev, nonCosmetic: null }));
                     setCroppedRegions([]);
+                    setHasYellowMarks(null);
                   }}
                   className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
                 >
@@ -756,7 +898,14 @@ export default function MultiStageTestForm() {
               <div className="text-center p-4">
                 <Upload className="mx-auto mb-3 text-green-400" size={40} />
                 <span className="text-sm font-medium text-gray-700">Upload Non-Cosmetic Image</span>
-                <span className="text-xs text-gray-500 block mt-2">With yellow labels</span>
+                <span className="text-xs text-gray-500 block mt-2">
+                  {hasYellowMarks === null 
+                    ? "Supports images with or without yellow labels" 
+                    : hasYellowMarks 
+                      ? "Yellow marks detected" 
+                      : "Using reference coordinates"
+                  }
+                </span>
               </div>
             )}
             <input
@@ -775,7 +924,10 @@ export default function MultiStageTestForm() {
                 Loading OpenCV...
               </div>
             ) : (
-              <div className="text-green-600">Ready to process</div>
+              <div className="text-green-600 flex items-center">
+                <CheckCircle size={14} className="mr-1" />
+                Ready to process
+              </div>
             )}
           </div>
         </div>
@@ -784,12 +936,16 @@ export default function MultiStageTestForm() {
       {/* Cropped Regions Preview */}
       {croppedRegions.length > 0 && (
         <div className="bg-gray-50 rounded-lg border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-800 mb-4">
+          <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
+            <CheckCircle className="text-green-600 mr-2" size={20} />
             Detected Regions ({croppedRegions.length})
+            <span className="text-sm font-normal text-gray-600 ml-2">
+              {hasYellowMarks ? '(Auto-detected from yellow marks)' : '(Using reference image coordinates)'}
+            </span>
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {croppedRegions.map((region) => (
-              <div key={region.id} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+              <div key={region.id} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow">
                 <img 
                   src={region.data} 
                   alt={region.label}
@@ -811,7 +967,7 @@ export default function MultiStageTestForm() {
         <button
           onClick={() => setCurrentStage(1)}
           disabled={!sharedImages.cosmetic || !sharedImages.nonCosmetic || selectedTests.length === 0}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center font-semibold"
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center font-semibold transition-colors"
         >
           Continue to Forms
           <ChevronRight size={20} className="ml-2" />
@@ -880,7 +1036,7 @@ export default function MultiStageTestForm() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Progress Bar - Only shows selected forms */}
+      {/* Progress Bar */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -890,7 +1046,7 @@ export default function MultiStageTestForm() {
                   className="flex items-center cursor-pointer"
                   onClick={() => setCurrentStage(index)}
                 >
-                  <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+                  <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors ${
                     currentStage === index 
                       ? "bg-blue-600 text-white" 
                       : currentStage > index
@@ -910,7 +1066,7 @@ export default function MultiStageTestForm() {
                   </span>
                 </div>
                 {index < filteredStages.length - 1 && (
-                  <div className={`flex-1 h-1 mx-2 ${
+                  <div className={`flex-1 h-1 mx-2 transition-colors ${
                     currentStage > index ? "bg-green-500" : "bg-gray-200"
                   }`} />
                 )}
@@ -932,7 +1088,7 @@ export default function MultiStageTestForm() {
             <div className="p-6 border-t border-gray-200 flex justify-between">
               <button
                 onClick={() => setCurrentStage(currentStage - 1)}
-                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center font-semibold"
+                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center font-semibold transition-colors"
               >
                 <ChevronLeft size={20} className="mr-2" />
                 Previous
@@ -941,7 +1097,7 @@ export default function MultiStageTestForm() {
               {!isLastStage ? (
                 <button
                   onClick={() => setCurrentStage(currentStage + 1)}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center font-semibold"
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center font-semibold transition-colors"
                 >
                   Next Form
                   <ChevronRight size={20} className="ml-2" />
@@ -952,7 +1108,7 @@ export default function MultiStageTestForm() {
                     alert("All forms completed! Data ready for submission.");
                     console.log("Final Form Data:", forms);
                   }}
-                  className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center font-semibold"
+                  className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center font-semibold transition-colors"
                 >
                   <CheckCircle size={20} className="mr-2" />
                   Complete & Submit
@@ -963,8 +1119,8 @@ export default function MultiStageTestForm() {
         </div>
       </div>
 
-      {/* Summary Panel (Optional - shows image distribution status) */}
-      {currentStage > 0 && croppedRegions.length > 0 && (
+      {/* Summary Panel */}
+      {/* {currentStage > 0 && croppedRegions.length > 0 && (
         <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-xl border border-gray-200 p-4 max-w-sm">
           <h3 className="font-semibold text-gray-800 mb-2 flex items-center">
             <AlertCircle size={16} className="mr-2 text-blue-600" />
@@ -972,7 +1128,11 @@ export default function MultiStageTestForm() {
           </h3>
           <div className="text-xs space-y-1">
             <div className="flex justify-between">
-              <span className="text-gray-600">Total Regions Detected:</span>
+              <span className="text-gray-600">Detection Type:</span>
+              <span className="font-semibold">{hasYellowMarks ? 'Auto' : 'Reference'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Regions Detected:</span>
               <span className="font-semibold">{croppedRegions.length}</span>
             </div>
             <div className="flex justify-between">
@@ -1008,7 +1168,7 @@ export default function MultiStageTestForm() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 }
