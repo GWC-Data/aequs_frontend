@@ -77,60 +77,45 @@ const Dashboard = () => {
   // Get test records from localStorage
   const testRecords = JSON.parse(localStorage.getItem('testRecords') || '[]');
 
-  // Transform test records to product format and count status
-  // const allProducts = testRecords.map((record: any) => ({
-  //   id: record.documentNumber,
-  //   batch: record.projectName,
-  //   owner: record.testLocation,
-  //   qqc: record.testStartDate,
-  //   cmr: record.testCompletionDate,
-  //   testProgress: {
-  //     completed: record.status === 'Completed' ? parseInt(record.sampleQty) : 0,
-  //     total: parseInt(record.sampleQty)
-  //   },
-  //   status: record.status === 'Completed' ? 'Completed' : 'Under Testing',
-  //   statusColor: record.status === 'Completed' ? 'bg-green-800' : 'bg-blue-800'
-  // }));
-
   const allProducts = testRecords.map((record: any) => {
-  let status = "";
-  let statusColor = "";
+    let status = "";
+    let statusColor = "";
 
-  if (record.status === "Completed") {
-    // Completed → show label
-    status = "Completed";
-    statusColor = "bg-green-800";
+    if (record.status === "Completed") {
+      // Completed → show label
+      status = "Completed";
+      statusColor = "bg-green-800";
 
-  } else if (record.status === "Received") {
-    // Received → Under Testing + show label
-    status = "Under Testing";
-    statusColor = "bg-blue-800";
+    } else if (record.status === "Received") {
+      // Received → Under Testing + show label
+      status = "Under Testing";
+      statusColor = "bg-blue-800";
 
-  } else if (record.status === "In-progress" || record.status === "In-Progress") {
-    // In-progress → no label
-    status = "";
-    statusColor = "";
+    } else if (record.status === "In-progress" || record.status === "In-Progress") {
+      // In-progress → no label
+      status = "";
+      statusColor = "";
 
-  } else {
-    // All other statuses → Under Testing + show label
-    status = "Under Testing";
-    statusColor = "bg-blue-800";
-  }
+    } else {
+      // All other statuses → Under Testing + show label
+      status = "Under Testing";
+      statusColor = "bg-blue-800";
+    }
 
-  return {
-    id: record.documentNumber,
-    batch: record.projectName,
-    owner: record.testLocation,
-    qqc: record.testStartDate,
-    cmr: record.testCompletionDate,
-    testProgress: {
-      completed: record.status === "Completed" ? parseInt(record.sampleQty) : 0,
-      total: parseInt(record.sampleQty)
-    },
-    status,
-    statusColor
-  };
-});
+    return {
+      id: record.documentNumber,
+      batch: record.projectName,
+      owner: record.testLocation,
+      qqc: record.testStartDate,
+      cmr: record.testCompletionDate,
+      testProgress: {
+        completed: record.status === "Completed" ? parseInt(record.sampleQty) : 0,
+        total: parseInt(record.sampleQty)
+      },
+      status,
+      statusColor
+    };
+  });
 
 
   // Count status for stats

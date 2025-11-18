@@ -5,6 +5,7 @@ import ShearTestForm from '@/components/ShearTestForm';
 import PullTestCleatForm from '@/components/PullTestCleatForm';
 import HeatSoakForm from '@/components/HeatSoakForm';
 import SideSnapForm from '@/components/SideSnapForm';
+import { toast } from "@/components/ui/use-toast";
 
 // Reference image dimensions (based on your static reference image)
 const REFERENCE_IMAGE_WIDTH = 480;
@@ -20,15 +21,15 @@ const PREDEFINED_REGIONS = [
   { x: 228, y: 20, width: 50, height: 50, label: "Cleat 3" },
   { x: 286, y: 20, width: 50, height: 50, label: "Cleat 4" },
   { x: 360, y: 20, width: 60, height: 50, label: "F2" },
-  
+
   // Row 2 - Middle row with Side snaps
   { x: 32, y: 85, width: 55, height: 45, label: "Side snap 1" },
   { x: 370, y: 85, width: 55, height: 45, label: "Side snap 4" },
-  
+
   // Side regions for F4 and F3
   { x: 32, y: 210, width: 55, height: 70, label: "F4" },
   { x: 370, y: 210, width: 55, height: 70, label: "F3" },
-  
+
   // Row 3 - Bottom row with Side snaps
   { x: 100, y: 250, width: 60, height: 50, label: "Side snap 2" },
   { x: 280, y: 250, width: 60, height: 50, label: "Side snap 3" },
@@ -43,22 +44,22 @@ const detectLabelText = (imageData: string, regionId: number, regions: any[], ha
       return a.x - b.x;
     });
 
-    const sortedIndex = sortedRegions.findIndex(region => 
+    const sortedIndex = sortedRegions.findIndex(region =>
       region.x === regions[regionId].x && region.y === regions[regionId].y
     );
 
     const labels = [
       "F1", "Cleat 1", "Cleat 2", "Cleat 3", "Cleat 4", "F2",
-      "Side snap 1", "Side snap 4", "F4", "F3", 
+      "Side snap 1", "Side snap 4", "F4", "F3",
       "Side snap 2", "Side snap 3"
     ];
-    
+
     return labels[sortedIndex] || `Region ${sortedIndex + 1}`;
   } else {
     // For images without yellow marks - manual region assignment
     const manualLabels = [
       "F1", "Cleat 1", "Cleat 2", "Cleat 3", "Cleat 4", "F2",
-      "Side snap 1", "Side snap 4", "F4", "F3", 
+      "Side snap 1", "Side snap 4", "F4", "F3",
       "Side snap 2", "Side snap 3"
     ];
     return manualLabels[regionId] || `Region ${regionId + 1}`;
@@ -68,25 +69,25 @@ const detectLabelText = (imageData: string, regionId: number, regions: any[], ha
 // Improved label to form mapping
 const getLabelCategory = (label: string) => {
   if (!label) return null;
-  
+
   const lower = label.toLowerCase().trim();
-  
+
   // Foot Push Out mapping
   if (lower.includes('f1') || lower.includes('f2') || lower.includes('f3') || lower.includes('f4')) {
     return { form: 'footPushOut', id: label.toUpperCase().replace('F', 'F') };
   }
-  
+
   // Pull Test Cleat mapping - handle both spellings
   if (lower.includes('cleat') || lower.includes('clear')) {
     const cleanLabel = label.replace(/clear/gi, 'Cleat');
     return { form: 'pullTestCleat', id: cleanLabel };
   }
-  
+
   // Side Snap mapping
   if (lower.includes('side snap') || lower.includes('sidesnap')) {
     return { form: 'sidesnap', id: label };
   }
-  
+
   return null;
 };
 
@@ -159,16 +160,16 @@ export default function MultiStageTestForm() {
   const [processing, setProcessing] = useState(false);
   const [selectedTests, setSelectedTests] = useState<string[]>([]);
   const [hasYellowMarks, setHasYellowMarks] = useState<boolean | null>(null);
-  
+
   // Shared images across all forms
   const [sharedImages, setSharedImages] = useState({
     cosmetic: null as string | null,
     nonCosmetic: null as string | null
   });
-  
+
   // Cropped regions with detected labels
   const [croppedRegions, setCroppedRegions] = useState<CroppedRegion[]>([]);
-  
+
   // Form data for all forms
   const [forms, setForms] = useState<FormsState>({
     footPushOut: {
@@ -184,22 +185,30 @@ export default function MultiStageTestForm() {
       project: "Light_Blue",
       sampleQty: "32",
       rows: [
-        { id: 1, srNo: 1, testDate: "", sampleId: "", footNumber: "F1", visual: "OK", 
-          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "B", 
-          glueCondition: "F", criteria: "100", observation: "", forceDeflection: "", 
-          displacement: "", status: "Pass" },
-        { id: 2, srNo: 2, testDate: "", sampleId: "", footNumber: "F2", visual: "OK", 
-          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "B", 
-          glueCondition: "F", criteria: "100", observation: "", forceDeflection: "", 
-          displacement: "", status: "" },
-        { id: 3, srNo: 3, testDate: "", sampleId: "", footNumber: "F3", visual: "OK", 
-          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "B", 
-          glueCondition: "F", criteria: "100", observation: "", forceDeflection: "", 
-          displacement: "", status: "" },
-        { id: 4, srNo: 4, testDate: "", sampleId: "", footNumber: "F4", visual: "OK", 
-          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "B", 
-          glueCondition: "F", criteria: "100", observation: "", forceDeflection: "", 
-          displacement: "", status: "" }
+        {
+          id: 1, srNo: 1, testDate: "", sampleId: "", footNumber: "F1", visual: "OK",
+          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "B",
+          glueCondition: "F", criteria: "100", observation: "", forceDeflection: "",
+          displacement: "", status: "Pass"
+        },
+        {
+          id: 2, srNo: 2, testDate: "", sampleId: "", footNumber: "F2", visual: "OK",
+          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "B",
+          glueCondition: "F", criteria: "100", observation: "", forceDeflection: "",
+          displacement: "", status: ""
+        },
+        {
+          id: 3, srNo: 3, testDate: "", sampleId: "", footNumber: "F3", visual: "OK",
+          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "B",
+          glueCondition: "F", criteria: "100", observation: "", forceDeflection: "",
+          displacement: "", status: ""
+        },
+        {
+          id: 4, srNo: 4, testDate: "", sampleId: "", footNumber: "F4", visual: "OK",
+          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "B",
+          glueCondition: "F", criteria: "100", observation: "", forceDeflection: "",
+          displacement: "", status: ""
+        }
       ]
     },
     shearTestSideSnap: {
@@ -215,9 +224,11 @@ export default function MultiStageTestForm() {
       project: "Light_Blue",
       sampleQty: "32",
       rows: [
-        { id: 1, srNo: 1, testDate: "", sampleId: "", ssShear: "", visual: "OK", 
-          prePhoto: null, postPhoto: null, partPicture: null, criteria: "Data collection", 
-          observation: "", forceDeflection: "", displacement: "", status: "Pass" }
+        {
+          id: 1, srNo: 1, testDate: "", sampleId: "", ssShear: "", visual: "OK",
+          prePhoto: null, postPhoto: null, partPicture: null, criteria: "Data collection",
+          observation: "", forceDeflection: "", displacement: "", status: "Pass"
+        }
       ]
     },
     pullTestCleat: {
@@ -231,22 +242,30 @@ export default function MultiStageTestForm() {
       project: "Light_Blue",
       sampleQty: "32",
       rows: [
-        { id: 1, srNo: 1, testDate: "", sampleId: "", cleatNumber: "Cleat 1", visual: "OK", 
-          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "A", 
-          glueCondition: "B", criteria: "150", observation: "", forceDeflection: "", 
-          displacement: "", status: "Pass" },
-        { id: 2, srNo: 2, testDate: "", sampleId: "", cleatNumber: "Cleat 2", visual: "OK", 
-          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "A", 
-          glueCondition: "B", criteria: "150", observation: "", forceDeflection: "", 
-          displacement: "", status: "" },
-        { id: 3, srNo: 3, testDate: "", sampleId: "", cleatNumber: "Cleat 3", visual: "OK", 
-          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "A", 
-          glueCondition: "B", criteria: "150", observation: "", forceDeflection: "", 
-          displacement: "", status: "" },
-        { id: 4, srNo: 4, testDate: "", sampleId: "", cleatNumber: "Cleat 4", visual: "OK", 
-          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "A", 
-          glueCondition: "B", criteria: "150", observation: "", forceDeflection: "", 
-          displacement: "", status: "" }
+        {
+          id: 1, srNo: 1, testDate: "", sampleId: "", cleatNumber: "Cleat 1", visual: "OK",
+          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "A",
+          glueCondition: "B", criteria: "150", observation: "", forceDeflection: "",
+          displacement: "", status: "Pass"
+        },
+        {
+          id: 2, srNo: 2, testDate: "", sampleId: "", cleatNumber: "Cleat 2", visual: "OK",
+          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "A",
+          glueCondition: "B", criteria: "150", observation: "", forceDeflection: "",
+          displacement: "", status: ""
+        },
+        {
+          id: 3, srNo: 3, testDate: "", sampleId: "", cleatNumber: "Cleat 3", visual: "OK",
+          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "A",
+          glueCondition: "B", criteria: "150", observation: "", forceDeflection: "",
+          displacement: "", status: ""
+        },
+        {
+          id: 4, srNo: 4, testDate: "", sampleId: "", cleatNumber: "Cleat 4", visual: "OK",
+          prePhoto: null, postPhoto: null, partPicture: null, failureMode: "A",
+          glueCondition: "B", criteria: "150", observation: "", forceDeflection: "",
+          displacement: "", status: ""
+        }
       ]
     },
     heatSoak: {
@@ -263,9 +282,11 @@ export default function MultiStageTestForm() {
       project: "Light Blue",
       sampleQty: "32",
       rows: [
-        { id: 1, srNo: 1, sampleId: "", startDate: "", endDate: "", 
-          t0Cosmetic: null, t0NonCosmetic: null, t168Cosmetic: null, 
-          t168NonCosmetic: null, status: "Pass" }
+        {
+          id: 1, srNo: 1, sampleId: "", startDate: "", endDate: "",
+          t0Cosmetic: null, t0NonCosmetic: null, t168Cosmetic: null,
+          t168NonCosmetic: null, status: "Pass"
+        }
       ]
     },
     sidesnap: {
@@ -281,77 +302,77 @@ export default function MultiStageTestForm() {
       project: "Light_Blue",
       sampleQty: "32",
       rows: [
-        { 
-          id: 1, 
-          srNo: 1, 
-          testDate: "", 
-          sampleId: "", 
-          sideSnapNumber: "Side snap 1", 
-          visual: "OK", 
-          prePhoto: null, 
-          postPhoto: null, 
-          partPicture: null, 
-          failureMode: "", 
-          glueCondition: "", 
-          criteria: "Data collection", 
-          observation: "", 
-          forceDeflection: "", 
-          displacement: "", 
-          status: "" 
+        {
+          id: 1,
+          srNo: 1,
+          testDate: "",
+          sampleId: "",
+          sideSnapNumber: "Side snap 1",
+          visual: "OK",
+          prePhoto: null,
+          postPhoto: null,
+          partPicture: null,
+          failureMode: "",
+          glueCondition: "",
+          criteria: "Data collection",
+          observation: "",
+          forceDeflection: "",
+          displacement: "",
+          status: ""
         },
-        { 
-          id: 2, 
-          srNo: 2, 
-          testDate: "", 
-          sampleId: "", 
-          sideSnapNumber: "Side snap 2", 
-          visual: "OK", 
-          prePhoto: null, 
-          postPhoto: null, 
-          partPicture: null, 
-          failureMode: "", 
-          glueCondition: "", 
-          criteria: "Data collection", 
-          observation: "", 
-          forceDeflection: "", 
-          displacement: "", 
-          status: "" 
+        {
+          id: 2,
+          srNo: 2,
+          testDate: "",
+          sampleId: "",
+          sideSnapNumber: "Side snap 2",
+          visual: "OK",
+          prePhoto: null,
+          postPhoto: null,
+          partPicture: null,
+          failureMode: "",
+          glueCondition: "",
+          criteria: "Data collection",
+          observation: "",
+          forceDeflection: "",
+          displacement: "",
+          status: ""
         },
-        { 
-          id: 3, 
-          srNo: 3, 
-          testDate: "", 
-          sampleId: "", 
-          sideSnapNumber: "Side snap 3", 
-          visual: "OK", 
-          prePhoto: null, 
-          postPhoto: null, 
-          partPicture: null, 
-          failureMode: "", 
-          glueCondition: "", 
-          criteria: "Data collection", 
-          observation: "", 
-          forceDeflection: "", 
-          displacement: "", 
-          status: "" 
+        {
+          id: 3,
+          srNo: 3,
+          testDate: "",
+          sampleId: "",
+          sideSnapNumber: "Side snap 3",
+          visual: "OK",
+          prePhoto: null,
+          postPhoto: null,
+          partPicture: null,
+          failureMode: "",
+          glueCondition: "",
+          criteria: "Data collection",
+          observation: "",
+          forceDeflection: "",
+          displacement: "",
+          status: ""
         },
-        { 
-          id: 4, 
-          srNo: 4, 
-          testDate: "", 
-          sampleId: "", 
-          sideSnapNumber: "Side snap 4", 
-          visual: "OK", 
-          prePhoto: null, 
-          postPhoto: null, 
-          partPicture: null, 
-          failureMode: "", 
-          glueCondition: "", 
-          criteria: "Data collection", 
-          observation: "", 
-          forceDeflection: "", 
-          displacement: "", 
-          status: "" 
+        {
+          id: 4,
+          srNo: 4,
+          testDate: "",
+          sampleId: "",
+          sideSnapNumber: "Side snap 4",
+          visual: "OK",
+          prePhoto: null,
+          postPhoto: null,
+          partPicture: null,
+          failureMode: "",
+          glueCondition: "",
+          criteria: "Data collection",
+          observation: "",
+          forceDeflection: "",
+          displacement: "",
+          status: ""
         }
       ]
     }
@@ -375,50 +396,118 @@ export default function MultiStageTestForm() {
     }
   }, []);
 
-    const handleSubmit = () => {
-    // Get existing records from localStorage
-    const storedData = localStorage.getItem("testRecords");
-    const records = storedData ? JSON.parse(storedData) : [];
+  //   const handleSubmit = () => {
+  //   // Get existing records from localStorage
+  //   const storedData = localStorage.getItem("testRecords");
+  //   const records = storedData ? JSON.parse(storedData) : [];
 
-    // Find the current record (assuming it's the latest one)
-    if (records.length > 0) {
-      const currentRecord = records[records.length - 1];
+  //   // Find the current record (assuming it's the latest one)
+  //   if (records.length > 0) {
+  //     const currentRecord = records[records.length - 1];
 
-      // Create updated record with form data
-      const updatedRecord = {
-        ...currentRecord,
-        // Update with form values that have been modified
-        forms: {
-          footPushOut: forms.footPushOut,
-          shearTestSideSnap: forms.shearTestSideSnap,
-          pullTestCleat: forms.pullTestCleat,
-          heatSoak: forms.heatSoak,
-          sidesnap: forms.sidesnap,
-        },
-        // Update status to completed
-        status: "Completed",
-        // Add completion timestamp
-        completedAt: new Date().toISOString(),
-        // Add image references
-        sharedImages: sharedImages,
-        // Add any other dynamic fields that might have changed
-        sampleQty: calculateTotalSampleQty(), // You might want to add this function
-        testCompletionDate: new Date().toISOString().split('T')[0]
-      };
+  //     // Create updated record with form data
+  //     const updatedRecord = {
+  //       ...currentRecord,
+  //       // Update with form values that have been modified
+  //       forms: {
+  //         footPushOut: forms.footPushOut,
+  //         shearTestSideSnap: forms.shearTestSideSnap,
+  //         pullTestCleat: forms.pullTestCleat,
+  //         heatSoak: forms.heatSoak,
+  //         sidesnap: forms.sidesnap,
+  //       },
+  //       // Update status to completed
+  //       status: "Completed",
+  //       // Add completion timestamp
+  //       completedAt: new Date().toISOString(),
+  //       // Add image references
+  //       sharedImages: sharedImages,
+  //       // Add any other dynamic fields that might have changed
+  //       sampleQty: calculateTotalSampleQty(), // You might want to add this function
+  //       testCompletionDate: new Date().toISOString().split('T')[0]
+  //     };
 
-      // Replace the record in the array
-      records[records.length - 1] = updatedRecord;
+  //     // Replace the record in the array
+  //     records[records.length - 1] = updatedRecord;
 
-      // Save back to localStorage
-      localStorage.setItem("testRecords", JSON.stringify(records));
+  //     // Save back to localStorage
+  //     localStorage.setItem("testRecords", JSON.stringify(records));
 
-      alert("All forms completed! Data has been saved successfully.");
-      console.log("Final Form Data:", updatedRecord);
+  //     alert("All forms completed! Data has been saved successfully.");
+  //     console.log("Final Form Data:", updatedRecord);
 
-      // Optional: Navigate to results page or reset form
-      // window.location.href = "/test-results";
-    } else {
-      alert("No test record found. Please start a new test.");
+  //     // Optional: Navigate to results page or reset form
+  //     // window.location.href = "/test-results";
+  //   } else {
+  //     alert("No test record found. Please start a new test.");
+  //   }
+  // };
+
+  const handleSubmit = () => {
+    try {
+      // Get existing records from localStorage
+      const storedData = localStorage.getItem("testRecords");
+      const records = storedData ? JSON.parse(storedData) : [];
+
+      // Find the current record (assuming it's the latest one)
+      if (records.length > 0) {
+        const currentRecord = records[records.length - 1];
+
+        // Create updated record with form data
+        const updatedRecord = {
+          ...currentRecord,
+          // Update with form values that have been modified
+          forms: {
+            footPushOut: forms.footPushOut,
+            shearTestSideSnap: forms.shearTestSideSnap,
+            pullTestCleat: forms.pullTestCleat,
+            heatSoak: forms.heatSoak,
+            sidesnap: forms.sidesnap,
+          },
+          // Update status to completed
+          status: "Completed",
+          // Add completion timestamp
+          completedAt: new Date().toISOString(),
+          // Add image references
+          sharedImages: sharedImages,
+          // Add any other dynamic fields that might have changed
+          sampleQty: calculateTotalSampleQty(), // You might want to add this function
+          testCompletionDate: new Date().toISOString().split('T')[0]
+        };
+
+        // Replace the record in the array
+        records[records.length - 1] = updatedRecord;
+
+        // Save back to localStorage
+        localStorage.setItem("testRecords", JSON.stringify(records));
+
+        // Success toast
+        toast({
+          title: "✅ All Forms Completed!",
+          description: `Record ${currentRecord.documentNumber} has been saved successfully`,
+          duration: 6000,
+        });
+
+        console.log("Final Form Data:", updatedRecord);
+
+        // Optional: Navigate to results page or reset form
+        // window.location.href = "/test-results";
+      } else {
+        toast({
+          variant: "destructive",
+          title: "No Test Record Found",
+          description: "Please start a new test before submitting forms",
+          duration: 3000,
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Submission Failed",
+        description: "There was an error saving the test data. Please try again.",
+        duration: 3000,
+      });
+      console.error("Error submitting forms:", error);
     }
   };
 
@@ -439,7 +528,7 @@ export default function MultiStageTestForm() {
   // Filter stages based on selected tests
   const filteredStages = React.useMemo(() => {
     const imageUploadStage = ALL_STAGES[0];
-    const formStages = ALL_STAGES.slice(1).filter(stage => 
+    const formStages = ALL_STAGES.slice(1).filter(stage =>
       stage.formKey && selectedTests.includes(stage.formKey)
     );
     return [imageUploadStage, ...formStages];
@@ -532,7 +621,7 @@ export default function MultiStageTestForm() {
     let detectedRegions: any[] = [];
     const minArea = 300;
     const maxArea = 50000;
-    
+
     for (let i = 0; i < contours.size(); ++i) {
       const rect = cv.boundingRect(contours.get(i));
       const area = rect.width * rect.height;
@@ -565,11 +654,11 @@ export default function MultiStageTestForm() {
     // Calculate scale factors based on reference image dimensions
     const scaleX = img.width / REFERENCE_IMAGE_WIDTH;
     const scaleY = img.height / REFERENCE_IMAGE_HEIGHT;
-    
+
     console.log(`Image dimensions: ${img.width}x${img.height}`);
     console.log(`Reference dimensions: ${REFERENCE_IMAGE_WIDTH}x${REFERENCE_IMAGE_HEIGHT}`);
     console.log(`Scale factors: X=${scaleX.toFixed(2)}, Y=${scaleY.toFixed(2)}`);
-    
+
     const scaledRegions = PREDEFINED_REGIONS.map(region => ({
       x: Math.round(region.x * scaleX),
       y: Math.round(region.y * scaleY),
@@ -577,7 +666,7 @@ export default function MultiStageTestForm() {
       height: Math.round(region.height * scaleY),
       label: region.label
     }));
-    
+
     console.log("Scaled regions:", scaledRegions);
     return scaledRegions;
   };
@@ -603,7 +692,7 @@ export default function MultiStageTestForm() {
             setProcessing(false);
             return;
           }
-          
+
           ctx.drawImage(img, 0, 0);
           const src = cv.imread(canvas);
 
@@ -612,11 +701,11 @@ export default function MultiStageTestForm() {
           const hasMarks = detectYellowMarks(srcForDetection);
           srcForDetection.delete();
           setHasYellowMarks(hasMarks);
-          
+
           console.log(`Image has yellow marks: ${hasMarks}`);
 
           let detectedRegions: any[] = [];
-          
+
           if (hasMarks) {
             // Process with yellow mark detection
             detectedRegions = processImageWithYellowMarks(src, img);
@@ -636,29 +725,29 @@ export default function MultiStageTestForm() {
               const y = Math.max(0, Math.min(rect.y, src.rows - 1));
               const width = Math.min(rect.width, src.cols - x);
               const height = Math.min(rect.height, src.rows - y);
-              
+
               if (width <= 0 || height <= 0) {
                 console.warn(`Invalid dimensions for region ${i}: ${width}x${height}`);
                 return;
               }
-              
+
               const validRect = new cv.Rect(x, y, width, height);
               const roi = src.roi(validRect);
-              
+
               const cropCanvas = document.createElement("canvas");
               cropCanvas.width = width;
               cropCanvas.height = height;
               cv.imshow(cropCanvas, roi);
-              
+
               const croppedData = cropCanvas.toDataURL("image/png", 1.0);
-              
+
               // Use the label from predefined regions if no yellow marks, otherwise detect
-              const detectedLabel = hasMarks 
+              const detectedLabel = hasMarks
                 ? detectLabelText(croppedData, i, detectedRegions, true)
                 : rect.label;
-              
+
               const category = getLabelCategory(detectedLabel);
-              
+
               croppedImages.push({
                 id: i,
                 data: croppedData,
@@ -666,9 +755,9 @@ export default function MultiStageTestForm() {
                 category: category,
                 rect: { x, y, width, height }
               });
-              
+
               console.log(`Region ${i}: ${detectedLabel} → ${category?.form} (${x},${y} ${width}x${height})`);
-              
+
               roi.delete();
             } catch (err) {
               console.error(`Error cropping region ${i}:`, err);
@@ -677,7 +766,7 @@ export default function MultiStageTestForm() {
 
           setCroppedRegions(croppedImages);
           distributeImagesToForms(croppedImages);
-          
+
           src.delete();
         } catch (err) {
           console.error("Error processing image:", err);
@@ -693,51 +782,51 @@ export default function MultiStageTestForm() {
 
   const distributeImagesToForms = (croppedImages: CroppedRegion[]) => {
     const updatedForms = JSON.parse(JSON.stringify(forms));
-    
+
     console.log("Starting image distribution with:", croppedImages);
-  
+
     let distributionCount = 0;
-    
+
     // First, clear existing part pictures
     Object.keys(updatedForms).forEach(formKey => {
       updatedForms[formKey as keyof FormsState].rows.forEach((row: any) => {
         row.partPicture = null;
       });
     });
-  
+
     croppedImages.forEach(region => {
       if (!region.category) {
         console.log("No category found for region:", region.label);
         return;
       }
-      
+
       const { form, id } = region.category;
       const formData = updatedForms[form as keyof FormsState];
-      
+
       if (!formData) {
         console.log("Form not found:", form);
         return;
       }
-      
+
       console.log(`Attempting to distribute ${region.label} to ${form} form`);
-      
+
       // Find matching row
       let matched = false;
       formData.rows.forEach((row: any) => {
         const rowId = row.footNumber || row.cleatNumber || row.sideSnapNumber;
-        
+
         if (rowId) {
           const normalizedRowId = rowId.toString().toLowerCase().replace(/\s+/g, ' ').trim();
           const normalizedRegionId = id.toString().toLowerCase().replace(/\s+/g, ' ').trim();
-          
+
           console.log(`Comparing: "${normalizedRowId}" with "${normalizedRegionId}"`);
-          
+
           // Flexible matching
-          if (normalizedRowId === normalizedRegionId || 
-              normalizedRegionId.includes(normalizedRowId) ||
-              normalizedRowId.includes(normalizedRegionId.replace('cleat', 'clear')) ||
-              normalizedRowId.includes(normalizedRegionId.replace('clear', 'cleat'))) {
-            
+          if (normalizedRowId === normalizedRegionId ||
+            normalizedRegionId.includes(normalizedRowId) ||
+            normalizedRowId.includes(normalizedRegionId.replace('cleat', 'clear')) ||
+            normalizedRowId.includes(normalizedRegionId.replace('clear', 'cleat'))) {
+
             console.log(`✓ MATCHED: ${region.label} with row ${rowId}`);
             row.partPicture = region.data;
             matched = true;
@@ -745,12 +834,12 @@ export default function MultiStageTestForm() {
           }
         }
       });
-      
+
       if (!matched) {
         console.log(`✗ NO MATCH: ${region.label} in ${form}`);
       }
     });
-    
+
     console.log(`Distribution complete: ${distributionCount} images assigned`);
     setForms(updatedForms);
   };
@@ -758,11 +847,11 @@ export default function MultiStageTestForm() {
   const handleImageUpload = (type: 'cosmetic' | 'nonCosmetic', file: File) => {
     const imageUrl = URL.createObjectURL(file);
     setSharedImages(prev => ({ ...prev, [type]: imageUrl }));
-    
+
     if (type === "nonCosmetic") {
       processNonCosmeticImage(file);
     }
-    
+
     // Distribute shared images to all forms
     const updatedForms = { ...forms };
     Object.keys(updatedForms).forEach(formKey => {
@@ -793,7 +882,7 @@ export default function MultiStageTestForm() {
       ...prev,
       [formKey]: {
         ...prev[formKey],
-        rows: prev[formKey].rows.map(row => 
+        rows: prev[formKey].rows.map(row =>
           row.id === rowId ? { ...row, [field]: value } : row
         )
       }
@@ -804,8 +893,8 @@ export default function MultiStageTestForm() {
     setForms(prev => {
       const currentForm = prev[formKey];
       const newId = Math.max(...currentForm.rows.map(r => r.id)) + 1;
-      const newRow = { 
-        id: newId, 
+      const newRow = {
+        id: newId,
         srNo: currentForm.rows.length + 1,
         ...Object.keys(currentForm.rows[0]).reduce((acc, key) => {
           if (!['id', 'srNo'].includes(key)) {
@@ -814,7 +903,7 @@ export default function MultiStageTestForm() {
           return acc;
         }, {} as any)
       };
-      
+
       return {
         ...prev,
         [formKey]: {
@@ -828,17 +917,16 @@ export default function MultiStageTestForm() {
   const renderImageUploadStage = () => (
     <div className="p-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Step 1: Upload Images</h2>
-      
+
       {/* Image Type Detection Status */}
       {hasYellowMarks !== null && (
-        <div className={`mb-4 p-3 rounded-lg ${
-          hasYellowMarks ? 'bg-yellow-50 border border-yellow-200' : 'bg-blue-50 border border-blue-200'
-        }`}>
+        <div className={`mb-4 p-3 rounded-lg ${hasYellowMarks ? 'bg-yellow-50 border border-yellow-200' : 'bg-blue-50 border border-blue-200'
+          }`}>
           <div className="flex items-center">
             <AlertCircle size={20} className={hasYellowMarks ? 'text-yellow-600 mr-2' : 'text-blue-600 mr-2'} />
             <span className={hasYellowMarks ? 'text-yellow-800 font-medium' : 'text-blue-800 font-medium'}>
-              {hasYellowMarks 
-                ? 'Yellow marks detected - Using automatic region detection' 
+              {hasYellowMarks
+                ? 'Yellow marks detected - Using automatic region detection'
                 : 'No yellow marks found - Using predefined regions based on reference image'
               }
             </span>
@@ -875,12 +963,12 @@ export default function MultiStageTestForm() {
               <p className="text-xs text-gray-500">Pre-Photo for all forms</p>
             </div>
           </div>
-          
+
           <label className="flex flex-col items-center justify-center h-48 cursor-pointer border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-400 transition-colors bg-blue-50">
             {sharedImages.cosmetic ? (
               <div className="relative w-full h-full">
                 <img src={sharedImages.cosmetic} alt="Cosmetic" className="w-full h-full object-contain p-2" />
-                <button 
+                <button
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -916,21 +1004,21 @@ export default function MultiStageTestForm() {
             <div>
               <h3 className="font-semibold text-gray-800">Non-Cosmetic Image</h3>
               <p className="text-xs text-gray-500">
-                {hasYellowMarks 
-                  ? "Post-Photo + Auto-crop yellow regions" 
+                {hasYellowMarks
+                  ? "Post-Photo + Auto-crop yellow regions"
                   : "Post-Photo + Crop using reference coordinates"
                 }
               </p>
             </div>
           </div>
-          
+
           <label className="flex flex-col items-center justify-center h-48 cursor-pointer border-2 border-dashed border-green-300 rounded-lg hover:border-green-400 transition-colors bg-green-50 relative">
             {processing && (
               <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center rounded-lg z-10">
                 <div className="text-white text-center">
                   <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white mx-auto mb-3"></div>
                   <span className="font-semibold">
-                    {hasYellowMarks !== null 
+                    {hasYellowMarks !== null
                       ? (hasYellowMarks ? "Detecting yellow regions..." : "Applying reference coordinates...")
                       : "Analyzing image..."
                     }
@@ -938,11 +1026,11 @@ export default function MultiStageTestForm() {
                 </div>
               </div>
             )}
-            
+
             {sharedImages.nonCosmetic ? (
               <div className="relative w-full h-full">
                 <img src={sharedImages.nonCosmetic} alt="Non-Cosmetic" className="w-full h-full object-contain p-2" />
-                <button 
+                <button
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -960,10 +1048,10 @@ export default function MultiStageTestForm() {
                 <Upload className="mx-auto mb-3 text-green-400" size={40} />
                 <span className="text-sm font-medium text-gray-700">Upload Non-Cosmetic Image</span>
                 <span className="text-xs text-gray-500 block mt-2">
-                  {hasYellowMarks === null 
-                    ? "Supports images with or without yellow labels" 
-                    : hasYellowMarks 
-                      ? "Yellow marks detected" 
+                  {hasYellowMarks === null
+                    ? "Supports images with or without yellow labels"
+                    : hasYellowMarks
+                      ? "Yellow marks detected"
                       : "Using reference coordinates"
                   }
                 </span>
@@ -977,7 +1065,7 @@ export default function MultiStageTestForm() {
               disabled={processing || !cvLoaded}
             />
           </label>
-          
+
           <div className="mt-3 text-xs">
             {!cvLoaded ? (
               <div className="text-amber-600 flex items-center">
@@ -1007,8 +1095,8 @@ export default function MultiStageTestForm() {
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {croppedRegions.map((region) => (
               <div key={region.id} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow">
-                <img 
-                  src={region.data} 
+                <img
+                  src={region.data}
                   alt={region.label}
                   className="w-full h-20 object-contain border rounded bg-gray-50 mb-2"
                 />
@@ -1103,33 +1191,30 @@ export default function MultiStageTestForm() {
           <div className="flex items-center justify-between">
             {filteredStages.map((stage, index) => (
               <React.Fragment key={stage.id}>
-                <div 
+                <div
                   className="flex items-center cursor-pointer"
                   onClick={() => setCurrentStage(index)}
                 >
-                  <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors ${
-                    currentStage === index 
-                      ? "bg-blue-600 text-white" 
+                  <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors ${currentStage === index
+                      ? "bg-blue-600 text-white"
                       : currentStage > index
-                      ? "bg-green-500 text-white"
-                      : "bg-gray-200 text-gray-600"
-                  }`}>
+                        ? "bg-green-500 text-white"
+                        : "bg-gray-200 text-gray-600"
+                    }`}>
                     {currentStage > index ? (
                       <CheckCircle size={20} />
                     ) : (
                       <span>{index + 1}</span>
                     )}
                   </div>
-                  <span className={`ml-2 text-sm font-medium hidden md:block ${
-                    currentStage === index ? "text-blue-600" : "text-gray-600"
-                  }`}>
+                  <span className={`ml-2 text-sm font-medium hidden md:block ${currentStage === index ? "text-blue-600" : "text-gray-600"
+                    }`}>
                     {stage.name}
                   </span>
                 </div>
                 {index < filteredStages.length - 1 && (
-                  <div className={`flex-1 h-1 mx-2 transition-colors ${
-                    currentStage > index ? "bg-green-500" : "bg-gray-200"
-                  }`} />
+                  <div className={`flex-1 h-1 mx-2 transition-colors ${currentStage > index ? "bg-green-500" : "bg-gray-200"
+                    }`} />
                 )}
               </React.Fragment>
             ))}
@@ -1141,7 +1226,7 @@ export default function MultiStageTestForm() {
       <div className="max-w-9xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg m-4">
           {currentStage === 0 && renderImageUploadStage()}
-          
+
           {currentStage > 0 && renderCurrentForm()}
 
           {/* Navigation Buttons */}
@@ -1154,7 +1239,7 @@ export default function MultiStageTestForm() {
                 <ChevronLeft size={20} className="mr-2" />
                 Previous
               </button>
-              
+
               {!isLastStage ? (
                 <button
                   onClick={() => setCurrentStage(currentStage + 1)}

@@ -19,7 +19,8 @@ import {
 const navigationItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "OQC Form", url: "/oqcpage", icon: List },
-  { title: "QRT Check List", url: "/qrtchecklist", icon: Check },
+  { title: "ORT Check List", url: "/qrtchecklist", icon: Check },
+  { title: "Stage 2", url: "/stage2", icon: Check },
   { title: "Testing", url: "/author", icon: FlaskConical },
   { title: "ORT Dashboard", url: "/settings", icon: Gauge },
 ];
