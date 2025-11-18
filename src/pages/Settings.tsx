@@ -73,24 +73,65 @@ const Dashboard = () => {
   //   }
   // ];
 
-  // Get test records from localStorage
+
   // Get test records from localStorage
   const testRecords = JSON.parse(localStorage.getItem('testRecords') || '[]');
 
   // Transform test records to product format and count status
-  const allProducts = testRecords.map((record: any) => ({
+  // const allProducts = testRecords.map((record: any) => ({
+  //   id: record.documentNumber,
+  //   batch: record.projectName,
+  //   owner: record.testLocation,
+  //   qqc: record.testStartDate,
+  //   cmr: record.testCompletionDate,
+  //   testProgress: {
+  //     completed: record.status === 'Completed' ? parseInt(record.sampleQty) : 0,
+  //     total: parseInt(record.sampleQty)
+  //   },
+  //   status: record.status === 'Completed' ? 'Completed' : 'Under Testing',
+  //   statusColor: record.status === 'Completed' ? 'bg-green-800' : 'bg-blue-800'
+  // }));
+
+  const allProducts = testRecords.map((record: any) => {
+  let status = "";
+  let statusColor = "";
+
+  if (record.status === "Completed") {
+    // Completed → show label
+    status = "Completed";
+    statusColor = "bg-green-800";
+
+  } else if (record.status === "Received") {
+    // Received → Under Testing + show label
+    status = "Under Testing";
+    statusColor = "bg-blue-800";
+
+  } else if (record.status === "In-progress" || record.status === "In-Progress") {
+    // In-progress → no label
+    status = "";
+    statusColor = "";
+
+  } else {
+    // All other statuses → Under Testing + show label
+    status = "Under Testing";
+    statusColor = "bg-blue-800";
+  }
+
+  return {
     id: record.documentNumber,
     batch: record.projectName,
     owner: record.testLocation,
     qqc: record.testStartDate,
     cmr: record.testCompletionDate,
     testProgress: {
-      completed: record.status === 'Completed' ? parseInt(record.sampleQty) : 0,
+      completed: record.status === "Completed" ? parseInt(record.sampleQty) : 0,
       total: parseInt(record.sampleQty)
     },
-    status: record.status === 'Completed' ? 'Completed' : 'Under Testing',
-    statusColor: record.status === 'Completed' ? 'bg-green-800' : 'bg-blue-800'
-  }));
+    status,
+    statusColor
+  };
+});
+
 
   // Count status for stats
   const statusCounts = allProducts.reduce((acc: any, product: any) => {
@@ -147,21 +188,6 @@ const Dashboard = () => {
     { title: "Machine availability" },
     { title: "Daily check points" }
   ];
-
-  // const filteredProducts = allProducts.filter(product => {
-  //   const matchesSearch = searchQuery === "" ||
-  //     product.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-  //     product.batch.toLowerCase().includes(searchQuery.toLowerCase()) ||
-  //     product.owner.toLowerCase().includes(searchQuery.toLowerCase());
-
-  //   const matchesStatus = statusFilter === "all" ||
-  //     (statusFilter === "testing" && product.status === "Under Testing") ||
-  //     (statusFilter === "complete" && product.status === "Complete") ||
-  //     (statusFilter === "scheduled" && product.status === "Scheduled") ||
-  //     (statusFilter === "inqueue" && product.status === "In Queue");
-
-  //   return matchesSearch && matchesStatus;
-  // });
 
   const handleQuickAction = (action: string) => {
     alert(`${action} clicked! This would open the respective module.`);
