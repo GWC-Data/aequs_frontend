@@ -162,24 +162,27 @@ import { Clock, CheckCircle2, AlertCircle, Package } from "lucide-react";
 import { testData } from "@/data/testData";
 import { useEffect, useState } from "react";
 
-interface TestRecord {
-  testName: string[];
+interface Stage2Record {
   documentNumber: string;
   documentTitle: string;
   projectName: string;
   color: string;
   testLocation: string;
-  sampleQty: string;
   testStartDate: string;
   testCompletionDate: string;
   sampleConfig: string;
-  testCondition: string;
   status: string;
   id: number;
   createdAt: string;
-  forms: any;
-  completedAt?: string;
-  sharedImages?: any;
+  stage2: {
+    processStage: string;
+    type: string;
+    testName: string;
+    testCondition: string;
+    requiredQty: string;
+    equipment: string;
+    submittedAt: string;
+  };
 }
 
 interface Stats {
@@ -197,22 +200,46 @@ const Index = () => {
     overdue: 0
   });
 
-  // Calculate stats from localStorage
+  const [stage2Records, setStage2Records] = useState<Stage2Record[]>([]);
+
+  // Load stage2Records from localStorage
+  useEffect(() => {
+    const loadStage2Records = () => {
+      try {
+        const storedRecords = localStorage.getItem('stage2Records');
+        if (storedRecords) {
+          const records = JSON.parse(storedRecords);
+          setStage2Records(Array.isArray(records) ? records : []);
+        } else {
+          setStage2Records([]);
+        }
+      } catch (error) {
+        console.error('Error loading stage2 records:', error);
+        setStage2Records([]);
+      }
+    };
+
+    loadStage2Records();
+    window.addEventListener("storage", loadStage2Records);
+    return () => window.removeEventListener("storage", loadStage2Records);
+  }, []);
+
+  // Calculate stats from stage2Records
   useEffect(() => {
     const calculateStats = () => {
       try {
-        const testRecords: TestRecord[] = JSON.parse(localStorage.getItem('testRecords') || '[]');
-        
         const calculatedStats: Stats = {
-          totalProducts: testRecords.length,
-          activeTests: testRecords.reduce((count, record) => {
-            return count + (record.testName ? record.testName.length : 0);
+          totalProducts: stage2Records.length,
+          activeTests: stage2Records.reduce((count, record) => {
+            // Count number of tests based on testName (comma separated)
+            const testCount = record.stage2.testName.split(',').length;
+            return count + testCount;
           }, 0),
-          onTime: testRecords.filter((record) => record.status === 'Completed').length,
-          overdue: testRecords.filter((record) => {
+          onTime: stage2Records.filter((record) => record.status === 'Completed').length,
+          overdue: stage2Records.filter((record) => {
             if (record.status === 'Completed') return false;
             if (!record.testCompletionDate) return false;
-            
+
             const completionDate = new Date(record.testCompletionDate);
             const today = new Date();
             return completionDate < today;
@@ -225,35 +252,71 @@ const Index = () => {
       }
     };
 
-    // Calculate stats on component mount
     calculateStats();
-
-    // Set up interval to refresh stats periodically (optional)
-    const interval = setInterval(calculateStats, 30000); // Refresh every 30 seconds
-
-    // Listen for storage changes (if other tabs modify localStorage)
-    const handleStorageChange = () => {
-      calculateStats();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
+  }, [stage2Records]);
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      "On Time": "bg-green-500 hover:bg-green-600 text-white",
+      "Completed": "bg-green-500 hover:bg-green-600 text-white",
       "Overdue": "bg-red-500 hover:bg-red-600 text-white",
       "Warning": "bg-yellow-500 hover:bg-yellow-600 text-white",
-      "Pending": "bg-gray-500 hover:bg-gray-600 text-white"
+      "Received": "bg-blue-500 hover:bg-blue-600 text-white"
     };
 
     const className = statusConfig[status as keyof typeof statusConfig] || statusConfig["Pending"];
     return <Badge className={className}>{status}</Badge>;
+  };
+
+  // Function to get value for table cell or return '-'
+  const getTableCellValue = (record: Stage2Record, column: string): string => {
+    switch (column) {
+      case 'project':
+        return record.projectName || '-';
+      case 'testType':
+        return record.stage2.type || '-';
+      case 'build':
+        return record.documentNumber || '-';
+      case 'testName':
+        return record.stage2.testName || '-';
+      case 'testCondition':
+        return record.stage2.testCondition || '-';
+      case 'duration':
+        // Calculate duration between start and completion dates
+        if (record.testStartDate && record.testCompletionDate) {
+          const start = new Date(record.testStartDate);
+          const end = new Date(record.testCompletionDate);
+          const diffTime = Math.abs(end.getTime() - start.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return `${diffDays} days`;
+        }
+        return '-';
+      case 'qty':
+        return record.stage2.requiredQty || '-';
+      case 'startTime':
+        return record.testStartDate ? new Date(record.testStartDate).toLocaleDateString() : '-';
+      case 'tentativeEnd':
+        return record.testCompletionDate ? new Date(record.testCompletionDate).toLocaleDateString() : '-';
+      case 'operatorLoaded':
+        return '-'; // Not available in stage2 data
+      case 'operatorUnload':
+        return '-'; // Not available in stage2 data
+      case 'checkPoint':
+        return record.stage2.processStage || '-';
+      case 'remaining':
+        // Calculate remaining days
+        if (record.testCompletionDate) {
+          const completionDate = new Date(record.testCompletionDate);
+          const today = new Date();
+          const diffTime = completionDate.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays > 0 ? `${diffDays} days` : 'Overdue';
+        }
+        return '-';
+      case 'status':
+        return record.status || '-';
+      default:
+        return '-';
+    }
   };
 
   return (
@@ -353,7 +416,7 @@ const Index = () => {
                       <TableHead className="font-semibold min-w-[100px]">Status</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  {/* <TableBody>
                     {testData.map((test, index) => (
                       <TableRow key={index} className="hover:bg-gray-50">
                         <TableCell className="font-medium">{test.project}</TableCell>
@@ -376,6 +439,57 @@ const Index = () => {
                         <TableCell>{getStatusBadge(test.status)}</TableCell>
                       </TableRow>
                     ))}
+                  </TableBody> */}
+                  <TableBody>
+                    {stage2Records.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={14} className="text-center py-8 text-gray-500">
+                          No test records found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      stage2Records.flatMap((record) => {
+                        // Split the multiple values by comma
+                        const testNames = record.stage2.testName.split(',').map(name => name.trim());
+                        const testConditions = record.stage2.testCondition.split(',').map(condition => condition.trim());
+                        const requiredQtys = record.stage2.requiredQty.split(',').map(qty => qty.trim());
+
+                        // Get the maximum length to handle different number of items
+                        const maxLength = Math.max(testNames.length, testConditions.length, requiredQtys.length);
+
+                        // Create rows for each test item
+                        return Array.from({ length: maxLength }).map((_, index) => (
+                          <TableRow key={`${record.id}-${index}`} className="hover:bg-gray-50">
+                            <TableCell className="font-medium">
+                              {record.projectName || '-'}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="whitespace-nowrap">
+                                {record.stage2.type || '-'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{record.documentNumber || '-'}</TableCell>
+                            <TableCell>{testNames[index] || '-'}</TableCell>
+                            <TableCell className="text-sm">{testConditions[index] || '-'}</TableCell>
+                            <TableCell>{getTableCellValue(record, 'duration')}</TableCell>
+                            <TableCell>{requiredQtys[index] || '-'}</TableCell>
+                            <TableCell className="whitespace-nowrap">
+                              {getTableCellValue(record, 'startTime')}
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap">
+                              {getTableCellValue(record, 'tentativeEnd')}
+                            </TableCell>
+                            <TableCell>{getTableCellValue(record, 'operatorLoaded')}</TableCell>
+                            <TableCell>{getTableCellValue(record, 'operatorUnload')}</TableCell>
+                            <TableCell className="text-sm">{record.stage2.processStage || '-'}</TableCell>
+                            <TableCell className="font-medium">
+                              {getTableCellValue(record, 'remaining')}
+                            </TableCell>
+                            <TableCell>{getStatusBadge(record.status || '-')}</TableCell>
+                          </TableRow>
+                        ));
+                      })
+                    )}
                   </TableBody>
                 </Table>
               </div>

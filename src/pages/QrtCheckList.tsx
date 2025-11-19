@@ -661,6 +661,67 @@ const LiveTestProgress: React.FC = () => {
     }
   };
 
+  // const handleStage2Submit = () => {
+  //   if (!selectedRecord) return;
+
+  //   try {
+  //     // Create the stage 2 data object with all fields
+  //     const stage2Data = {
+  //       ...selectedRecord, // Include all existing record data
+  //       stage2: {
+  //         processStage: stage2Form.processStage,
+  //         type: stage2Form.type,
+  //         testName: stage2Form.testName,
+  //         testCondition: stage2Form.testCondition,
+  //         requiredQty: stage2Form.requiredQty,
+  //         equipment: stage2Form.equipment,
+  //         submittedAt: new Date().toISOString()
+  //       }
+  //     };
+
+  //     // Get existing stage2 records from localStorage
+  //     const existingStage2Data = localStorage.getItem("stage2Records");
+  //     const stage2Records = existingStage2Data ? JSON.parse(existingStage2Data) : [];
+
+  //     // Add new stage2 record
+  //     stage2Records.push(stage2Data);
+
+  //     // Save back to localStorage
+  //     localStorage.setItem("stage2Records", JSON.stringify(stage2Records));
+
+  //     // Also update the main test record status if needed
+  //     const updatedTestRecords = testRecords.map(record =>
+  //       record.id === selectedRecord.id
+  //         ? { ...record, status: "In-progress" } // Optional: update status
+  //         : record
+  //     );
+
+  //     setTestRecords(updatedTestRecords);
+  //     localStorage.setItem("testRecords", JSON.stringify(updatedTestRecords));
+
+  //     console.log("Stage 2 submitted:", stage2Data);
+
+  //     toast({
+  //       title: "✅ Stage 2 Submitted",
+  //       description: `Stage 2 data has been saved successfully!`,
+  //       duration: 3000,
+  //     });
+
+  //     // Close modal and navigate to /author
+  //     setIsStage2ModalOpen(false);
+  //     //navigate('/author');
+
+  //   } catch (error) {
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Submission Failed",
+  //       description: "There was an error saving the Stage 2 data. Please try again.",
+  //       duration: 3000,
+  //     });
+  //     console.error("Error saving Stage 2 data:", error);
+  //   }
+  // };
+
   const handleStage2Submit = () => {
     if (!selectedRecord) return;
 
@@ -689,11 +750,9 @@ const LiveTestProgress: React.FC = () => {
       // Save back to localStorage
       localStorage.setItem("stage2Records", JSON.stringify(stage2Records));
 
-      // Also update the main test record status if needed
-      const updatedTestRecords = testRecords.map(record =>
-        record.id === selectedRecord.id
-          ? { ...record, status: "In-progress" } // Optional: update status
-          : record
+      // Remove the record from testRecords (main records) after submission
+      const updatedTestRecords = testRecords.filter(
+        record => record.id !== selectedRecord.id
       );
 
       setTestRecords(updatedTestRecords);
@@ -707,9 +766,8 @@ const LiveTestProgress: React.FC = () => {
         duration: 3000,
       });
 
-      // Close modal and navigate to /author
+      // Close modal
       setIsStage2ModalOpen(false);
-      //navigate('/author');
 
     } catch (error) {
       toast({
@@ -861,9 +919,9 @@ const LiveTestProgress: React.FC = () => {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleStage2Click(record)}
-                                className="bg-blue-500 text-white hover:bg-blue-600"
+                                className="bg-[#e0413a] text-white hover:bg-[#e0413a]"
                               >
-                                Stage 2
+                                Click to Start
                               </Button>
                             )}
                           </TableCell>
@@ -1093,9 +1151,9 @@ const LiveTestProgress: React.FC = () => {
             <Button
               onClick={handleStage2Submit}
               disabled={!isStage2SubmitEnabled()}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-[#e0413a] text-white hover:bg-[#e0413a] hover:text-black"
             >
-              Submit 
+              Submit
             </Button>
           </DialogFooter>
         </DialogContent>
