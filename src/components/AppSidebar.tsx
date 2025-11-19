@@ -1,4 +1,4 @@
-import { Home, List, LogOut,Check ,PenTool,Settings ,Gauge, FlaskConical} from "lucide-react";
+import { Home, List, LogOut,Check ,PenTool,Settings ,Gauge, Flag, FlaskConical} from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import Logo from '../assets/logo.png';
@@ -19,7 +19,8 @@ import {
 const navigationItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "OQC Form", url: "/oqcpage", icon: List },
-  { title: "QRT Check List", url: "/qrtchecklist", icon: Check },
+  { title: "ORT Check List", url: "/qrtchecklist", icon: Check },
+  { title: "Stage 2", url: "/stage2", icon: Flag },
   { title: "Testing", url: "/author", icon: FlaskConical },
   { title: "ORT Dashboard", url: "/settings", icon: Gauge },
 ];
