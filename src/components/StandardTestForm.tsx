@@ -74,7 +74,26 @@ export default function StandardTestForm({
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="max-w-full mx-auto">
-        <h2 className="text-3xl font-bold text-gray-900 mb-8">{formData.testName}</h2>
+        <div className="flex items-center justify-between">
+<h2 className="text-3xl font-bold text-gray-900 mb-8">{formData.testName}</h2>
+
+        <div className="flex items-center gap-4">
+          <label htmlFor="">Hours</label>
+          <input
+              type="text"
+              className="border h-10 w-16 border-black outline-black rounded-md"
+            />
+             <div className="">
+            <button
+              type="submit"
+              className="flex items-center w-fit border rounded-sm bg-[#f35b62] text-white p-1 hover:bg-[#EE161F] hover:text-white transition-colors"
+            >
+              <span>Option to start</span>
+            </button>
+          </div>
+        </div>
+        </div>
+        
         
         {/* Header Section */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
