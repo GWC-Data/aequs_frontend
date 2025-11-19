@@ -834,12 +834,12 @@ const LiveTestProgress: React.FC = () => {
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-3">
-                            <Eye
+                            {/* <Eye
                               size={18}
                               className="cursor-pointer text-blue-600 hover:text-blue-800"
                               onClick={() => handleView(record.id)}
                               title="View"
-                            />
+                            /> */}
                             <Edit
                               size={18}
                               className="cursor-pointer text-yellow-600 hover:text-yellow-800"
