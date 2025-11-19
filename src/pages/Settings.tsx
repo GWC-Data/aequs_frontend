@@ -318,32 +318,30 @@
 
 // export default Dashboard;
 
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, TestTube, Upload, TrendingUp, Search, Clock, CheckCircle2, AlertCircle, Activity, X } from "lucide-react";
+import { Package, TestTube, Upload, TrendingUp, Search, Clock, CheckCircle2, AlertCircle, Activity } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [showMachineModal, setShowMachineModal] = useState(false);
-  const [selectedMachines, setSelectedMachines] = useState<any[]>([]);
   const navigate = useNavigate();
 
   const testRecords = JSON.parse(localStorage.getItem('stage2Records') || '[]');
 
-  // Function to parse equipment data from stage2Records
+  // Function to parse equipment data from stage2Records - ONLY for Under Testing status
   const getMachineDetails = () => {
     const machineDetails = [];
 
     testRecords.forEach((record: any) => {
-      if (record.stage2 && record.stage2.equipment) {
+      // Only include machines for records with "Under Testing" status
+      if (record.status === "Received" && record.stage2 && record.stage2.equipment) {
         // Split equipment by comma and create machine details
         const equipmentList = record.stage2.equipment.split(',').map((equipment: string) => equipment.trim());
 
@@ -368,7 +366,7 @@ const Dashboard = () => {
     return machineDetails;
   };
 
-  // Get machine details
+  // Get machine details (only for Under Testing status)
   const machineDetails = getMachineDetails();
 
   const allProducts = testRecords.map((record: any) => {
@@ -461,7 +459,7 @@ const Dashboard = () => {
   const rightSideMenuItems = [
     {
       title: "Machine details",
-      subtitle: `${machineDetails.length} Equipment${machineDetails.length !== 1 ? 's' : ''}`,
+      subtitle: `${machineDetails.length} Equipment${machineDetails.length !== 1 ? 's' : ''} Under Testing`,
       data: machineDetails
     },
     { title: "Chemicals", subtitle: "and stock details" },
@@ -474,102 +472,9 @@ const Dashboard = () => {
     alert(`${action} clicked! This would open the respective module.`);
   };
 
-  const handleRightMenuClick = (title: string, data?: any) => {
-    if (title === "Machine details" && data) {
-      setSelectedMachines(data);
-      setShowMachineModal(true);
-    } else {
-      alert(`Navigating to ${title}`);
-    }
+  const handleRightMenuClick = (title: string) => {
+    alert(`Navigating to ${title}`);
   };
-
-  // Machine Details Modal Component
-  const MachineDetailsModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold text-gray-800">Machine Details</h3>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowMachineModal(false)}
-            className="h-8 w-8 p-0"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <div className="grid gap-4">
-          {selectedMachines.map((machine) => (
-            <Card key={machine.id} className="border-l-4 border-l-blue-500">
-              <CardContent className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-semibold text-lg text-gray-800">{machine.machineName}</h4>
-                      <Badge className={`
-                        ${machine.status === 'Completed' ? 'bg-green-500' :
-                          machine.status === 'In-progress' ? 'bg-yellow-500' :
-                            machine.status === 'Received' ? 'bg-blue-500' : 'bg-gray-500'} 
-                        text-white
-                      `}>
-                        {machine.status}
-                      </Badge>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-1 text-sm">
-                      <div className="flex">
-                        <span className="text-gray-600 w-24">Project:</span>
-                        <span className="font-medium">{machine.project}</span>
-                      </div>
-                      <div className="flex">
-                        <span className="text-gray-600 w-24">Document:</span>
-                        <span className="font-medium">{machine.documentNumber}</span>
-                      </div>
-                      <div className="flex">
-                        <span className="text-gray-600 w-24">Process Stage:</span>
-                        <span className="font-medium">{machine.processStage}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <h5 className="font-medium text-gray-700">Test Information</h5>
-                    <div className="grid grid-cols-1 gap-1 text-sm">
-                      <div className="flex">
-                        <span className="text-gray-600 w-28">Test Name:</span>
-                        <span className="font-medium flex-1">{machine.testName}</span>
-                      </div>
-                      <div className="flex">
-                        <span className="text-gray-600 w-28">Test Condition:</span>
-                        <span className="font-medium flex-1">{machine.testCondition}</span>
-                      </div>
-                      <div className="flex">
-                        <span className="text-gray-600 w-28">Required Qty:</span>
-                        <span className="font-medium flex-1">{machine.requiredQty}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        <div className="mt-6 flex justify-between items-center">
-          <p className="text-sm text-gray-600">
-            Showing {selectedMachines.length} machine{selectedMachines.length !== 1 ? 's' : ''}
-          </p>
-          <Button
-            onClick={() => setShowMachineModal(false)}
-            className="bg-[#e0413a] text-white hover:bg-[#d0352e]"
-          >
-            Close
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-gray-50 via-white to-gray-100">
@@ -672,7 +577,9 @@ const Dashboard = () => {
                       <div>
                         <div className="flex justify-between text-sm mb-1 text-gray-700">
                           <span>Test Progress</span>
-                          <span className="font-medium">{product.testProgress.completed}/{product.testProgress.total} Tests</span>
+                          <span className="font-medium">
+                            {product?.testProgress?.completed || 0}/{product?.testProgress?.total || 0} Tests
+                          </span>
                         </div>
                         <Progress value={(product.testProgress.completed / product.testProgress.total) * 100} />
                       </div>
@@ -744,17 +651,17 @@ const Dashboard = () => {
             {rightSideMenuItems.map((item, index) => (
               <Card
                 key={index}
-                onClick={() => handleRightMenuClick(item.title, item.data)}
-                className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-[#e0413a] bg-white rounded-xl"
+                onClick={() => handleRightMenuClick(item.title)}
+                className="hover:shadow-lg transition-shadow border-l-4 border-l-[#e0413a] bg-white rounded-xl"
               >
                 <CardContent className="p-4 space-y-1">
                   <h3 className="font-semibold text-sm text-gray-800">{item.title}</h3>
                   {item.subtitle && <p className="text-xs text-gray-600">{item.subtitle}</p>}
 
-                  {/* Show machine list for Machine details */}
+                  {/* Show machine list for Machine details - ONLY if there are machines under testing */}
                   {item.title === "Machine details" && item.data && item.data.length > 0 && (
                     <div className="mt-2 space-y-1 max-h-20 overflow-y-auto">
-                      {item.data.slice(0, 3).map((machine: any, machineIndex: number) => (
+                      {item.data.map((machine: any, machineIndex: number) => (
                         <div key={machineIndex} className="flex items-center gap-2 text-xs">
                           <div className={`w-2 h-2 rounded-full ${machine.status === 'Completed' ? 'bg-green-500' :
                               machine.status === 'In-progress' ? 'bg-yellow-500' : 'bg-blue-500'
@@ -762,9 +669,9 @@ const Dashboard = () => {
                           <span className="truncate">{machine.machineName}</span>
                         </div>
                       ))}
-                      {item.data.length > 3 && (
+                      {/* {item.data.length > 3 && (
                         <p className="text-xs text-gray-500 mt-1">+{item.data.length - 3} more machines</p>
-                      )}
+                      )} */}
                     </div>
                   )}
                 </CardContent>
@@ -773,9 +680,6 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
-
-      {/* Machine Details Modal */}
-      {showMachineModal && <MachineDetailsModal />}
     </div>
   );
 };

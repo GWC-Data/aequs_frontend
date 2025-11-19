@@ -257,7 +257,7 @@ const Stage2Records: React.FC = () => {
                             >
                               <FlaskConical  size={16} />
                             </Button>
-                            <Button
+                            {/* <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEdit(record)}
@@ -265,7 +265,7 @@ const Stage2Records: React.FC = () => {
                               title="Edit"
                             >
                               <Edit size={16} />
-                            </Button>
+                            </Button> */}
                             <Button
                               variant="ghost"
                               size="sm"
