@@ -91,24 +91,26 @@ export default function StandardTestForm({
               <label className="block text-sm font-semibold text-gray-700 mb-2">ERS</label>
               <input 
                 value={formData.ers}
+                readOnly
                 onChange={(e) => updateFormField('ers', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 font-medium"
               />
             </div>
-            <div>
+            {/* <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Part Number</label>
               <input 
                 value={formData.partNumber}
                 onChange={(e) => updateFormField('partNumber', e.target.value)}
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
-            </div>
+            </div> */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Machine Name</label>
               <input 
                 value={formData.machineName}
+                readOnly
                 onChange={(e) => updateFormField('machineName', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 font-medium"
               />
             </div>
             <div>
@@ -116,15 +118,52 @@ export default function StandardTestForm({
               <input 
                 value={formData.testCondition}
                 onChange={(e) => updateFormField('testCondition', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 font-medium"
               />
             </div>
-            <div>
+            {/* <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Room Temp</label>
               <input 
                 value={formData.roomTemp}
                 onChange={(e) => updateFormField('roomTemp', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 font-medium"
+              />
+            </div> */}
+            
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Pass Criteria</label>
+              <input 
+                value={formData.passCriteria}
+                readOnly
+                onChange={(e) => updateFormField('passCriteria', e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 font-medium"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Test Stage</label>
+              <input 
+                value={formData.testStage}
+                readOnly
+                onChange={(e) => updateFormField('testStage', e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 font-medium"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Project</label>
+              <input 
+                value={formData.project}
+                readOnly
+                onChange={(e) => updateFormField('project', e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 font-medium"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Sample Qty</label>
+              <input 
+                value={formData.sampleQty}
+                readOnly
+                onChange={(e) => updateFormField('sampleQty', e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 font-medium"
               />
             </div>
             <div>
@@ -133,38 +172,6 @@ export default function StandardTestForm({
                 type="date"
                 value={formData.date}
                 onChange={(e) => updateFormField('date', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Pass Criteria</label>
-              <input 
-                value={formData.passCriteria}
-                onChange={(e) => updateFormField('passCriteria', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Test Stage</label>
-              <input 
-                value={formData.testStage}
-                onChange={(e) => updateFormField('testStage', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Project</label>
-              <input 
-                value={formData.project}
-                onChange={(e) => updateFormField('project', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Sample Qty</label>
-              <input 
-                value={formData.sampleQty}
-                onChange={(e) => updateFormField('sampleQty', e.target.value)}
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>

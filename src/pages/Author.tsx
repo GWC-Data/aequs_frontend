@@ -103,6 +103,8 @@ interface Stage2Record {
     equipment: string;
     submittedAt: string;
   };
+  forms?: any;
+  completedTests?: string[];
 }
 
 interface FormRow {
@@ -182,6 +184,8 @@ export default function MultiStageTestForm() {
   const [stage2Records, setStage2Records] = useState<Stage2Record[]>([]);
   const [currentRecord, setCurrentRecord] = useState<Stage2Record | null>(null);
   const [dynamicStages, setDynamicStages] = useState<Stage[]>([]);
+  const [selectedTestToResume, setSelectedTestToResume] = useState<string>("");
+  const [availableTestsToResume, setAvailableTestsToResume] = useState<{recordId: number, testName: string, formKey: string, completed: boolean}[]>([]);
 
   // Shared images across all forms
   const [sharedImages, setSharedImages] = useState({
@@ -203,6 +207,26 @@ export default function MultiStageTestForm() {
         const records: Stage2Record[] = JSON.parse(storedRecords);
         setStage2Records(records);
         
+        // Prepare available tests for resume dropdown
+        const testsToResume: {recordId: number, testName: string, formKey: string, completed: boolean}[] = [];
+        
+        records.forEach(record => {
+          if (record.forms) {
+            Object.keys(record.forms).forEach(formKey => {
+              const formData = record.forms[formKey];
+              const isCompleted = record.completedTests?.includes(formKey) || false;
+              testsToResume.push({
+                recordId: record.id,
+                testName: formData.testName,
+                formKey: formKey,
+                completed: isCompleted
+              });
+            });
+          }
+        });
+        
+        setAvailableTestsToResume(testsToResume);
+
         if (records.length > 0) {
           const latestRecord = records[records.length - 1];
           setCurrentRecord(latestRecord);
@@ -262,8 +286,8 @@ export default function MultiStageTestForm() {
                 testName: testName,
                 ers: latestRecord.stage2.processStage || "",
                 partNumber: "",
-                machineName: latestRecord.stage2.equipment?.split(',')[index]?.trim() || "Instron",
-                testCondition: latestRecord.stage2.testCondition?.split(',')[index]?.trim() || "Room Temperature(RT)",
+                machineName: latestRecord.stage2.equipment?.split(',')[index]?.trim(),
+                testCondition: latestRecord.stage2.testCondition?.split(',')[index]?.trim(),
                 roomTemp: "RT",
                 date: "",
                 passCriteria: "Data Collection",
@@ -292,6 +316,32 @@ export default function MultiStageTestForm() {
       }
     }
   }, []);
+
+  // Handle test resume selection
+  const handleTestResume = (testInfo: string) => {
+    setSelectedTestToResume(testInfo);
+    
+    if (!testInfo) return;
+    
+    const [recordId, formKey] = testInfo.split('|');
+    const record = stage2Records.find(r => r.id === parseInt(recordId));
+    
+    if (record && record.forms && record.forms[formKey]) {
+      // Find the stage index for this form
+      const stageIndex = dynamicStages.findIndex(stage => stage.formKey === formKey);
+      
+      if (stageIndex !== -1) {
+        // Set current stage to the selected test
+        setCurrentStage(stageIndex + 1); // +1 because stage 0 is image upload
+        
+        toast({
+          title: "Test Resumed",
+          description: `Continuing from ${record.forms[formKey].testName}`,
+          duration: 3000,
+        });
+      }
+    }
+  };
 
   // Filter stages based on selected tests
   const filteredStages = React.useMemo(() => {
@@ -682,6 +732,9 @@ export default function MultiStageTestForm() {
         const currentRecordIndex = records.findIndex((r: Stage2Record) => r.id === currentRecord.id);
         
         if (currentRecordIndex !== -1) {
+          // Mark all tests as completed
+          const completedTests = Object.keys(forms);
+          
           const updatedRecord = {
             ...currentRecord,
             forms: forms,
@@ -689,7 +742,8 @@ export default function MultiStageTestForm() {
             completedAt: new Date().toISOString(),
             sharedImages: sharedImages,
             sampleQty: calculateTotalSampleQty(),
-            testCompletionDate: new Date().toISOString().split('T')[0]
+            testCompletionDate: new Date().toISOString().split('T')[0],
+            completedTests: completedTests
           };
 
           records[currentRecordIndex] = updatedRecord;
@@ -744,6 +798,59 @@ export default function MultiStageTestForm() {
     <div className="p-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Step 1: Upload Images</h2>
 
+      {/* Resume Test Dropdown */}
+      {availableTestsToResume.length > 0 && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h3 className="font-semibold text-yellow-800 mb-2">Resume Previous Test</h3>
+          <div className="flex items-center space-x-4">
+            <select
+              value={selectedTestToResume}
+              onChange={(e) => handleTestResume(e.target.value)}
+              className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Select a test to resume...</option>
+              {availableTestsToResume.map((test, index) => (
+                <option key={index} value={`${test.recordId}|${test.formKey}`}>
+                  {test.testName} {test.completed ? "(Completed)" : "(In Progress)"}
+                </option>
+              ))}
+            </select>
+            {selectedTestToResume && (
+              <button
+                onClick={() => {
+                  const [recordId, formKey] = selectedTestToResume.split('|');
+                  const record = stage2Records.find(r => r.id === parseInt(recordId));
+                  if (record && record.forms && record.forms[formKey]) {
+                    // Load the existing form data
+                    setForms(prev => ({
+                      ...prev,
+                      [formKey]: record.forms[formKey]
+                    }));
+                    
+                    // Load shared images if available
+                    if (record.sharedImages) {
+                      setSharedImages(record.sharedImages);
+                    }
+                    
+                    toast({
+                      title: "Test Loaded",
+                      description: `Resuming ${record.forms[formKey].testName}`,
+                      duration: 3000,
+                    });
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Load Test
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-yellow-600 mt-2">
+            Select a previously started test to resume from where you left off.
+          </p>
+        </div>
+      )}
+
       {/* Current Record Info */}
       {currentRecord && (
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -794,8 +901,7 @@ export default function MultiStageTestForm() {
       )}
 
       {/* Rest of the image upload UI remains the same */}
-      {/* ... (same image upload UI as before) */}
-       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {/* Cosmetic Image */}
         <div className="bg-white rounded-lg border-2 border-gray-200 p-6 shadow-sm">
           <div className="flex items-center mb-4">
@@ -1006,7 +1112,7 @@ export default function MultiStageTestForm() {
       {/* Progress Bar */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          {/* <div className="flex items-center justify-between">
             {filteredStages.map((stage, index) => (
               <React.Fragment key={stage.id}>
                 <div
@@ -1036,7 +1142,47 @@ export default function MultiStageTestForm() {
                 )}
               </React.Fragment>
             ))}
-          </div>
+          </div> */}
+          <div className="overflow-x-auto" style={{
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            WebkitOverflowScrolling: 'touch'
+          }}>
+            <div className="flex items-center min-w-max px-2">
+              {filteredStages.map((stage, index) => (
+                <React.Fragment key={stage.id}>
+                  <div
+                    className="flex items-center cursor-pointer flex-shrink-0"
+                    onClick={() => setCurrentStage(index)}
+                  >
+                    <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors ${
+                      currentStage === index
+                        ? "bg-blue-600 text-white"
+                        : currentStage > index
+                          ? "bg-green-500 text-white"
+                          : "bg-gray-200 text-gray-600"
+                    }`}>
+                      {currentStage > index ? (
+                        <CheckCircle size={18} />
+                      ) : (
+                        <span className="text-sm font-semibold">{index + 1}</span>
+                      )}
+                    </div>
+                    <span className={`ml-2 text-xs font-medium whitespace-nowrap ${
+                      currentStage === index ? "text-blue-600" : "text-gray-600"
+                    }`}>
+                      {stage.name.length > 20 ? `${stage.name.substring(0, 20)}...` : stage.name}
+                    </span>
+                  </div>
+                  {index < filteredStages.length - 1 && (
+                    <div className={`h-1 w-12 mx-3 transition-colors flex-shrink-0 ${
+                      currentStage > index ? "bg-green-500" : "bg-gray-200"
+                    }`} />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          </div> 
         </div>
       </div>
 
