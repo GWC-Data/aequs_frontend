@@ -9,7 +9,7 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { Eye, Edit, Trash2 } from "lucide-react";
+import { Eye, Edit, Trash2, FlaskConical } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -103,7 +103,7 @@ const Stage2Records: React.FC = () => {
       );
       setStage2Records(updatedRecords);
       localStorage.setItem("stage2Records", JSON.stringify(updatedRecords));
-      
+
       toast({
         title: "✅ Record Deleted",
         description: `Record ${recordToDelete.documentNumber} has been deleted successfully!`,
@@ -177,6 +177,7 @@ const Stage2Records: React.FC = () => {
                     <TableHead className="font-semibold">Process Stage</TableHead>
                     <TableHead className="font-semibold">Type</TableHead>
                     <TableHead className="font-semibold">Status</TableHead>
+                    <TableHead className="font-semibold">View Details</TableHead>
                     <TableHead className="font-semibold text-center w-[150px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -232,25 +233,29 @@ const Stage2Records: React.FC = () => {
                             {record.status}
                           </Badge>
                         </TableCell>
+                        <TableCell className="text-sm">
+                          <div className="flex items-center justify-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewDetails(record)}
+                              className="h-8 w-8 mr-10"
+                              title="View TestInfo"
+                            >
+                              <Eye size={16} />
+                            </Button>
+                          </div>
+                        </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2">
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleViewDetails(record)}
-                              className="h-8 w-8 p-0"
-                              title="View Details"
-                            >
-                              <Eye size={16} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
                               onClick={() => handleViewAuthor(record)}
                               className="h-8 w-8 p-0 text-blue-600"
-                              title="View in Author"
+                              title="Move to Testing"
                             >
-                              <Eye size={16} />
+                              <FlaskConical  size={16} />
                             </Button>
                             <Button
                               variant="ghost"
@@ -317,7 +322,7 @@ const Stage2Records: React.FC = () => {
               {/* Stage 2 Details */}
               <div className="space-y-4 p-4 border rounded-lg">
                 <h3 className="font-semibold text-lg">Stage 2 Configuration</h3>
-                
+
                 {/* Process Stage and Type */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
