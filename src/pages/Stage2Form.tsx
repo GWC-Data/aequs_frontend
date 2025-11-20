@@ -51,6 +51,25 @@ const Stage2Records: React.FC = () => {
   const [isDetailModalOpen, setIsDetailModalOpen] = React.useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
   const [recordToDelete, setRecordToDelete] = React.useState<Stage2Record | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+  const [editingRecord, setEditingRecord] = React.useState<Stage2Record | null>(null);
+  const [editForm, setEditForm] = React.useState({
+    documentNumber: "",
+    documentTitle: "",
+    projectName: "",
+    color: "",
+    testLocation: "",
+    testStartDate: "",
+    testCompletionDate: "",
+    sampleConfig: "",
+    status: "",
+    processStage: "",
+    type: "",
+    testName: "",
+    testCondition: "",
+    requiredQty: "",
+    equipment: ""
+  });
   const navigate = useNavigate();
 
   React.useEffect(() => {
@@ -79,14 +98,94 @@ const Stage2Records: React.FC = () => {
     setIsDetailModalOpen(true);
   };
 
+  // Add the edit handler functions
   const handleEdit = (record: Stage2Record) => {
-    // Navigate to edit page or open edit modal
-    console.log("Edit record:", record);
-    toast({
-      title: "Edit Functionality",
-      description: "Edit feature will be implemented here",
-      duration: 3000,
+    setEditingRecord(record);
+    setEditForm({
+      documentNumber: record.documentNumber,
+      documentTitle: record.documentTitle,
+      projectName: record.projectName,
+      color: record.color,
+      testLocation: record.testLocation,
+      testStartDate: record.testStartDate,
+      testCompletionDate: record.testCompletionDate,
+      sampleConfig: record.sampleConfig,
+      status: record.status,
+      processStage: record.stage2.processStage,
+      type: record.stage2.type,
+      testName: record.stage2.testName,
+      testCondition: record.stage2.testCondition,
+      requiredQty: record.stage2.requiredQty,
+      equipment: record.stage2.equipment
     });
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditInputChange = (field: keyof typeof editForm, value: string) => {
+    setEditForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingRecord) return;
+
+    try {
+      const updatedRecord: Stage2Record = {
+        ...editingRecord,
+        documentNumber: editForm.documentNumber,
+        documentTitle: editForm.documentTitle,
+        projectName: editForm.projectName,
+        color: editForm.color,
+        testLocation: editForm.testLocation,
+        testStartDate: editForm.testStartDate,
+        testCompletionDate: editForm.testCompletionDate,
+        sampleConfig: editForm.sampleConfig,
+        status: editForm.status,
+        stage2: {
+          ...editingRecord.stage2,
+          processStage: editForm.processStage,
+          type: editForm.type,
+          testName: editForm.testName,
+          testCondition: editForm.testCondition,
+          requiredQty: editForm.requiredQty,
+          equipment: editForm.equipment,
+          submittedAt: editingRecord.stage2.submittedAt // Keep original submission time
+        }
+      };
+
+      // Update the record in stage2Records state
+      const updatedRecords = stage2Records.map(record =>
+        record.id === editingRecord.id ? updatedRecord : record
+      );
+
+      setStage2Records(updatedRecords);
+      localStorage.setItem("stage2Records", JSON.stringify(updatedRecords));
+
+      setIsEditModalOpen(false);
+      setEditingRecord(null);
+
+      toast({
+        title: "✅ Record Updated",
+        description: `Record ${editForm.documentNumber} has been updated successfully!`,
+        duration: 3000,
+      });
+
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: "There was an error updating the record. Please try again.",
+        duration: 3000,
+      });
+      console.error("Error updating record:", error);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditModalOpen(false);
+    setEditingRecord(null);
   };
 
   const handleDelete = (record: Stage2Record) => {
@@ -255,9 +354,9 @@ const Stage2Records: React.FC = () => {
                               className="h-8 w-8 p-0 text-blue-600"
                               title="Move to Testing"
                             >
-                              <FlaskConical  size={16} />
+                              <FlaskConical size={16} />
                             </Button>
-                            {/* <Button
+                            <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEdit(record)}
@@ -265,7 +364,7 @@ const Stage2Records: React.FC = () => {
                               title="Edit"
                             >
                               <Edit size={16} />
-                            </Button> */}
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -409,6 +508,156 @@ const Stage2Records: React.FC = () => {
           <DialogFooter>
             <Button onClick={() => setIsDetailModalOpen(false)}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
+          <DialogHeader>
+            <DialogTitle>Edit Stage 2 Record</DialogTitle>
+          </DialogHeader>
+
+          {editingRecord && (
+            <div className="space-y-6 py-4">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Document Number <span className="text-red-600">*</span></label>
+                  <input
+                    type="text"
+                    value={editForm.documentNumber}
+                    onChange={(e) => handleEditInputChange('documentNumber', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Document Title <span className="text-red-600">*</span></label>
+                  <input
+                    type="text"
+                    value={editForm.documentTitle}
+                    onChange={(e) => handleEditInputChange('documentTitle', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Project Name</label><span className="text-red-600">*</span>
+                  <input
+                    type="text"
+                    value={editForm.projectName}
+                    onChange={(e) => handleEditInputChange('projectName', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Color</label>
+                  <input
+                    type="text"
+                    value={editForm.color}
+                    onChange={(e) => handleEditInputChange('color', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Test Location</label>
+                  <input
+                    type="text"
+                    value={editForm.testLocation}
+                    onChange={(e) => handleEditInputChange('testLocation', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => handleEditInputChange('status', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  >
+                    <option value="Received">Received</option>
+                    <option value="In-progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                  </select>
+                </div>
+
+                {/* Stage 2 Configuration */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Process Stage <span className="text-red-600">*</span></label>
+                  <input
+                    type="text"
+                    value={editForm.processStage}
+                    onChange={(e) => handleEditInputChange('processStage', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Type <span className="text-red-600">*</span></label>
+                  <input
+                    type="text"
+                    value={editForm.type}
+                    onChange={(e) => handleEditInputChange('type', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Test Names <span className="text-red-600">*</span></label>
+                  <input
+                    type="text"
+                    value={editForm.testName}
+                    onChange={(e) => handleEditInputChange('testName', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Test Conditions <span className="text-red-600">*</span></label>
+                  <input
+                    type="text"
+                    value={editForm.testCondition}
+                    onChange={(e) => handleEditInputChange('testCondition', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Required Quantities <span className="text-red-600">*</span></label>
+                  <input
+                  type="text"
+                    value={editForm.requiredQty}
+                    onChange={(e) => handleEditInputChange('requiredQty', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Equipment <span className="text-red-600">*</span></label>
+                  <input
+                    type="text"
+                    value={editForm.equipment}
+                    onChange={(e) => handleEditInputChange('equipment', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelEdit}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>

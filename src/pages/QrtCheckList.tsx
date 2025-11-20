@@ -225,6 +225,16 @@ const LiveTestProgress: React.FC = () => {
   const handleStage2Submit = () => {
     if (!selectedRecord) return;
 
+    if (!stage2Form.testName || !stage2Form.requiredQty || !stage2Form.processStage || !stage2Form.type) {
+      toast({
+        variant: "destructive",
+        title: "Incomplete Form",
+        description: "Please fill in all required fields.",
+        duration: 2000,
+      });
+      return;
+    }
+
     try {
       const stage2Data = {
         ...selectedRecord,
@@ -538,7 +548,7 @@ const LiveTestProgress: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4 bg-white">
             {/* Process Stage Dropdown */}
             <div className="space-y-2">
-              <Label htmlFor="processStage">Process Stage *</Label>
+              <Label htmlFor="processStage">Process Stage <span className="text-red-600">*</span></Label>
               <Select
                 value={stage2Form.processStage}
                 onValueChange={(value) => handleStage2InputChange('processStage', value)}
@@ -558,7 +568,7 @@ const LiveTestProgress: React.FC = () => {
 
             {/* Type Dropdown */}
             <div className="space-y-2">
-              <Label htmlFor="type">Type *</Label>
+              <Label htmlFor="type">Type <span className="text-red-600">*</span></Label>
               <Select
                 value={stage2Form.type}
                 onValueChange={(value) => handleStage2InputChange('type', value)}
@@ -578,7 +588,7 @@ const LiveTestProgress: React.FC = () => {
 
             {/* Test Name Dropdown */}
             <div className="space-y-2">
-              <Label htmlFor="testName">Test Name *</Label>
+              <Label htmlFor="testName">Test Name <span className="text-red-600">*</span></Label>
               <Select
                 value={stage2Form.testName}
                 onValueChange={(value) => handleStage2InputChange('testName', value)}
@@ -599,7 +609,7 @@ const LiveTestProgress: React.FC = () => {
 
             {/* Test Condition - Read-only display */}
             <div className="space-y-2">
-              <Label htmlFor="testCondition">Test Condition</Label>
+              <Label htmlFor="testCondition">Test Condition <span className="text-red-600">*</span></Label>
               {/* <div className="min-h-[80px] p-3 border border-gray-300 rounded-md bg-gray-50 overflow-y-auto">
                 <div className="text-sm whitespace-pre-wrap">
                   {stage2Form.testCondition || "Select a test name to view condition"}
@@ -615,7 +625,7 @@ const LiveTestProgress: React.FC = () => {
 
             {/* Required Quantity - Input field */}
             <div className="space-y-2">
-              <Label htmlFor="requiredQty">Required Quantity *</Label>
+              <Label htmlFor="requiredQty">Required Quantity <span className="text-red-600">*</span></Label>
               <Input
                 id="requiredQty"
                 value={stage2Form.requiredQty}
@@ -626,7 +636,7 @@ const LiveTestProgress: React.FC = () => {
 
             {/* Equipment - Input field */}
             <div className="space-y-2">
-              <Label htmlFor="equipment">Equipment *</Label>
+              <Label htmlFor="equipment">Equipment </Label>
               <Input
                 id="equipment"
                 value={stage2Form.equipment}
