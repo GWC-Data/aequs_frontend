@@ -9,7 +9,7 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { Eye, Edit, Trash2, FlaskConical } from "lucide-react";
+import { Eye, Edit, Trash2, FlaskConical, FlaskRound } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -284,6 +284,10 @@ const Stage2Records: React.FC = () => {
     navigate("/author", { state: { record } });
   };
 
+  const handleViewDefault = (record: Stage2Record) => {
+    navigate("/form-default", { state: { record } });
+  };
+
   const parseMultipleValues = (value: string) => {
     return value.split(",").map(item => item.trim()).filter(item => item);
   };
@@ -417,6 +421,15 @@ const Stage2Records: React.FC = () => {
                               title="Move to Testing"
                             >
                               <FlaskConical size={16} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewDefault(record)}
+                              className="h-8 w-8 p-0 text-green-600"
+                              title="Move to default"
+                            >
+                              <FlaskRound size={16} />
                             </Button>
                             <Button
                               variant="ghost"
