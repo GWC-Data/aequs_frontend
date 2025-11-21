@@ -213,7 +213,7 @@ const TestForm: React.FC = () => {
 
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
-                Submission or Part Date <span className="text-red-600">*</span>
+                Submission Part Date <span className="text-red-600">*</span>
               </label>
               <Input
                 type="date"
