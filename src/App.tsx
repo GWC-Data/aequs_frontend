@@ -13,6 +13,8 @@ import Author from "./pages/Author";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Stage2Form from "./pages/Stage2Form";
+import DefaultForm from '@/components/DefaultForm'
+import Stage2Page from "./pages/Stage2Page";
 
 const queryClient = new QueryClient();
 
@@ -34,7 +36,9 @@ const App = () => (
                   <Route path="/qrtchecklist" element={<QrtCheckList />} />
                   <Route path="/author" element={<Author />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/stage2-form" element={<Stage2Page />} />
                   <Route path="/stage2" element={<Stage2Form />} />
+                  <Route path="/form-default" element={<DefaultForm />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>

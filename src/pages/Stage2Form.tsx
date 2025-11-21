@@ -9,7 +9,7 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { Eye, Edit, Trash2, FlaskConical } from "lucide-react";
+import { Eye, Edit, Trash2, FlaskConical, FlaskRound } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/use-toast";
-
+import { flaskData } from "@/data/flaskData";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 interface Stage2Record {
   documentNumber: string;
   documentTitle: string;
@@ -51,6 +60,18 @@ const Stage2Records: React.FC = () => {
   const [isDetailModalOpen, setIsDetailModalOpen] = React.useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
   const [recordToDelete, setRecordToDelete] = React.useState<Stage2Record | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+  const [filteredData, setFilteredData] = React.useState<typeof flaskData>([]);
+  const [editingRecord, setEditingRecord] = React.useState<Stage2Record | null>(null);
+  const [availableTestNames, setAvailableTestNames] = React.useState<string[]>([]);
+  const [editForm, setEditForm] = React.useState({
+    processStage: "",
+    type: "",
+    testName: "",
+    testCondition: "",
+    requiredQty: "",
+    equipment: ""
+  });
   const navigate = useNavigate();
 
   React.useEffect(() => {
@@ -79,19 +100,155 @@ const Stage2Records: React.FC = () => {
     setIsDetailModalOpen(true);
   };
 
+  // Update the handleEdit function to populate availableTestNames
   const handleEdit = (record: Stage2Record) => {
-    // Navigate to edit page or open edit modal
-    console.log("Edit record:", record);
-    toast({
-      title: "Edit Functionality",
-      description: "Edit feature will be implemented here",
-      duration: 3000,
+    setEditingRecord(record);
+    setEditForm({
+      processStage: record.stage2.processStage,
+      type: record.stage2.type,
+      testName: record.stage2.testName,
+      testCondition: record.stage2.testCondition,
+      requiredQty: record.stage2.requiredQty,
+      equipment: record.stage2.equipment
     });
+
+    // Populate available test names based on the record's processStage and type
+    const matchedData = flaskData.filter(
+      item => item.processStage === record.stage2.processStage && item.type === record.stage2.type
+    );
+    const testNames = Array.from(new Set(matchedData.map(item => item.testName)));
+    console.log(testNames);
+
+    setAvailableTestNames(testNames);
+
+    setIsEditModalOpen(true);
+  };
+
+
+  const handleSaveEdit = () => {
+    if (!editingRecord) return;
+
+    try {
+      const updatedRecord: Stage2Record = {
+        ...editingRecord,
+        stage2: {
+          processStage: editForm.processStage,
+          type: editForm.type,
+          testName: editForm.testName,
+          testCondition: editForm.testCondition,
+          requiredQty: editForm.requiredQty,
+          equipment: editForm.equipment,
+          submittedAt: editingRecord.stage2.submittedAt // Keep original submission time
+        }
+      };
+
+      // Update the record in stage2Records state
+      const updatedRecords = stage2Records.map(record =>
+        record.id === editingRecord.id ? updatedRecord : record
+      );
+
+      setStage2Records(updatedRecords);
+      localStorage.setItem("stage2Records", JSON.stringify(updatedRecords));
+
+      setIsEditModalOpen(false);
+      setEditingRecord(null);
+
+      // toast({
+      //   title: "✅ Record Updated",
+      //   description: `Record ${editForm.documentNumber} has been updated successfully!`,
+      //   duration: 3000,
+      // });
+
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: "There was an error updating the record. Please try again.",
+        duration: 3000,
+      });
+      console.error("Error updating record:", error);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditModalOpen(false);
+    setEditingRecord(null);
   };
 
   const handleDelete = (record: Stage2Record) => {
     setRecordToDelete(record);
     setIsDeleteModalOpen(true);
+  };
+
+  // Update the handleStage2InputChange function
+  const handleStage2InputChange = (field: keyof typeof editForm, value: string) => {
+    setEditForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+
+    // Filter data when both processStage and type are selected
+    if (field === "processStage" || field === "type") {
+      const { processStage, type } = field === "processStage"
+        ? { processStage: value, type: editForm.type }
+        : { processStage: editForm.processStage, type: value };
+
+      if (processStage && type) {
+        const matchedData = flaskData.filter(
+          item => item.processStage === processStage && item.type === type
+        );
+
+        setFilteredData(matchedData);
+
+        // Populate available test names for dropdown
+        const testNames = Array.from(new Set(matchedData.map(item => item.testName)));
+        setAvailableTestNames(testNames);
+
+        // Auto-populate other fields if only one match
+        if (matchedData.length === 1) {
+          setEditForm(prev => ({
+            ...prev,
+            testName: matchedData[0].testName,
+            equipment: matchedData[0].equipment
+          }));
+        } else {
+          // Clear fields if multiple matches or no matches
+          setEditForm(prev => ({
+            ...prev,
+            testName: "",
+            equipment: ""
+          }));
+        }
+      } else {
+        // Clear filtered data if either field is empty
+        setFilteredData([]);
+        setAvailableTestNames([]);
+        setEditForm(prev => ({
+          ...prev,
+          testName: "",
+          equipment: ""
+        }));
+      }
+    }
+
+    // Auto-populate equipment when testName is selected
+    if (field === "testName" && value) {
+      const { processStage, type } = editForm;
+      if (processStage && type) {
+        const matchedItem = flaskData.find(
+          item => item.processStage === processStage &&
+            item.type === type &&
+            item.testName === value
+        );
+
+        if (matchedItem) {
+          setEditForm(prev => ({
+            ...prev,
+            equipment: matchedItem.equipment
+          }));
+        }
+      }
+    }
   };
 
   const confirmDelete = () => {
@@ -127,9 +284,17 @@ const Stage2Records: React.FC = () => {
     navigate("/author", { state: { record } });
   };
 
+  const handleViewDefault = (record: Stage2Record) => {
+    navigate("/form-default", { state: { record } });
+  };
+
   const parseMultipleValues = (value: string) => {
     return value.split(",").map(item => item.trim()).filter(item => item);
   };
+
+  const processStages = Array.from(new Set(flaskData.map(item => item.processStage)));
+  const types = Array.from(new Set(flaskData.map(item => item.type)));
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -255,7 +420,16 @@ const Stage2Records: React.FC = () => {
                               className="h-8 w-8 p-0 text-blue-600"
                               title="Move to Testing"
                             >
-                              <FlaskConical  size={16} />
+                              <FlaskConical size={16} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewDefault(record)}
+                              className="h-8 w-8 p-0 text-green-600"
+                              title="Move to default"
+                            >
+                              <FlaskRound size={16} />
                             </Button>
                             <Button
                               variant="ghost"
@@ -409,6 +583,133 @@ const Stage2Records: React.FC = () => {
           <DialogFooter>
             <Button onClick={() => setIsDetailModalOpen(false)}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stage 2 Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
+          <DialogHeader>
+            <DialogTitle>Edit Stage 2 Records</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4 bg-white">
+            {/* Process Stage Dropdown */}
+            <div className="space-y-2">
+              <Label htmlFor="processStage">Process Stage <span className="text-red-600">*</span></Label>
+              <Select
+                value={editForm.processStage}
+                onValueChange={(value) => handleStage2InputChange('processStage', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Process Stage" />
+                </SelectTrigger>
+                <SelectContent>
+                  {processStages.map((stage) => (
+                    <SelectItem key={stage} value={stage}>
+                      {stage}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Type Dropdown */}
+            <div className="space-y-2">
+              <Label htmlFor="type">Type <span className="text-red-600">*</span></Label>
+              <Select
+                value={editForm.type}
+                onValueChange={(value) => handleStage2InputChange('type', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {types.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Test Name Dropdown */}
+            <div className="space-y-2">
+              <Label htmlFor="testName">Test Name <span className="text-red-600">*</span></Label>
+              <Select
+                value={editForm.testName}
+                onValueChange={(value) => handleStage2InputChange('testName', value)}              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Test Name" />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* Add the current value if it's not in availableTestNames */}
+                  {/* {!availableTestNames.includes(editForm.testName) && editForm.testName && (
+                    <SelectItem key={editForm.testName} value={editForm.testName}>
+                      {editForm.testName}
+                    </SelectItem>
+                  )} */}
+                  {availableTestNames.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Test Condition - Read-only display */}
+            <div className="space-y-2">
+              <Label htmlFor="testCondition">Test Condition <span className="text-red-600">*</span></Label>
+              {/* <div className="min-h-[80px] p-3 border border-gray-300 rounded-md bg-gray-50 overflow-y-auto">
+          <div className="text-sm whitespace-pre-wrap">
+            {stage2Form.testCondition || "Select a test name to view condition"}
+          </div>
+        </div> */}
+              <Input
+                id="testCondition"
+                value={editForm.testCondition}
+                onChange={(e) => handleStage2InputChange('testCondition', e.target.value)}
+                placeholder="Enter required testCondition"
+              />
+            </div>
+
+            {/* Required Quantity - Input field */}
+            <div className="space-y-2">
+              <Label htmlFor="requiredQty">Required Quantity <span className="text-red-600">*</span></Label>
+              <Input
+                id="requiredQty"
+                value={editForm.requiredQty}
+                onChange={(e) => handleStage2InputChange('requiredQty', e.target.value)}
+                placeholder="Enter required quantity"
+              />
+            </div>
+
+            {/* Equipment - Input field */}
+            <div className="space-y-2">
+              <Label htmlFor="equipment">Equipment </Label>
+              <Input
+                id="equipment"
+                value={editForm.equipment}
+                onChange={(e) => handleStage2InputChange('equipment', e.target.value)}
+                placeholder="Enter equipment details"
+                disabled={true}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              className="bg-[#e0413a] text-white hover:bg-[#e0413a] hover:text-black"
+            >
+              Submit
             </Button>
           </DialogFooter>
         </DialogContent>

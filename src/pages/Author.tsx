@@ -2,6 +2,13 @@ import React, { useState, useEffect } from "react";
 import { Upload, X, ChevronRight, ChevronLeft, CheckCircle, AlertCircle } from "lucide-react";
 import HeatSoakForm from "@/components/HeatSoakForm";
 import StandardTestForm from '@/components/StandardTestForm';
+import TaberAbrasionForm from "@/components/CS17Taber";
+import FootSurvivabilityForm from "@/components/FoodSurvivabilityForm";
+import HardnessTestForm from "@/components/HardnessTestForm";
+import SaltSprayTestForm from "@/components/SaltSprayTestForm";
+import SolarExposureForm from "@/components/SolarExposureForm";
+import SteelWoolForm from "@/components/SteelWoolForm";
+import STSForm from "@/components/STSForm";
 import { toast } from "@/components/ui/use-toast";
 
 // Reference image dimensions
@@ -113,20 +120,35 @@ interface FormRow {
   [key: string]: unknown;
 }
 
+// interface FormData {
+//   testName: string;
+//   ers: string;
+//   partNumber?: string;
+//   machineName?: string;
+//   testCondition: string;
+//   roomTemp?: string;
+//   date: string;
+//   passCriteria?: string;
+//   failureCriteria?: string[];
+//   testStage: string;
+//   project: string;
+//   sampleQty: string;
+//   rows: FormRow[];
+// }
+
 interface FormData {
+  // Common required fields
   testName: string;
   ers: string;
-  partNumber?: string;
-  machineName?: string;
   testCondition: string;
-  roomTemp?: string;
   date: string;
-  passCriteria?: string;
-  failureCriteria?: string[];
   testStage: string;
   project: string;
   sampleQty: string;
   rows: FormRow[];
+
+  // Allow any additional string properties
+  [key: string]: any;
 }
 
 interface FormsState {
@@ -146,8 +168,9 @@ interface Stage {
   name: string;
   icon: any;
   formKey?: string;
-  testType: 'heatSoak' | 'standard';
+  testType: 'heatSoak' | 'standard' | 'taberAbrasion' | 'footSurvivability' | 'hardness' | 'saltSpray' | 'solarExposure' | 'steelWool' | 'sts';
 }
+
 
 // Test configuration
 const TEST_CONFIG = {
@@ -172,7 +195,37 @@ declare global {
   interface Window {
     cv: any;
   }
-}
+};
+
+
+// Test name to component mapping
+const testNameToType = (testName: string): Stage['testType'] => {
+  const name = testName.toLowerCase();
+
+  if (name.includes('heat soak')) return 'heatSoak';
+  if (name.includes('taber') || name.includes('abrasion')) return 'taberAbrasion';
+  if (name.includes('foot') && name.includes('survivability')) return 'footSurvivability';
+  if (name.includes('hardness')) return 'hardness';
+  if (name.includes('salt') && name.includes('spray')) return 'saltSpray';
+  if (name.includes('solar') && name.includes('exposure')) return 'solarExposure';
+  if (name.includes('steel') && name.includes('wool')) return 'steelWool';
+  if (name.includes('sts') || (name.includes('short') && name.includes('term') && name.includes('survivability'))) return 'sts';
+
+  return 'standard'; // default fallback
+};
+
+// Component mapping
+const formComponents = {
+  heatSoak: HeatSoakForm,
+  standard: StandardTestForm,
+  taberAbrasion: TaberAbrasionForm,
+  footSurvivability: FootSurvivabilityForm,
+  hardness: HardnessTestForm,
+  saltSpray: SaltSprayTestForm,
+  solarExposure: SolarExposureForm,
+  steelWool: SteelWoolForm,
+  sts: STSForm
+};
 
 export default function MultiStageTestForm() {
   const [currentStage, setCurrentStage] = useState(0);
@@ -185,7 +238,7 @@ export default function MultiStageTestForm() {
   const [currentRecord, setCurrentRecord] = useState<Stage2Record | null>(null);
   const [dynamicStages, setDynamicStages] = useState<Stage[]>([]);
   const [selectedTestToResume, setSelectedTestToResume] = useState<string>("");
-  const [availableTestsToResume, setAvailableTestsToResume] = useState<{recordId: number, testName: string, formKey: string, completed: boolean}[]>([]);
+  const [availableTestsToResume, setAvailableTestsToResume] = useState<{ recordId: number, testName: string, formKey: string, completed: boolean }[]>([]);
 
   // Shared images across all forms
   const [sharedImages, setSharedImages] = useState({
@@ -200,37 +253,158 @@ export default function MultiStageTestForm() {
   const [forms, setForms] = useState<FormsState>({});
 
   // Load stage2Records from localStorage and initialize forms
+  // useEffect(() => {
+  //   const storedRecords = localStorage.getItem("stage2Records");
+  //   if (storedRecords) {
+  //     try {
+  //       const records: Stage2Record[] = JSON.parse(storedRecords);
+  //       setStage2Records(records);
+
+  //       // Prepare available tests for resume dropdown
+  //       const testsToResume: { recordId: number, testName: string, formKey: string, completed: boolean }[] = [];
+
+  //       records.forEach(record => {
+  //         if (record.forms) {
+  //           Object.keys(record.forms).forEach(formKey => {
+  //             const formData = record.forms[formKey];
+  //             const isCompleted = record.completedTests?.includes(formKey) || false;
+  //             testsToResume.push({
+  //               recordId: record.id,
+  //               testName: formData.testName,
+  //               formKey: formKey,
+  //               completed: isCompleted
+  //             });
+  //           });
+  //         }
+  //       });
+
+  //       setAvailableTestsToResume(testsToResume);
+
+  //       if (records.length > 0) {
+  //         const latestRecord = records[records.length - 1];
+  //         setCurrentRecord(latestRecord);
+
+  //         // Parse test names from stage2.testName
+  //         const testNames = latestRecord.stage2.testName
+  //           .split(',')
+  //           .map(name => name.trim())
+  //           .filter(name => name.length > 0);
+
+  //         // Create dynamic stages based on test names
+  //         const newStages: Stage[] = [];
+  //         const newForms: FormsState = {};
+  //         const testSelections: string[] = [];
+
+  //         testNames.forEach((testName, index) => {
+  //           const isHeatSoak = testName.toLowerCase().includes('heat soak');
+  //           const formType = isHeatSoak ? 'heatSoak' : 'standard';
+  //           const formKey = `test_${index}`;
+
+  //           testSelections.push(formKey);
+
+  //           // Create stage
+  //           newStages.push({
+  //             id: index + 1,
+  //             name: testName,
+  //             icon: CheckCircle,
+  //             formKey: formKey,
+  //             testType: formType
+  //           });
+
+  //           // Initialize form data
+  //           if (isHeatSoak) {
+  //             newForms[formKey] = {
+  //               testName: testName,
+  //               ers: latestRecord.stage2.processStage || "",
+  //               testCondition: latestRecord.stage2.testCondition || "",
+  //               date: "",
+  //               failureCriteria: [
+  //                 "Any sample with corrosion spot ≥250 μm",
+  //                 "≥2 corrosion spots of any size",
+  //                 "Discoloration grade of C or worse in test"
+  //               ],
+  //               testStage: latestRecord.stage2.processStage || "After Assy",
+  //               project: latestRecord.projectName || "Light Blue",
+  //               sampleQty: latestRecord.sampleQty || "32",
+  //               rows: [
+  //                 {
+  //                   id: 1, srNo: 1, sampleId: "", startDate: "", endDate: "",
+  //                   t0Cosmetic: null, t0NonCosmetic: null, t168Cosmetic: null,
+  //                   t168NonCosmetic: null, status: "Pass"
+  //                 }
+  //               ]
+  //             };
+  //           } else {
+  //             newForms[formKey] = {
+  //               testName: testName,
+  //               ers: latestRecord.stage2.processStage || "",
+  //               partNumber: "",
+  //               machineName: latestRecord.stage2.equipment?.split(',')[index]?.trim(),
+  //               testCondition: latestRecord.stage2.testCondition?.split(',')[index]?.trim(),
+  //               roomTemp: "RT",
+  //               date: "",
+  //               passCriteria: "Data Collection",
+  //               testStage: latestRecord.stage2.processStage || "After Assy",
+  //               project: latestRecord.projectName || "Light_Blue",
+  //               sampleQty: latestRecord.stage2.requiredQty?.split(',')[index]?.trim() || "32",
+  //               rows: [
+  //                 {
+  //                   id: 1, srNo: 1, testDate: "", sampleId: "",
+  //                   visual: "OK", prePhoto: null, postPhoto: null,
+  //                   partPicture: null, criteria: "Data collection",
+  //                   observation: "", forceDeflection: "",
+  //                   displacement: "", status: "Pass"
+  //                 }
+  //               ]
+  //             };
+  //           }
+  //         });
+
+  //         setSelectedTests(testSelections);
+  //         setDynamicStages(newStages);
+  //         setForms(newForms);
+  //       }
+  //     } catch (error) {
+  //       console.error("Error parsing stage2 records:", error);
+  //     }
+  //   }
+  // }, []);
+
+
   useEffect(() => {
     const storedRecords = localStorage.getItem("stage2Records");
     if (storedRecords) {
       try {
         const records: Stage2Record[] = JSON.parse(storedRecords);
         setStage2Records(records);
-        
+
         // Prepare available tests for resume dropdown
-        const testsToResume: {recordId: number, testName: string, formKey: string, completed: boolean}[] = [];
-        
+        const testsToResume: { recordId: number, testName: string, formKey: string, completed: boolean, testType: string }[] = [];
+
         records.forEach(record => {
           if (record.forms) {
             Object.keys(record.forms).forEach(formKey => {
               const formData = record.forms[formKey];
               const isCompleted = record.completedTests?.includes(formKey) || false;
+              const testType = testNameToType(formData.testName);
+
               testsToResume.push({
                 recordId: record.id,
                 testName: formData.testName,
                 formKey: formKey,
-                completed: isCompleted
+                completed: isCompleted,
+                testType: testType
               });
             });
           }
         });
-        
+
         setAvailableTestsToResume(testsToResume);
 
         if (records.length > 0) {
           const latestRecord = records[records.length - 1];
           setCurrentRecord(latestRecord);
-          
+
           // Parse test names from stage2.testName
           const testNames = latestRecord.stage2.testName
             .split(',')
@@ -243,10 +417,9 @@ export default function MultiStageTestForm() {
           const testSelections: string[] = [];
 
           testNames.forEach((testName, index) => {
-            const isHeatSoak = testName.toLowerCase().includes('heat soak');
-            const formType = isHeatSoak ? 'heatSoak' : 'standard';
+            const testType = testNameToType(testName);
             const formKey = `test_${index}`;
-            
+
             testSelections.push(formKey);
 
             // Create stage
@@ -255,55 +428,249 @@ export default function MultiStageTestForm() {
               name: testName,
               icon: CheckCircle,
               formKey: formKey,
-              testType: formType
+              testType: testType
             });
 
-            // Initialize form data
-            if (isHeatSoak) {
-              newForms[formKey] = {
-                testName: testName,
-                ers: latestRecord.stage2.processStage || "",
-                testCondition: latestRecord.stage2.testCondition || "",
-                date: "",
-                failureCriteria: [
-                  "Any sample with corrosion spot ≥250 μm",
-                  "≥2 corrosion spots of any size",
-                  "Discoloration grade of C or worse in test"
-                ],
-                testStage: latestRecord.stage2.processStage || "After Assy",
-                project: latestRecord.projectName || "Light Blue",
-                sampleQty: latestRecord.sampleQty || "32",
-                rows: [
-                  {
-                    id: 1, srNo: 1, sampleId: "", startDate: "", endDate: "",
-                    t0Cosmetic: null, t0NonCosmetic: null, t168Cosmetic: null,
-                    t168NonCosmetic: null, status: "Pass"
-                  }
-                ]
-              };
-            } else {
-              newForms[formKey] = {
-                testName: testName,
-                ers: latestRecord.stage2.processStage || "",
-                partNumber: "",
-                machineName: latestRecord.stage2.equipment?.split(',')[index]?.trim(),
-                testCondition: latestRecord.stage2.testCondition?.split(',')[index]?.trim(),
-                roomTemp: "RT",
-                date: "",
-                passCriteria: "Data Collection",
-                testStage: latestRecord.stage2.processStage || "After Assy",
-                project: latestRecord.projectName || "Light_Blue",
-                sampleQty: latestRecord.stage2.requiredQty?.split(',')[index]?.trim() || "32",
-                rows: [
-                  {
-                    id: 1, srNo: 1, testDate: "", sampleId: "", 
-                    visual: "OK", prePhoto: null, postPhoto: null, 
-                    partPicture: null, criteria: "Data collection",
-                    observation: "", forceDeflection: "", 
-                    displacement: "", status: "Pass"
-                  }
-                ]
-              };
+            // Initialize form data based on test type
+            switch (testType) {
+              case 'heatSoak':
+                newForms[formKey] = {
+                  testName: testName,
+                  ers: latestRecord.stage2.processStage || "",
+                  testCondition: latestRecord.stage2.testCondition || "",
+                  date: "",
+                  failureCriteria: [
+                    "Any sample with corrosion spot ≥250 μm",
+                    "≥2 corrosion spots of any size",
+                    "Discoloration grade of C or worse in test"
+                  ],
+                  testStage: latestRecord.stage2.processStage || "After Assy",
+                  project: latestRecord.projectName || "Light Blue",
+                  sampleQty: latestRecord.sampleQty || "32",
+                  rows: [
+                    {
+                      id: 1, srNo: 1, sampleId: "", startDate: "", endDate: "",
+                      t0Cosmetic: null, t0NonCosmetic: null, t168Cosmetic: null,
+                      t168NonCosmetic: null, status: "Pass"
+                    }
+                  ]
+                };
+                break;
+
+              case 'taberAbrasion':
+                newForms[formKey] = {
+                  testName: testName,
+                  ers: latestRecord.stage2.processStage || "",
+                  machineName: latestRecord.stage2.equipment?.split(',')[index]?.trim() || "",
+                  failureCriteria: "1-10 cycles > 4, 25-200 cycles > 5",
+                  testCondition: latestRecord.stage2.testCondition?.split(',')[index]?.trim() || "",
+                  testStage: latestRecord.stage2.processStage || "After Assy", // Add this line
+                  project: latestRecord.projectName || "Light Blue",
+                  date: "",
+                  testLocation: "",
+                  weight: "1000g",
+                  cycleSpeed: "25 cycles/min",
+                  strokeLength: "1 inch",
+                  wearaserType: "",
+                  sampleQty: latestRecord.stage2.requiredQty?.split(',')[index]?.trim() || "32",
+                  rows: [
+                    {
+                      id: 1, srNo: 1, testDate: "", config: "", sampleId: "",
+                      wearaserRefaced: "", cycleCount: "", visualGrade: "",
+                      postTestImage: null, status: ""
+                    }
+                  ]
+                };
+                break;
+              case 'footSurvivability':
+                newForms[formKey] = {
+                  testName: testName,
+                  ers: latestRecord.stage2.processStage || "",
+                  failureCriteria: "",
+                  testStage: latestRecord.stage2.processStage || "After Assy",
+                  testCondition: latestRecord.stage2.testCondition?.split(',')[index]?.trim() || "",
+                  project: latestRecord.projectName || "Light Blue",
+                  sampleQty: latestRecord.stage2.requiredQty?.split(',')[index]?.trim() || "32",
+                  date: "",
+                  rows: [
+                    {
+                      id: 1, srNo: 1, testDate: "", sampleId: "", visual: "",
+                      t0Picture: "", afterHeatSoakCosmetic: "", afterHeatSoakNonCosmetic: "",
+                      afterFootSurvivabilityCosmetic: "", afterFootSurvivabilityNonCosmetic: "",
+                      cosmeticInspectionPreTest: "", cosmeticInspectionPostTest: "", status: ""
+                    }
+                  ]
+                };
+                break;
+
+              case 'hardness':
+                newForms[formKey] = {
+                  testName: testName,
+                  ers: latestRecord.stage2.processStage || "",
+                  failureCriteria: "",
+                  testStage: latestRecord.stage2.processStage || "After Assy",
+                  testCondition: latestRecord.stage2.testCondition?.split(',')[index]?.trim() || "",
+                  project: latestRecord.projectName || "Light Blue",
+                  date: "",
+                  sampleQty: latestRecord.stage2.requiredQty?.split(',')[index]?.trim() || "32",
+                  rows: [
+                    {
+                      id: 1, srNo: 1, sampleId: "", testDate: "", scale: "",
+                      hardness: "", status: ""
+                    }
+                  ]
+                };
+                break;
+
+              case 'saltSpray':
+                newForms[formKey] = {
+                  testDescription: testName,
+                  testLocation: "",
+                  projectName: latestRecord.projectName || "Light Blue",
+                  color: "",
+                  sampleSize: latestRecord.stage2.requiredQty?.split(',')[index]?.trim() || "32",
+                  testStartDate: "",
+                  testCompletionDate: "",
+                  sampleConfig: "",
+                  reportFileName: "",
+                  lastCalibration: "",
+                  nextCalibration: "",
+                  chamberCleanliness: "",
+                  lastChamberCleaning: "",
+                  fixtureDescription: "",
+                  chamberSalinity: "",
+                  chamberPH: "",
+                  chamberTemperature: "",
+                  chamberID: "",
+                  labTemperature: "",
+                  labHumidity: "",
+                  consumablesAvailable: "",
+                  samplesLabeled: "",
+                  procedureReviewed: "",
+                  testStage: latestRecord.stage2.processStage || "After Assy", // Add this
+                  rows: [
+                    {
+                      id: 1, srNo: 1, build: "", doeConfig: "", configNotes: "",
+                      alloy: "", vendor: "", formFactor: "", sampleNumber: "",
+                      testStartDate: "", testStartTime: "", completionDate: "",
+                      completionTime: "", saltSprayTime: "", t0Inspection: "",
+                      pittingCorrosionCount: "", pittingDiameter: "", seCorrosionCount: "",
+                      seCorrosion: "", otherCorrosion: "", discolorationGrading: "",
+                      inspectionNotes: "", status: "", enclosurePhotoT0: null,
+                      enclosurePhotoT24: null, cosmeticPhotoT0: null, cosmeticPhotoT24: null,
+                      preTestInspection: "", postTestInspection: "", photoStatus: ""
+                    }
+                  ]
+                };
+                break;
+              case 'solarExposure':
+                newForms[formKey] = {
+                  testDescription: testName,
+                  testLocation: "",
+                  projectName: latestRecord.projectName || "Light Blue",
+                  color: "",
+                  sampleSize: latestRecord.stage2.requiredQty?.split(',')[index]?.trim() || "32",
+                  testStartDate: "",
+                  testCompletionDate: "",
+                  sampleConfigOverview: "",
+                  reportFileName: "",
+                  solarExposureChamber: "",
+                  chamberTypeModel: "",
+                  lastCalibrationDate: "",
+                  nextCalibrationDate: "",
+                  lampAge: "",
+                  innerFilterAge: "",
+                  outerFilterAge: "",
+                  filterCombination: "",
+                  irradianceProfile: "",
+                  blackPanelTemp: "",
+                  chamberTemp: "",
+                  chamberHumidity: "",
+                  waterSpray: "",
+                  sourceToSampleDistance: "",
+                  samplesLabeled: "",
+                  procedureAvailable: "",
+                  samplesInspected: "",
+                  t0ColorMeasured: "",
+                  rows: [
+                    {
+                      id: 1, srNo: 1, lineNo: 1, partVendor: "", measurementDate: "", week: "",
+                      colorMaterialConfig: "", uniqueSampleId: "", measurementRegion: "",
+                      testLocation: "", labTempT0: "", labRhT0: "", stdLF2: "",
+                      stdAF2: "", stdBF2: "", testCheckpoint: "", labTempCP: "",
+                      labRhCP: "", stdLF2CP: "", stdAF2CP: "", stdBF2CP: "",
+                      cF2: "", hF2: "", dL: "", dA: "", dB: "", de94: "",
+                      dC: "", dH: "", cStd: "", hStd: ""
+                    }
+                  ]
+                };
+                break;
+
+              case 'steelWool':
+                newForms[formKey] = {
+                  testName: testName,
+                  ers: latestRecord.stage2.processStage || "",
+                  failureCriteria: "",
+                  testCondition: latestRecord.stage2.testCondition?.split(',')[index]?.trim() || "",
+                  machineName: latestRecord.stage2.equipment?.split(',')[index]?.trim() || "",
+                  project: latestRecord.projectName || "Light Blue",
+                  loadCheckpoint: "75, 125, 250, 500, 1000 grams",
+                  rows: [
+                    {
+                      id: 1, srNo: 1, date: "", config: "", sampleId: "",
+                      cycleCount: "", visualGrade: "", postTestImage: "", status: ""
+                    }
+                  ]
+                };
+                break;
+
+              case 'sts':
+                newForms[formKey] = {
+                  testName: testName,
+                  ers: latestRecord.stage2.processStage || "",
+                  testCondition: latestRecord.stage2.testCondition?.split(',')[index]?.trim() || "",
+                  checkpoints: "",
+                  date: "",
+                  failureCriteria: "- Any sample with corrosion spot ≥250 μm\n- #>2 corrosion spots of any size\n- Discoloration grade of C or worse in test",
+                  testStage: latestRecord.stage2.processStage || "After Assy",
+                  project: latestRecord.projectName || "Light Blue",
+                  sampleQty: latestRecord.stage2.requiredQty?.split(',')[index]?.trim() || "32",
+                  testLocation: "",
+                  color: "",
+                  sampleConfig: "",
+                  rows: [
+                    {
+                      id: 1, srNo: 1, sampleId: "", testDate: "", beforeTestCosmetic: null,
+                      beforeTestNonCosmetic: null, afterTestCosmetic: null, afterTestNonCosmetic: null,
+                      preTestInspection: "", postTestInspection: "", status: ""
+                    }
+                  ]
+                };
+                break;
+
+              default: // standard
+                newForms[formKey] = {
+                  testName: testName,
+                  ers: latestRecord.stage2.processStage || "",
+                  partNumber: "",
+                  machineName: latestRecord.stage2.equipment?.split(',')[index]?.trim(),
+                  testCondition: latestRecord.stage2.testCondition?.split(',')[index]?.trim(),
+                  roomTemp: "RT",
+                  date: "",
+                  passCriteria: "Data Collection",
+                  testStage: latestRecord.stage2.processStage || "After Assy",
+                  project: latestRecord.projectName || "Light_Blue",
+                  sampleQty: latestRecord.stage2.requiredQty?.split(',')[index]?.trim() || "32",
+                  rows: [
+                    {
+                      id: 1, srNo: 1, testDate: "", sampleId: "",
+                      visual: "OK", prePhoto: null, postPhoto: null,
+                      partPicture: null, criteria: "Data collection",
+                      observation: "", forceDeflection: "",
+                      displacement: "", status: "Pass"
+                    }
+                  ]
+                };
             }
           });
 
@@ -320,20 +687,20 @@ export default function MultiStageTestForm() {
   // Handle test resume selection
   const handleTestResume = (testInfo: string) => {
     setSelectedTestToResume(testInfo);
-    
+
     if (!testInfo) return;
-    
+
     const [recordId, formKey] = testInfo.split('|');
     const record = stage2Records.find(r => r.id === parseInt(recordId));
-    
+
     if (record && record.forms && record.forms[formKey]) {
       // Find the stage index for this form
       const stageIndex = dynamicStages.findIndex(stage => stage.formKey === formKey);
-      
+
       if (stageIndex !== -1) {
         // Set current stage to the selected test
         setCurrentStage(stageIndex + 1); // +1 because stage 0 is image upload
-        
+
         toast({
           title: "Test Resumed",
           description: `Continuing from ${record.forms[formKey].testName}`,
@@ -605,9 +972,9 @@ export default function MultiStageTestForm() {
       }
 
       const { form, id } = region.category;
-      
+
       // Find which form key contains this test type
-      const targetFormKey = Object.keys(updatedForms).find(key => 
+      const targetFormKey = Object.keys(updatedForms).find(key =>
         updatedForms[key].testName.toLowerCase().includes(form.toLowerCase())
       );
 
@@ -730,11 +1097,11 @@ export default function MultiStageTestForm() {
 
       if (records.length > 0 && currentRecord) {
         const currentRecordIndex = records.findIndex((r: Stage2Record) => r.id === currentRecord.id);
-        
+
         if (currentRecordIndex !== -1) {
           // Mark all tests as completed
           const completedTests = Object.keys(forms);
-          
+
           const updatedRecord = {
             ...currentRecord,
             forms: forms,
@@ -826,12 +1193,12 @@ export default function MultiStageTestForm() {
                       ...prev,
                       [formKey]: record.forms[formKey]
                     }));
-                    
+
                     // Load shared images if available
                     if (record.sharedImages) {
                       setSharedImages(record.sharedImages);
                     }
-                    
+
                     toast({
                       title: "Test Loaded",
                       description: `Resuming ${record.forms[formKey].testName}`,
@@ -876,26 +1243,53 @@ export default function MultiStageTestForm() {
         </div>
       )}
 
-      {/* Selected Tests Display */}
       {dynamicStages.length > 0 && (
         <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
           <h3 className="font-semibold text-green-800 mb-2">Tests to Complete:</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-            {dynamicStages.map((stage, index) => (
-              <div key={stage.id} className="flex items-center p-2 bg-white rounded border">
-                <div className={`w-3 h-3 rounded-full mr-2 ${
-                  stage.testType === 'heatSoak' ? 'bg-orange-500' : 'bg-blue-500'
-                }`}></div>
-                <span className="text-sm font-medium text-gray-700">
-                  {stage.name} 
-                  <span className={`text-xs ml-2 ${
-                    stage.testType === 'heatSoak' ? 'text-orange-600' : 'text-blue-600'
-                  }`}>
-                    ({stage.testType === 'heatSoak' ? 'Heat Soak' : 'Standard'})
+            {dynamicStages.map((stage, index) => {
+              const getTestTypeColor = (testType: Stage['testType']) => {
+                const colors = {
+                  heatSoak: 'bg-orange-500',
+                  standard: 'bg-blue-500',
+                  taberAbrasion: 'bg-purple-500',
+                  footSurvivability: 'bg-indigo-500',
+                  hardness: 'bg-pink-500',
+                  saltSpray: 'bg-red-500',
+                  solarExposure: 'bg-yellow-500',
+                  steelWool: 'bg-gray-500',
+                  sts: 'bg-teal-500'
+                };
+                return colors[testType] || 'bg-blue-500';
+              };
+
+              const getTestTypeText = (testType: Stage['testType']) => {
+                const names = {
+                  heatSoak: 'Heat Soak',
+                  standard: 'Standard',
+                  taberAbrasion: 'Taber Abrasion',
+                  footSurvivability: 'Foot Survivability',
+                  hardness: 'Hardness',
+                  saltSpray: 'Salt Spray',
+                  solarExposure: 'Solar Exposure',
+                  steelWool: 'Steel Wool',
+                  sts: 'STS'
+                };
+                return names[testType] || 'Standard';
+              };
+
+              return (
+                <div key={stage.id} className="flex items-center p-2 bg-white rounded border">
+                  <div className={`w-3 h-3 rounded-full mr-2 ${getTestTypeColor(stage.testType)}`}></div>
+                  <span className="text-sm font-medium text-gray-700">
+                    {stage.name}
+                    <span className={`text-xs ml-2 ${getTestTypeColor(stage.testType).replace('bg-', 'text-')}`}>
+                      ({getTestTypeText(stage.testType)})
+                    </span>
                   </span>
-                </span>
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1033,34 +1427,36 @@ export default function MultiStageTestForm() {
       </div>
 
       {/* Cropped Regions Preview */}
-      {croppedRegions.length > 0 && (
-        <div className="bg-gray-50 rounded-lg border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
-            <CheckCircle className="text-green-600 mr-2" size={20} />
-            Detected Regions ({croppedRegions.length})
-            <span className="text-sm font-normal text-gray-600 ml-2">
-              {hasYellowMarks ? '(Auto-detected from yellow marks)' : '(Using reference image coordinates)'}
-            </span>
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {croppedRegions.map((region) => (
-              <div key={region.id} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow">
-                <img
-                  src={region.data}
-                  alt={region.label}
-                  className="w-full h-20 object-contain border rounded bg-gray-50 mb-2"
-                />
-                <div className="text-xs text-center">
-                  <div className="font-semibold text-gray-700">{region.label}</div>
-                  <div className="text-gray-500 mt-1">
-                    {region.category ? `→ ${region.category.form}` : "Unknown"}
+      {
+        croppedRegions.length > 0 && (
+          <div className="bg-gray-50 rounded-lg border border-gray-200 p-6">
+            <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
+              <CheckCircle className="text-green-600 mr-2" size={20} />
+              Detected Regions ({croppedRegions.length})
+              <span className="text-sm font-normal text-gray-600 ml-2">
+                {hasYellowMarks ? '(Auto-detected from yellow marks)' : '(Using reference image coordinates)'}
+              </span>
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {croppedRegions.map((region) => (
+                <div key={region.id} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow">
+                  <img
+                    src={region.data}
+                    alt={region.label}
+                    className="w-full h-20 object-contain border rounded bg-gray-50 mb-2"
+                  />
+                  <div className="text-xs text-center">
+                    <div className="font-semibold text-gray-700">{region.label}</div>
+                    <div className="text-gray-500 mt-1">
+                      {region.category ? `→ ${region.category.form}` : "Unknown"}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       <div className="flex justify-end mt-8">
         <button
@@ -1075,6 +1471,38 @@ export default function MultiStageTestForm() {
     </div>
   );
 
+  // const renderCurrentForm = () => {
+  //   if (!currentStageData?.formKey) return null;
+
+  //   const formKey = currentStageData.formKey;
+  //   const formData = forms[formKey];
+  //   const testType = currentStageData.testType;
+
+  //   if (!formData) return null;
+
+  //   if (testType === 'heatSoak') {
+  //     return (
+  //       <HeatSoakForm
+  //         formData={formData}
+  //         updateFormField={(field, value) => updateFormField(formKey, field, value)}
+  //         updateRowField={(rowId, field, value) => updateRowField(formKey, rowId, field, value)}
+  //         addRow={() => addRow(formKey)}
+  //       />
+  //     );
+  //   } else {
+  //     return (
+  //       <StandardTestForm
+  //         formData={formData}
+  //         updateFormField={(field, value) => updateFormField(formKey, field, value)}
+  //         updateRowField={(rowId, field, value) => updateRowField(formKey, rowId, field, value)}
+  //         addRow={() => addRow(formKey)}
+  //       />
+  //     );
+  //   }
+  // };
+
+
+  // Updated render function
   const renderCurrentForm = () => {
     if (!currentStageData?.formKey) return null;
 
@@ -1084,25 +1512,27 @@ export default function MultiStageTestForm() {
 
     if (!formData) return null;
 
-    if (testType === 'heatSoak') {
+    const FormComponent = formComponents[testType];
+
+    if (!FormComponent) {
+      console.warn(`No form component found for test type: ${testType}`);
       return (
-        <HeatSoakForm
-          formData={formData}
-          updateFormField={(field, value) => updateFormField(formKey, field, value)}
-          updateRowField={(rowId, field, value) => updateRowField(formKey, rowId, field, value)}
-          addRow={() => addRow(formKey)}
-        />
-      );
-    } else {
-      return (
-        <StandardTestForm
-          formData={formData}
-          updateFormField={(field, value) => updateFormField(formKey, field, value)}
-          updateRowField={(rowId, field, value) => updateRowField(formKey, rowId, field, value)}
-          addRow={() => addRow(formKey)}
-        />
+        <div className="p-8 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h3 className="text-lg font-semibold text-yellow-800">Form Not Available</h3>
+          <p className="text-yellow-700">No form component found for test type: {testType}</p>
+          <p className="text-yellow-600 text-sm mt-2">Test: {formData.testName || formData.testDescription}</p>
+        </div>
       );
     }
+
+    return (
+      <FormComponent
+        formData={formData}
+        updateFormField={(field, value) => updateFormField(formKey, field, value)}
+        updateRowField={(rowId, field, value) => updateRowField(formKey, rowId, field, value)}
+        addRow={() => addRow(formKey)}
+      />
+    );
   };
 
   const isLastStage = currentStage === filteredStages.length - 1;
@@ -1155,34 +1585,31 @@ export default function MultiStageTestForm() {
                     className="flex items-center cursor-pointer flex-shrink-0"
                     onClick={() => setCurrentStage(index)}
                   >
-                    <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors ${
-                      currentStage === index
-                        ? "bg-blue-600 text-white"
-                        : currentStage > index
-                          ? "bg-green-500 text-white"
-                          : "bg-gray-200 text-gray-600"
-                    }`}>
+                    <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors ${currentStage === index
+                      ? "bg-blue-600 text-white"
+                      : currentStage > index
+                        ? "bg-green-500 text-white"
+                        : "bg-gray-200 text-gray-600"
+                      }`}>
                       {currentStage > index ? (
                         <CheckCircle size={18} />
                       ) : (
                         <span className="text-sm font-semibold">{index + 1}</span>
                       )}
                     </div>
-                    <span className={`ml-2 text-xs font-medium whitespace-nowrap ${
-                      currentStage === index ? "text-blue-600" : "text-gray-600"
-                    }`}>
+                    <span className={`ml-2 text-xs font-medium whitespace-nowrap ${currentStage === index ? "text-blue-600" : "text-gray-600"
+                      }`}>
                       {stage.name.length > 20 ? `${stage.name.substring(0, 20)}...` : stage.name}
                     </span>
                   </div>
                   {index < filteredStages.length - 1 && (
-                    <div className={`h-1 w-12 mx-3 transition-colors flex-shrink-0 ${
-                      currentStage > index ? "bg-green-500" : "bg-gray-200"
-                    }`} />
+                    <div className={`h-1 w-12 mx-3 transition-colors flex-shrink-0 ${currentStage > index ? "bg-green-500" : "bg-gray-200"
+                      }`} />
                   )}
                 </React.Fragment>
               ))}
             </div>
-          </div> 
+          </div>
         </div>
       </div>
 
@@ -1227,3 +1654,4 @@ export default function MultiStageTestForm() {
     </div>
   );
 }
+
