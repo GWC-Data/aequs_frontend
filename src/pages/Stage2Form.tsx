@@ -348,7 +348,7 @@ const Stage2Records: React.FC = () => {
       [field]: value
     }));
 
-    // Your existing logic for processStage and type filtering...
+    // Filter data when both processStage and type are selected
     if (field === "processStage" || field === "type") {
       const { processStage, type } = field === "processStage"
         ? { processStage: value as string, type: editForm.type }
@@ -370,6 +370,7 @@ const Stage2Records: React.FC = () => {
           setEditForm(prev => ({
             ...prev,
             testName: matchedData[0].testName,
+            testCondition: matchedData[0].testCondition || "", // Auto-populate test condition
             equipment: matchedData[0].equipment
           }));
         } else {
@@ -377,6 +378,7 @@ const Stage2Records: React.FC = () => {
           setEditForm(prev => ({
             ...prev,
             testName: "",
+            testCondition: "",
             equipment: ""
           }));
         }
@@ -387,12 +389,13 @@ const Stage2Records: React.FC = () => {
         setEditForm(prev => ({
           ...prev,
           testName: "",
+          testCondition: "",
           equipment: ""
         }));
       }
     }
 
-    // Auto-populate equipment when testName is selected
+    // Auto-populate equipment and test condition when testName is selected
     if (field === "testName" && value) {
       const { processStage, type } = editForm;
       if (processStage && type) {
@@ -405,6 +408,7 @@ const Stage2Records: React.FC = () => {
         if (matchedItem) {
           setEditForm(prev => ({
             ...prev,
+            testCondition: matchedItem.testCondition || "", // Auto-populate test condition
             equipment: matchedItem.equipment
           }));
         }
@@ -574,7 +578,7 @@ const Stage2Records: React.FC = () => {
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2">
-                            <Button
+                            {/* <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleViewAuthor(record)}
@@ -582,7 +586,7 @@ const Stage2Records: React.FC = () => {
                               title="Move to Testing"
                             >
                               <FlaskConical size={16} />
-                            </Button>
+                            </Button> */}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -820,12 +824,12 @@ const Stage2Records: React.FC = () => {
 
             {/* Test Condition */}
             <div className="space-y-2">
-              <Label htmlFor="testCondition">Test Condition <span className="text-red-600">*</span></Label>
+              <Label htmlFor="testCondition">Test Condition </Label>
               <Input
                 id="testCondition"
                 value={editForm.testCondition}
                 onChange={(e) => handleStage2InputChange('testCondition', e.target.value)}
-                placeholder="Enter test condition"
+                disabled
               />
             </div>
 
@@ -847,7 +851,6 @@ const Stage2Records: React.FC = () => {
                 id="equipment"
                 value={editForm.equipment}
                 onChange={(e) => handleStage2InputChange('equipment', e.target.value)}
-                placeholder="Enter equipment details"
                 disabled
               />
             </div>

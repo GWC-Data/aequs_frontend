@@ -22,7 +22,7 @@ const navigationItems = [
   { title: "ORT Check List", url: "/qrtchecklist", icon: Check },
   { title: "Stage 2 Form", url: "/stage2-form", icon: PenTool },
   { title: "Stage 2", url: "/stage2", icon: Flag },
-  { title: "Testing Dynamic", url: "/author", icon: FlaskConical },
+ // { title: "Testing Dynamic", url: "/author", icon: FlaskConical },
   { title: "Testing", url: "/form-default", icon: Settings },
   { title: "ORT Dashboard", url: "/settings", icon: Gauge },
 ];
