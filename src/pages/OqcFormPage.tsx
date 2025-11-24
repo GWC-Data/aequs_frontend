@@ -11,7 +11,7 @@ interface TestData {
   projectName: string;
   color: string;
   testLocation: string;
-  testStartDate: string;
+  submissionDate: string;
   sampleConfig: string;
   status: string;
 }
@@ -32,7 +32,7 @@ const TestForm: React.FC = () => {
     projectName: "",
     color: "",
     testLocation: "",
-    testStartDate: "",
+    submissionDate: "",
     sampleConfig: "",
     status: "In-Progress",
   });
@@ -100,7 +100,7 @@ const TestForm: React.FC = () => {
         projectName: "",
         color: "",
         testLocation: "",
-        testStartDate: "",
+        submissionDate: "",
         sampleConfig: "",
         status: "",
       });
@@ -217,8 +217,8 @@ const TestForm: React.FC = () => {
               </label>
               <Input
                 type="date"
-                name="testStartDate"
-                value={formData.testStartDate}
+                name="submissionDate"
+                value={formData.submissionDate}
                 onChange={handleInputChange}
                 className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
                 required

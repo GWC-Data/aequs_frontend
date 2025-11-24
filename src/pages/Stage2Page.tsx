@@ -77,17 +77,17 @@
 //     // Parse barcode data - assuming format: SERIAL:partNumber1,partNumber2,partNumber3
 //     // Adjust this parsing logic based on your actual barcode format
 //     const parts = data.split(':');
-    
+
 //     if (parts.length >= 2) {
 //       const serial = parts[0].trim();
 //       const partNumbers = parts[1].split(',').map(p => p.trim()).filter(p => p);
-      
+
 //       setSerialNumber(serial);
 //       setScannedPartNumbers(prev => {
 //         const combined = [...prev, ...partNumbers];
 //         return Array.from(new Set(combined)); // Remove duplicates
 //       });
-      
+
 //       toast({
 //         title: "✅ Barcode Scanned",
 //         description: `Serial: ${serial}, Parts: ${partNumbers.join(', ')}`,
@@ -575,7 +575,7 @@
 //   const [scannedPartNumbers, setScannedPartNumbers] = useState<string[]>([]);
 //   const [selectedPartNumbers, setSelectedPartNumbers] = useState<string[]>([]);
 //   const [usedParts, setUsedParts] = useState<UsedParts>({});
-  
+
 //   // Real-time barcode scanner state
 //   const [barcodeBuffer, setBarcodeBuffer] = useState("");
 //   const [isScanning, setIsScanning] = useState(false);
@@ -596,19 +596,19 @@
 //         if (existingStage2Data) {
 //           const stage2Records = JSON.parse(existingStage2Data);
 //           const usedPartsMap: UsedParts = {};
-          
+
 //           stage2Records.forEach((record: any) => {
 //             if (record.stage2?.serialNumber && record.stage2?.partNumbers) {
 //               const serial = record.stage2.serialNumber;
 //               const parts = record.stage2.partNumbers;
-              
+
 //               if (!usedPartsMap[serial]) {
 //                 usedPartsMap[serial] = [];
 //               }
 //               usedPartsMap[serial] = [...new Set([...usedPartsMap[serial], ...parts])];
 //             }
 //           });
-          
+
 //           setUsedParts(usedPartsMap);
 //         }
 //       } catch (error) {
@@ -641,16 +641,16 @@
 //       // Detect Enter key (scanner typically sends Enter at the end)
 //       if (e.key === 'Enter') {
 //         e.preventDefault();
-        
+
 //         if (buffer.length >= MIN_BARCODE_LENGTH) {
 //           console.log("📦 Barcode scanned:", buffer);
 //           setIsScanning(true);
 //           processBarcodeData(buffer.trim());
-          
+
 //           // Show scanning indicator briefly
 //           setTimeout(() => setIsScanning(false), 500);
 //         }
-        
+
 //         buffer = "";
 //         lastKeyTime = currentTime;
 //         return;
@@ -668,7 +668,7 @@
 //         e.preventDefault();
 //         buffer += e.key;
 //         lastKeyTime = currentTime;
-        
+
 //         // Auto-focus the barcode input to show what's being scanned
 //         if (barcodeInputRef.current) {
 //           barcodeInputRef.current.value = buffer;
@@ -678,7 +678,7 @@
 
 //     // Add global keypress listener
 //     window.addEventListener('keypress', handleKeyPress);
-    
+
 //     // Cleanup
 //     return () => {
 //       window.removeEventListener('keypress', handleKeyPress);
@@ -717,7 +717,7 @@
 //       if (data.includes(':') && data.includes(',')) {
 //         const parts = data.split(':');
 //         serial = parts[0].trim();
-        
+
 //         if (parts.length > 1) {
 //           partNumbers = parts[1].split(',')
 //             .map(p => p.trim())
@@ -788,13 +788,13 @@
 
 //       // Set serial number
 //       setSerialNumber(serial);
-      
+
 //       if (partNumbers.length > 0) {
 //         // Get available (unused) parts for this serial
 //         const availableParts = getAvailablePartNumbers(partNumbers, serial);
-        
+
 //         setScannedPartNumbers(availableParts);
-        
+
 //         if (availableParts.length > 0) {
 //           // Auto-select all available parts
 //           setSelectedPartNumbers(availableParts);
@@ -861,11 +861,11 @@
 //     setSerialNumber("");
 //     setScannedPartNumbers([]);
 //     setSelectedPartNumbers([]);
-    
+
 //     if (barcodeInputRef.current) {
 //       barcodeInputRef.current.value = "";
 //     }
-    
+
 //     toast({
 //       title: "Data Cleared",
 //       description: "All scanned data has been cleared",
@@ -1552,19 +1552,19 @@ const Stage2Page: React.FC = () => {
         if (existingStage2Data) {
           const stage2Records = JSON.parse(existingStage2Data);
           const usedPartsMap: UsedParts = {};
-          
+
           stage2Records.forEach((record: any) => {
             if (record.stage2 && record.stage2.serialNumber && record.stage2.partNumbers) {
               const serial = record.stage2.serialNumber;
               const parts = record.stage2.partNumbers;
-              
+
               if (!usedPartsMap[serial]) {
                 usedPartsMap[serial] = [];
               }
               usedPartsMap[serial] = [...new Set([...usedPartsMap[serial], ...parts])];
             }
           });
-          
+
           setUsedParts(usedPartsMap);
         }
       } catch (error) {
@@ -1590,12 +1590,12 @@ const Stage2Page: React.FC = () => {
   const handleBarcodeInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      
+
       const barcodeData = barcodeInput.trim();
       if (barcodeData) {
         processBarcodeData(barcodeData);
         setBarcodeInput("");
-        
+
         // Auto-refocus for next scan
         setTimeout(() => {
           if (barcodeInputRef.current) {
@@ -1625,7 +1625,7 @@ const Stage2Page: React.FC = () => {
       let partNumbers: string[] = [];
 
       // Check if input is a static barcode from our test data
-      const staticBarcode = STATIC_BARCODE_DATA.find(barcode => 
+      const staticBarcode = STATIC_BARCODE_DATA.find(barcode =>
         barcode.split(':')[0] === data.toUpperCase()
       );
 
@@ -1643,7 +1643,7 @@ const Stage2Page: React.FC = () => {
       else if (data.includes(':') && data.includes(',')) {
         const parts = data.split(':');
         serial = parts[0].trim();
-        
+
         if (parts.length > 1) {
           partNumbers = parts[1].split(',')
             .map(p => p.trim())
@@ -1663,10 +1663,10 @@ const Stage2Page: React.FC = () => {
         try {
           const parsedData = JSON.parse(data);
           serial = parsedData.serial || parsedData.Serial || parsedData.SN || "";
-          partNumbers = Array.isArray(parsedData.parts) ? parsedData.parts 
+          partNumbers = Array.isArray(parsedData.parts) ? parsedData.parts
             : Array.isArray(parsedData.partNumbers) ? parsedData.partNumbers
-            : parsedData.part ? [parsedData.part]
-            : [];
+              : parsedData.part ? [parsedData.part]
+                : [];
         } catch (jsonError) {
           console.error("JSON parse error:", jsonError);
           serial = data.trim();
@@ -1690,13 +1690,13 @@ const Stage2Page: React.FC = () => {
 
       // Set serial number
       setSerialNumber(serial);
-      
+
       if (partNumbers.length > 0) {
         // Get available (unused) parts for this serial
         const availableParts = getAvailablePartNumbers(partNumbers, serial);
-        
+
         setScannedPartNumbers(availableParts);
-        
+
         if (availableParts.length > 0) {
           // Auto-select all available parts
           setSelectedPartNumbers(availableParts);
@@ -1762,12 +1762,12 @@ const Stage2Page: React.FC = () => {
     setScannedPartNumbers([]);
     setSelectedPartNumbers([]);
     setBarcodeInput("");
-    
+
     // Refocus on barcode input
     if (barcodeInputRef.current) {
       barcodeInputRef.current.focus();
     }
-    
+
     toast({
       title: "Data Cleared",
       description: "All scanned data has been cleared",
@@ -1802,16 +1802,69 @@ const Stage2Page: React.FC = () => {
   const processStages = Array.from(new Set(flaskData.map(item => item.processStage)));
   const types = Array.from(new Set(flaskData.map(item => item.type)));
 
+  // const handleStage2InputChange = (field: keyof typeof stage2Form, value: string) => {
+  //   setStage2Form(prev => ({
+  //     ...prev,
+  //     [field]: value
+  //   }));
+
+  //   if (field === "processStage" || field === "type") {
+  //     const { processStage, type } = field === "processStage"
+  //       ? { processStage: value, type: stage2Form.type }
+  //       : { processStage: stage2Form.processStage, type: value };
+
+  //     if (processStage && type) {
+  //       const matchedData = flaskData.filter(
+  //         item => item.processStage === processStage && item.type === type
+  //       );
+
+  //       setFilteredData(matchedData);
+  //       const testNames = Array.from(new Set(matchedData.map(item => item.testName)));
+  //       setAvailableTestNames(testNames);
+
+  //       setStage2Form(prev => ({
+  //         ...prev,
+  //         testName: "",
+  //         testCondition: "",
+  //         requiredQty: "",
+  //         equipment: ""
+  //       }));
+  //     } else {
+  //       setFilteredData([]);
+  //       setAvailableTestNames([]);
+  //       setStage2Form(prev => ({
+  //         ...prev,
+  //         testName: "",
+  //         testCondition: "",
+  //         requiredQty: "",
+  //         equipment: ""
+  //       }));
+  //     }
+  //   }
+
+  //   if (field === "testName" && value) {
+  //     const selectedTest = filteredData.find(item => item.testName === value);
+  //     if (selectedTest) {
+  //       setStage2Form(prev => ({
+  //         ...prev,
+  //         equipment: selectedTest.equipment
+  //       }));
+  //     }
+  //   }
+  // };
+
+
   const handleStage2InputChange = (field: keyof typeof stage2Form, value: string) => {
     setStage2Form(prev => ({
       ...prev,
       [field]: value
     }));
 
+    // Filter data when both processStage and type are selected
     if (field === "processStage" || field === "type") {
       const { processStage, type } = field === "processStage"
-        ? { processStage: value, type: stage2Form.type }
-        : { processStage: stage2Form.processStage, type: value };
+        ? { processStage: value as string, type: stage2Form.type }
+        : { processStage: stage2Form.processStage, type: value as string };
 
       if (processStage && type) {
         const matchedData = flaskData.filter(
@@ -1819,39 +1872,62 @@ const Stage2Page: React.FC = () => {
         );
 
         setFilteredData(matchedData);
+
+        // Populate available test names for dropdown
         const testNames = Array.from(new Set(matchedData.map(item => item.testName)));
         setAvailableTestNames(testNames);
 
-        setStage2Form(prev => ({
-          ...prev,
-          testName: "",
-          testCondition: "",
-          requiredQty: "",
-          equipment: ""
-        }));
+        // Auto-populate other fields if only one match
+        if (matchedData.length === 1) {
+          setStage2Form(prev => ({
+            ...prev,
+            testName: matchedData[0].testName,
+            testCondition: matchedData[0].testCondition || "", // Auto-populate test condition
+            equipment: matchedData[0].equipment
+          }));
+        } else {
+          // Clear fields if multiple matches or no matches
+          setStage2Form(prev => ({
+            ...prev,
+            testName: "",
+            testCondition: "",
+            equipment: ""
+          }));
+        }
       } else {
+        // Clear filtered data if either field is empty
         setFilteredData([]);
         setAvailableTestNames([]);
         setStage2Form(prev => ({
           ...prev,
           testName: "",
           testCondition: "",
-          requiredQty: "",
           equipment: ""
         }));
       }
     }
 
+    // Auto-populate equipment and test condition when testName is selected
     if (field === "testName" && value) {
-      const selectedTest = filteredData.find(item => item.testName === value);
-      if (selectedTest) {
-        setStage2Form(prev => ({
-          ...prev,
-          equipment: selectedTest.equipment
-        }));
+      const { processStage, type } = stage2Form;
+      if (processStage && type) {
+        const matchedItem = flaskData.find(
+          item => item.processStage === processStage &&
+            item.type === type &&
+            item.testName === value
+        );
+
+        if (matchedItem) {
+          setStage2Form(prev => ({
+            ...prev,
+            testCondition: matchedItem.testCondition || "", // Auto-populate test condition
+            equipment: matchedItem.equipment
+          }));
+        }
       }
     }
   };
+
 
   const handleStage2Submit = () => {
     if (!selectedRecord) return;
@@ -2143,17 +2219,17 @@ const Stage2Page: React.FC = () => {
                   <SelectValue placeholder={
                     !serialNumber
                       ? "Scan serial number first"
-                      : scannedPartNumbers.length === 0 
-                      ? "No available parts for this serial"
-                      : unselectedPartNumbers.length === 0
-                      ? "All available parts selected"
-                      : `Select from ${unselectedPartNumbers.length} available part(s)`
+                      : scannedPartNumbers.length === 0
+                        ? "No available parts for this serial"
+                        : unselectedPartNumbers.length === 0
+                          ? "All available parts selected"
+                          : `Select from ${unselectedPartNumbers.length} available part(s)`
                   } />
                 </SelectTrigger>
                 <SelectContent>
                   {unselectedPartNumbers.map((partNumber) => (
-                    <SelectItem 
-                      key={partNumber} 
+                    <SelectItem
+                      key={partNumber}
                       value={partNumber}
                     >
                       <div className="flex items-center gap-2">
@@ -2270,13 +2346,14 @@ const Stage2Page: React.FC = () => {
 
             <div className="space-y-2">
               <Label htmlFor="testCondition" className="text-base">
-                Test Condition <span className="text-red-600">*</span>
+                Test Condition
               </Label>
               <Input
                 id="testCondition"
                 value={stage2Form.testCondition}
                 onChange={(e) => handleStage2InputChange('testCondition', e.target.value)}
-                placeholder="Enter test condition"
+                placeholder="Test condition (auto-filled)"
+                disabled={true}
                 className="h-11"
               />
             </div>

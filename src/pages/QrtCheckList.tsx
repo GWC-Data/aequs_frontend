@@ -38,7 +38,7 @@ interface TestRecord {
   projectName: string;
   color: string;
   testLocation: string;
-  testStartDate: string;
+  submissionDate: string;
   testCompletionDate: string;
   sampleConfig: string;
   status: string;
@@ -227,7 +227,7 @@ const LiveTestProgress: React.FC = () => {
                         </TableCell>
                         <TableCell className="text-sm">{record.projectName}</TableCell>
                         <TableCell className="text-xs">
-                          <div>Start: {new Date(record.testStartDate).toLocaleDateString()}</div>
+                          <div>Start: {new Date(record.submissionDate).toLocaleDateString()}</div>
                           <div>End: {new Date(record.testCompletionDate).toLocaleDateString()}</div>
                         </TableCell>
                         <TableCell className="text-center">
@@ -325,15 +325,15 @@ const LiveTestProgress: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="testStartDate">Test Start Date</Label>
+                <Label htmlFor="submissionDate">Submission or Part Date</Label>
                 <Input
-                  id="testStartDate"
+                  id="submissionDate"
                   type="date"
-                  value={editingRecord.testStartDate}
-                  onChange={(e) => handleInputChange('testStartDate', e.target.value)}
+                  value={editingRecord.submissionDate}
+                  onChange={(e) => handleInputChange('submissionDate', e.target.value)}
                 />
               </div>
-
+{/* 
               <div className="space-y-2">
                 <Label htmlFor="testCompletionDate">Test Completion Date</Label>
                 <Input
@@ -342,7 +342,7 @@ const LiveTestProgress: React.FC = () => {
                   value={editingRecord.testCompletionDate}
                   onChange={(e) => handleInputChange('testCompletionDate', e.target.value)}
                 />
-              </div>
+              </div> */}
 
               <div className="space-y-2">
                 <Label htmlFor="sampleConfig">Sample Configuration</Label>

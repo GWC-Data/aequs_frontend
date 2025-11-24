@@ -30,6 +30,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+// interface Stage2Record {
+//   documentNumber: string;
+//   documentTitle: string;
+//   projectName: string;
+//   color: string;
+//   testLocation: string;
+//   testStartDate: string;
+//   testCompletionDate: string;
+//   sampleConfig: string;
+//   status: string;
+//   id: number;
+//   createdAt: string;
+//   stage2: {
+//     processStage: string;
+//     type: string;
+//     testName: string;
+//     testCondition: string;
+//     requiredQty: string;
+//     equipment: string;
+//     submittedAt: string;
+//   };
+// }
+
 interface Stage2Record {
   documentNumber: string;
   documentTitle: string;
@@ -49,6 +72,12 @@ interface Stage2Record {
     testCondition: string;
     requiredQty: string;
     equipment: string;
+    serialNumber?: string;
+    partNumbers?: string[];
+    scannedPartNumbers?: string[];
+    startTime?: string;
+    endTime?: string;
+    remark?: string;
     submittedAt: string;
   };
 }
@@ -70,7 +99,13 @@ const Stage2Records: React.FC = () => {
     testName: "",
     testCondition: "",
     requiredQty: "",
-    equipment: ""
+    equipment: "",
+    serialNumber: "",
+    partNumbers: [] as string[],
+    scannedPartNumbers: [] as string[],
+    startTime: "",
+    endTime: "",
+    remark: ""
   });
   const navigate = useNavigate();
 
@@ -109,7 +144,13 @@ const Stage2Records: React.FC = () => {
       testName: record.stage2.testName,
       testCondition: record.stage2.testCondition,
       requiredQty: record.stage2.requiredQty,
-      equipment: record.stage2.equipment
+      equipment: record.stage2.equipment,
+      serialNumber: record.stage2.serialNumber || "",
+      partNumbers: record.stage2.partNumbers || [],
+      scannedPartNumbers: record.stage2.scannedPartNumbers || [],
+      startTime: record.stage2.startTime || "",
+      endTime: record.stage2.endTime || "",
+      remark: record.stage2.remark || ""
     });
 
     // Populate available test names based on the record's processStage and type
@@ -117,13 +158,56 @@ const Stage2Records: React.FC = () => {
       item => item.processStage === record.stage2.processStage && item.type === record.stage2.type
     );
     const testNames = Array.from(new Set(matchedData.map(item => item.testName)));
-    console.log(testNames);
-
     setAvailableTestNames(testNames);
 
     setIsEditModalOpen(true);
   };
 
+
+  // const handleSaveEdit = () => {
+  //   if (!editingRecord) return;
+
+  //   try {
+  //     const updatedRecord: Stage2Record = {
+  //       ...editingRecord,
+  //       stage2: {
+  //         processStage: editForm.processStage,
+  //         type: editForm.type,
+  //         testName: editForm.testName,
+  //         testCondition: editForm.testCondition,
+  //         requiredQty: editForm.requiredQty,
+  //         equipment: editForm.equipment,
+  //         submittedAt: editingRecord.stage2.submittedAt // Keep original submission time
+  //       }
+  //     };
+
+  //     // Update the record in stage2Records state
+  //     const updatedRecords = stage2Records.map(record =>
+  //       record.id === editingRecord.id ? updatedRecord : record
+  //     );
+
+  //     setStage2Records(updatedRecords);
+  //     localStorage.setItem("stage2Records", JSON.stringify(updatedRecords));
+
+  //     setIsEditModalOpen(false);
+  //     setEditingRecord(null);
+
+  //     // toast({
+  //     //   title: "✅ Record Updated",
+  //     //   description: `Record ${editForm.documentNumber} has been updated successfully!`,
+  //     //   duration: 3000,
+  //     // });
+
+  //   } catch (error) {
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Update Failed",
+  //       description: "There was an error updating the record. Please try again.",
+  //       duration: 3000,
+  //     });
+  //     console.error("Error updating record:", error);
+  //   }
+  // };
 
   const handleSaveEdit = () => {
     if (!editingRecord) return;
@@ -132,12 +216,19 @@ const Stage2Records: React.FC = () => {
       const updatedRecord: Stage2Record = {
         ...editingRecord,
         stage2: {
+          ...editingRecord.stage2, // Keep all existing fields
           processStage: editForm.processStage,
           type: editForm.type,
           testName: editForm.testName,
           testCondition: editForm.testCondition,
           requiredQty: editForm.requiredQty,
           equipment: editForm.equipment,
+          serialNumber: editForm.serialNumber,
+          partNumbers: editForm.partNumbers,
+          scannedPartNumbers: editForm.scannedPartNumbers,
+          startTime: editForm.startTime,
+          endTime: editForm.endTime,
+          remark: editForm.remark,
           submittedAt: editingRecord.stage2.submittedAt // Keep original submission time
         }
       };
@@ -153,11 +244,11 @@ const Stage2Records: React.FC = () => {
       setIsEditModalOpen(false);
       setEditingRecord(null);
 
-      // toast({
-      //   title: "✅ Record Updated",
-      //   description: `Record ${editForm.documentNumber} has been updated successfully!`,
-      //   duration: 3000,
-      // });
+      toast({
+        title: "✅ Record Updated",
+        description: `Record ${editingRecord.documentNumber} has been updated successfully!`,
+        duration: 3000,
+      });
 
     } catch (error) {
       toast({
@@ -181,7 +272,77 @@ const Stage2Records: React.FC = () => {
   };
 
   // Update the handleStage2InputChange function
-  const handleStage2InputChange = (field: keyof typeof editForm, value: string) => {
+  // const handleStage2InputChange = (field: keyof typeof editForm, value: string) => {
+  //   setEditForm(prev => ({
+  //     ...prev,
+  //     [field]: value
+  //   }));
+
+  //   // Filter data when both processStage and type are selected
+  //   if (field === "processStage" || field === "type") {
+  //     const { processStage, type } = field === "processStage"
+  //       ? { processStage: value, type: editForm.type }
+  //       : { processStage: editForm.processStage, type: value };
+
+  //     if (processStage && type) {
+  //       const matchedData = flaskData.filter(
+  //         item => item.processStage === processStage && item.type === type
+  //       );
+
+  //       setFilteredData(matchedData);
+
+  //       // Populate available test names for dropdown
+  //       const testNames = Array.from(new Set(matchedData.map(item => item.testName)));
+  //       setAvailableTestNames(testNames);
+
+  //       // Auto-populate other fields if only one match
+  //       if (matchedData.length === 1) {
+  //         setEditForm(prev => ({
+  //           ...prev,
+  //           testName: matchedData[0].testName,
+  //           equipment: matchedData[0].equipment
+  //         }));
+  //       } else {
+  //         // Clear fields if multiple matches or no matches
+  //         setEditForm(prev => ({
+  //           ...prev,
+  //           testName: "",
+  //           equipment: ""
+  //         }));
+  //       }
+  //     } else {
+  //       // Clear filtered data if either field is empty
+  //       setFilteredData([]);
+  //       setAvailableTestNames([]);
+  //       setEditForm(prev => ({
+  //         ...prev,
+  //         testName: "",
+  //         equipment: ""
+  //       }));
+  //     }
+  //   }
+
+  //   // Auto-populate equipment when testName is selected
+  //   if (field === "testName" && value) {
+  //     const { processStage, type } = editForm;
+  //     if (processStage && type) {
+  //       const matchedItem = flaskData.find(
+  //         item => item.processStage === processStage &&
+  //           item.type === type &&
+  //           item.testName === value
+  //       );
+
+  //       if (matchedItem) {
+  //         setEditForm(prev => ({
+  //           ...prev,
+  //           equipment: matchedItem.equipment
+  //         }));
+  //       }
+  //     }
+  //   }
+  // };
+
+  const handleStage2InputChange = (field: keyof typeof editForm, value: string | string[]) => {
     setEditForm(prev => ({
       ...prev,
       [field]: value
@@ -190,8 +351,8 @@ const Stage2Records: React.FC = () => {
     // Filter data when both processStage and type are selected
     if (field === "processStage" || field === "type") {
       const { processStage, type } = field === "processStage"
-        ? { processStage: value, type: editForm.type }
-        : { processStage: editForm.processStage, type: value };
+        ? { processStage: value as string, type: editForm.type }
+        : { processStage: editForm.processStage, type: value as string };
 
       if (processStage && type) {
         const matchedData = flaskData.filter(
@@ -209,6 +370,7 @@ const Stage2Records: React.FC = () => {
           setEditForm(prev => ({
             ...prev,
             testName: matchedData[0].testName,
+            testCondition: matchedData[0].testCondition || "", // Auto-populate test condition
             equipment: matchedData[0].equipment
           }));
         } else {
@@ -216,6 +378,7 @@ const Stage2Records: React.FC = () => {
           setEditForm(prev => ({
             ...prev,
             testName: "",
+            testCondition: "",
             equipment: ""
           }));
         }
@@ -226,12 +389,13 @@ const Stage2Records: React.FC = () => {
         setEditForm(prev => ({
           ...prev,
           testName: "",
+          testCondition: "",
           equipment: ""
         }));
       }
     }
 
-    // Auto-populate equipment when testName is selected
+    // Auto-populate equipment and test condition when testName is selected
     if (field === "testName" && value) {
       const { processStage, type } = editForm;
       if (processStage && type) {
@@ -244,6 +408,7 @@ const Stage2Records: React.FC = () => {
         if (matchedItem) {
           setEditForm(prev => ({
             ...prev,
+            testCondition: matchedItem.testCondition || "", // Auto-populate test condition
             equipment: matchedItem.equipment
           }));
         }
@@ -413,7 +578,7 @@ const Stage2Records: React.FC = () => {
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2">
-                            <Button
+                            {/* <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleViewAuthor(record)}
@@ -421,7 +586,7 @@ const Stage2Records: React.FC = () => {
                               title="Move to Testing"
                             >
                               <FlaskConical size={16} />
-                            </Button>
+                            </Button> */}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -589,6 +754,7 @@ const Stage2Records: React.FC = () => {
       </Dialog>
 
       {/* Stage 2 Modal */}
+      {/* Stage 2 Modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
@@ -641,17 +807,12 @@ const Stage2Records: React.FC = () => {
               <Label htmlFor="testName">Test Name <span className="text-red-600">*</span></Label>
               <Select
                 value={editForm.testName}
-                onValueChange={(value) => handleStage2InputChange('testName', value)}              >
+                onValueChange={(value) => handleStage2InputChange('testName', value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select Test Name" />
                 </SelectTrigger>
                 <SelectContent>
-                  {/* Add the current value if it's not in availableTestNames */}
-                  {/* {!availableTestNames.includes(editForm.testName) && editForm.testName && (
-                    <SelectItem key={editForm.testName} value={editForm.testName}>
-                      {editForm.testName}
-                    </SelectItem>
-                  )} */}
                   {availableTestNames.map((name) => (
                     <SelectItem key={name} value={name}>
                       {name}
@@ -661,23 +822,18 @@ const Stage2Records: React.FC = () => {
               </Select>
             </div>
 
-            {/* Test Condition - Read-only display */}
+            {/* Test Condition */}
             <div className="space-y-2">
-              <Label htmlFor="testCondition">Test Condition <span className="text-red-600">*</span></Label>
-              {/* <div className="min-h-[80px] p-3 border border-gray-300 rounded-md bg-gray-50 overflow-y-auto">
-          <div className="text-sm whitespace-pre-wrap">
-            {stage2Form.testCondition || "Select a test name to view condition"}
-          </div>
-        </div> */}
+              <Label htmlFor="testCondition">Test Condition </Label>
               <Input
                 id="testCondition"
                 value={editForm.testCondition}
                 onChange={(e) => handleStage2InputChange('testCondition', e.target.value)}
-                placeholder="Enter required testCondition"
+                disabled
               />
             </div>
 
-            {/* Required Quantity - Input field */}
+            {/* Required Quantity */}
             <div className="space-y-2">
               <Label htmlFor="requiredQty">Required Quantity <span className="text-red-600">*</span></Label>
               <Input
@@ -688,28 +844,101 @@ const Stage2Records: React.FC = () => {
               />
             </div>
 
-            {/* Equipment - Input field */}
+            {/* Equipment */}
             <div className="space-y-2">
-              <Label htmlFor="equipment">Equipment </Label>
+              <Label htmlFor="equipment">Equipment</Label>
               <Input
                 id="equipment"
                 value={editForm.equipment}
                 onChange={(e) => handleStage2InputChange('equipment', e.target.value)}
-                placeholder="Enter equipment details"
-                disabled={true}
+                disabled
+              />
+            </div>
+
+            {/* Serial Number */}
+            <div className="space-y-2">
+              <Label htmlFor="serialNumber">Serial Number <span className="text-red-600">*</span></Label>
+              <Input
+                id="serialNumber"
+                value={editForm.serialNumber}
+                onChange={(e) => handleStage2InputChange('serialNumber', e.target.value)}
+                placeholder="Enter serial number"
+              />
+            </div>
+
+            {/* Start Time */}
+            <div className="space-y-2">
+              <Label htmlFor="startTime">Start Time</Label>
+              <Input
+                id="startTime"
+                type="time"
+                value={editForm.startTime}
+                onChange={(e) => handleStage2InputChange('startTime', e.target.value)}
+              />
+            </div>
+
+            {/* End Time */}
+            <div className="space-y-2">
+              <Label htmlFor="endTime">End Time</Label>
+              <Input
+                id="endTime"
+                type="time"
+                value={editForm.endTime}
+                onChange={(e) => handleStage2InputChange('endTime', e.target.value)}
               />
             </div>
           </div>
 
+
+          {/* Part Numbers (read-only display since it's complex to edit) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4 bg-white">
+
+            {editForm.partNumbers && editForm.partNumbers.length > 0 && (
+              <div className="space-y-2">
+                <Label>Part Numbers</Label>
+                <div className="p-3 border border-gray-300 rounded-lg bg-gray-50">
+                  <div className="text-sm">
+                    {editForm.partNumbers.join(', ')}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Part numbers are displayed</p>
+                </div>
+              </div>
+            )}
+
+            {/* Scanned Part Numbers (read-only display) */}
+            {editForm.scannedPartNumbers && editForm.scannedPartNumbers.length > 0 && (
+              <div className="space-y-2">
+                <Label>Scanned Part Numbers</Label>
+                <div className="p-3 border border-gray-300 rounded-lg bg-gray-50">
+                  <div className="text-sm">
+                    {editForm.scannedPartNumbers.join(', ')}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Scanned part numbers are displayed</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Remark */}
+          <div className="space-y-2">
+            <Label htmlFor="remark">Remark</Label>
+            <textarea
+              id="remark"
+              value={editForm.remark}
+              onChange={(e) => handleStage2InputChange('remark', e.target.value)}
+              placeholder="Enter any remarks"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical min-h-[80px]"
+            />
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+            <Button variant="outline" onClick={handleCancelEdit}>
               Cancel
             </Button>
             <Button
               onClick={handleSaveEdit}
               className="bg-[#e0413a] text-white hover:bg-[#e0413a] hover:text-black"
             >
-              Submit
+              Update Record
             </Button>
           </DialogFooter>
         </DialogContent>
