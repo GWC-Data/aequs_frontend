@@ -1,5 +1,3 @@
-
-
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -38,7 +36,7 @@ interface TestRecord {
   projectName: string;
   color: string;
   testLocation: string;
-  submissionDate: string;
+  testStartDate: string;
   testCompletionDate: string;
   sampleConfig: string;
   status: string;
@@ -140,6 +138,11 @@ const LiveTestProgress: React.FC = () => {
     navigate("/stage2-form", { state: { record } });
   };
 
+  const handleORTLabClick = (record: TestRecord) => {
+    // Navigate to ORT Lab page with record data - row will NOT be removed
+    navigate("/ort-lab-form", { state: { record } });
+  };
+
   if (loading) {
     return (
       <Card>
@@ -157,6 +160,9 @@ const LiveTestProgress: React.FC = () => {
       </Card>
     );
   }
+
+  // Check if any record has "Received" status
+  const hasReceivedStatus = testRecords.some(record => record.status === "Received");
 
   return (
     <>
@@ -179,8 +185,11 @@ const LiveTestProgress: React.FC = () => {
                     <TableHead className="font-semibold">Project</TableHead>
                     <TableHead className="font-semibold">Timeline</TableHead>
                     <TableHead className="font-semibold text-center w-[120px]">Action</TableHead>
-                    {testRecords.some(record => record.status === "Received") && (
-                      <TableHead className="font-semibold text-center w-[120px]">Stage 2</TableHead>
+                    {hasReceivedStatus && (
+                      <>
+                        <TableHead className="font-semibold text-center w-[120px]">Stage 2</TableHead>
+                        <TableHead className="font-semibold text-center w-[120px]">ORT Lab</TableHead>
+                      </>
                     )}
                   </TableRow>
                 </TableHeader>
@@ -188,7 +197,7 @@ const LiveTestProgress: React.FC = () => {
                   {testRecords.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={testRecords.some(record => record.status === "Received") ? 7 : 6}
+                        colSpan={hasReceivedStatus ? 8 : 6}
                         className="text-center py-8 text-gray-500"
                       >
                         No test records found
@@ -227,8 +236,7 @@ const LiveTestProgress: React.FC = () => {
                         </TableCell>
                         <TableCell className="text-sm">{record.projectName}</TableCell>
                         <TableCell className="text-xs">
-                          <div>Start: {new Date(record.submissionDate).toLocaleDateString()}</div>
-                          <div>End: {new Date(record.testCompletionDate).toLocaleDateString()}</div>
+                          <div>Submission part date: {new Date(record.submissionDate).toLocaleDateString()}</div>
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-3">
@@ -246,19 +254,33 @@ const LiveTestProgress: React.FC = () => {
                             />
                           </div>
                         </TableCell>
-                        {testRecords.some(r => r.status === "Received") && (
-                          <TableCell className="text-center">
-                            {record.status === "Received" && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleStage2Click(record)}
-                                className="bg-[#e0413a] text-white hover:bg-[#c53730] hover:text-white"
-                              >
-                                Click to Start
-                              </Button>
-                            )}
-                          </TableCell>
+                        {hasReceivedStatus && (
+                          <>
+                            <TableCell className="text-center">
+                              {record.status === "Received" && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleStage2Click(record)}
+                                  className="bg-[#e0413a] text-white hover:bg-[#c53730] hover:text-white"
+                                >
+                                  Click to Start
+                                </Button>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {record.status === "Received" && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleORTLabClick(record)}
+                                  className="bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
+                                >
+                                  ORT Lab
+                                </Button>
+                              )}
+                            </TableCell>
+                          </>
                         )}
                       </TableRow>
                     ))
@@ -325,15 +347,15 @@ const LiveTestProgress: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="submissionDate">Submission or Part Date</Label>
+                <Label htmlFor="testStartDate">Test Start Date</Label>
                 <Input
-                  id="submissionDate"
+                  id="testStartDate"
                   type="date"
-                  value={editingRecord.submissionDate}
-                  onChange={(e) => handleInputChange('submissionDate', e.target.value)}
+                  value={editingRecord.testStartDate}
+                  onChange={(e) => handleInputChange('testStartDate', e.target.value)}
                 />
               </div>
-{/* 
+
               <div className="space-y-2">
                 <Label htmlFor="testCompletionDate">Test Completion Date</Label>
                 <Input
@@ -342,7 +364,7 @@ const LiveTestProgress: React.FC = () => {
                   value={editingRecord.testCompletionDate}
                   onChange={(e) => handleInputChange('testCompletionDate', e.target.value)}
                 />
-              </div> */}
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="sampleConfig">Sample Configuration</Label>
