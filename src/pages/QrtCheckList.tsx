@@ -264,7 +264,7 @@ const LiveTestProgress: React.FC = () => {
                                   onClick={() => handleStage2Click(record)}
                                   className="bg-[#e0413a] text-white hover:bg-[#c53730] hover:text-white"
                                 >
-                                  Click to Start
+                                  Stage 2
                                 </Button>
                               )}
                             </TableCell>

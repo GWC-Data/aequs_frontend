@@ -547,7 +547,7 @@ const ORTLabPage: React.FC = () => {
         duration: 3000,
       });
 
-      navigate("/");
+      navigate("/qrtchecklist");
 
     } catch (error) {
       toast({

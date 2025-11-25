@@ -53,7 +53,7 @@ const Dashboard = () => {
   // Helper function to filter records by time period
   const filterRecordsByTime = (records: any[], period: string) => {
     const now = new Date();
-    
+
     switch (period) {
       case "today":
         const today = new Date();
@@ -62,7 +62,7 @@ const Dashboard = () => {
           const recordDate = new Date(record.testStartDate || record.createdDate);
           return recordDate >= today;
         });
-        
+
       case "week":
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
@@ -70,7 +70,7 @@ const Dashboard = () => {
           const recordDate = new Date(record.testStartDate || record.createdDate);
           return recordDate >= weekAgo;
         });
-        
+
       case "month":
         const monthAgo = new Date();
         monthAgo.setMonth(monthAgo.getMonth() - 1);
@@ -78,7 +78,7 @@ const Dashboard = () => {
           const recordDate = new Date(record.testStartDate || record.createdDate);
           return recordDate >= monthAgo;
         });
-        
+
       case "year":
         const yearAgo = new Date();
         yearAgo.setFullYear(yearAgo.getFullYear() - 1);
@@ -86,34 +86,90 @@ const Dashboard = () => {
           const recordDate = new Date(record.testStartDate || record.createdDate);
           return recordDate >= yearAgo;
         });
-        
+
       default:
         return records;
     }
   };
 
   // Calculate quantity statistics
+  // const quantityStats = useMemo(() => {
+  //   const filteredRecords = filterRecordsByTime(testRecords, timeFilter);
+
+  //   const totalQuantity = filteredRecords.reduce((sum, record) => {
+  //     return sum + (parseInt(record.sampleQty) || 0);
+  //   }, 0);
+
+  //   const completedQuantity = filteredRecords.reduce((sum, record) => {
+  //     if (record.status === "Completed") {
+  //       return sum + (parseInt(record.sampleQty) || 0);
+  //     }
+  //     return sum;
+  //   }, 0);
+
+  //   const testingQuantity = filteredRecords.reduce((sum, record) => {
+  //     if (record.status === "Received" || record.status === "Under Testing") {
+  //       return sum + (parseInt(record.sampleQty) || 0);
+  //     }
+  //     return sum;
+  //   }, 0);
+
+  //   const scheduledQuantity = filteredRecords.reduce((sum, record) => {
+  //     if (record.status === "Scheduled" || record.status === "In-progress") {
+  //       return sum + (parseInt(record.sampleQty) || 0);
+  //     }
+  //     return sum;
+  //   }, 0);
+
+  //   return {
+  //     total: totalQuantity,
+  //     completed: completedQuantity,
+  //     testing: testingQuantity,
+  //     scheduled: scheduledQuantity
+  //   };
+  // }, [testRecords, timeFilter]);
+
+  // Calculate quantity statistics
   const quantityStats = useMemo(() => {
     const filteredRecords = filterRecordsByTime(testRecords, timeFilter);
-    
+
+    // Get ortLabRecords from localStorage
+    const ortLabRecords = JSON.parse(localStorage.getItem('ortLabRecords') || '[]');
+
+    // Calculate total scanned parts from all ortLabRecords
+    const totalScannedParts = ortLabRecords.reduce((total: number, record: any) => {
+      if (record.ortLab && record.ortLab.scannedPartNumbers) {
+        return total + record.ortLab.scannedPartNumbers.length;
+      }
+      return total;
+    }, 0);
+
+    // Calculate total selected parts from all stage2Records
+    const totalSelectedParts = testRecords.reduce((total: number, record: any) => {
+      if (record.stage2 && record.stage2.selectedParts) {
+        return total + record.stage2.selectedParts.length;
+      }
+      return total;
+    }, 0);
+
     const totalQuantity = filteredRecords.reduce((sum, record) => {
       return sum + (parseInt(record.sampleQty) || 0);
     }, 0);
-    
+
     const completedQuantity = filteredRecords.reduce((sum, record) => {
       if (record.status === "Completed") {
         return sum + (parseInt(record.sampleQty) || 0);
       }
       return sum;
     }, 0);
-    
+
     const testingQuantity = filteredRecords.reduce((sum, record) => {
       if (record.status === "Received" || record.status === "Under Testing") {
         return sum + (parseInt(record.sampleQty) || 0);
       }
       return sum;
     }, 0);
-    
+
     const scheduledQuantity = filteredRecords.reduce((sum, record) => {
       if (record.status === "Scheduled" || record.status === "In-progress") {
         return sum + (parseInt(record.sampleQty) || 0);
@@ -125,7 +181,9 @@ const Dashboard = () => {
       total: totalQuantity,
       completed: completedQuantity,
       testing: testingQuantity,
-      scheduled: scheduledQuantity
+      scheduled: scheduledQuantity,
+      scannedParts: totalScannedParts,
+      selectedParts: totalSelectedParts // Add selected parts count
     };
   }, [testRecords, timeFilter]);
 
@@ -312,8 +370,7 @@ const Dashboard = () => {
             {/* Quantity Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { icon: Package, color: "indigo", title: "Total Parts", value: quantityStats.total, sub: "Parts in system" },
-                // { icon: TestTube, color: "purple", title: "Parts Testing", value: quantityStats.testing, action: "testing" },
+                { icon: Package, color: "indigo", title: "Total Parts", value: quantityStats.scannedParts, sub: "Scanned parts in system" },                // { icon: TestTube, color: "purple", title: "Parts Testing", value: quantityStats.testing, action: "testing" },
                 // { icon: CheckCircle2, color: "green", title: "Parts Completed", value: quantityStats.completed, action: "complete" },
                 // { icon: Clock, color: "orange", title: "Parts Scheduled", value: quantityStats.scheduled, action: "scheduled" },
               ].map((item, i) => (
@@ -371,6 +428,7 @@ const Dashboard = () => {
             </Card>
 
             {/* Active Products */}
+            {/* Active Products */}
             <Card className="shadow-sm rounded-xl">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -383,37 +441,44 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {filteredProducts.map((product, index) => (
-                    <div key={index} className="border border-gray-200 rounded-xl p-4 bg-white hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between mb-3">
+                  {filteredProducts.map((product, index) => {
+                    // Find the corresponding stage2 record to get selected parts count
+                    const stage2Record = testRecords.find((record: any) => record.documentNumber === product.id);
+                    const selectedPartsCount = stage2Record?.stage2?.selectedParts?.length || 0;
+                    const selectedParts = stage2Record?.stage2?.selectedParts?.join(',') || "None";
+
+                    return (
+                      <div key={index} className="border border-gray-200 rounded-xl p-4 bg-white hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h3 className="font-semibold text-lg text-gray-800">{product.id}</h3>
+                            <p className="text-sm text-gray-600">{product.batch || "No batch assigned"}</p>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <Badge className={`${product.statusColor} text-white text-xs px-3 py-1`}>{product.status}</Badge>
+                            <Badge variant="outline" className="text-xs bg-gray-50">
+                              Qty: {selectedPartsCount}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm text-gray-700 mb-3">
+                          <div><span className="text-gray-500">👤 Owner:</span> <span className="font-medium">{product.owner}</span></div>
+                          <div><span className="text-gray-500">📅 QQC:</span> <span>{product.qqc || "N/A"}</span></div>
+                          <div><span className="text-gray-500">🕐 CMR:</span> <span>{product.cmr}</span></div>
+                          <div><span className="text-gray-500">📦 Selected Parts:</span> <span className="font-medium">{selectedParts}</span></div>
+                        </div>
                         <div>
-                          <h3 className="font-semibold text-lg text-gray-800">{product.id}</h3>
-                          <p className="text-sm text-gray-600">{product.batch || "No batch assigned"}</p>
-                        </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <Badge className={`${product.statusColor} text-white text-xs px-3 py-1`}>{product.status}</Badge>
-                          <Badge variant="outline" className="text-xs bg-gray-50">
-                            Qty: {product.sampleQty}
-                          </Badge>
+                          <div className="flex justify-between text-sm mb-1 text-gray-700">
+                            <span>Test Progress</span>
+                            <span className="font-medium">
+                              {product?.testProgress?.completed || 0}/{product?.testProgress?.total || 0} Tests
+                            </span>
+                          </div>
+                          <Progress value={(product.testProgress.completed / product.testProgress.total) * 100} />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-sm text-gray-700 mb-3">
-                        <div><span className="text-gray-500">👤 Owner:</span> <span className="font-medium">{product.owner}</span></div>
-                        <div><span className="text-gray-500">📅 QQC:</span> <span>{product.qqc || "N/A"}</span></div>
-                        <div><span className="text-gray-500">🕐 CMR:</span> <span>{product.cmr}</span></div>
-                        <div><span className="text-gray-500">📦 Quantity:</span> <span className="font-medium">{product.sampleQty} parts</span></div>
-                      </div>
-                      <div>
-                        <div className="flex justify-between text-sm mb-1 text-gray-700">
-                          <span>Test Progress</span>
-                          <span className="font-medium">
-                            {product?.testProgress?.completed || 0}/{product?.testProgress?.total || 0} Tests
-                          </span>
-                        </div>
-                        <Progress value={(product.testProgress.completed / product.testProgress.total) * 100} />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -494,7 +559,7 @@ const Dashboard = () => {
                       {item.data.map((machine: any, machineIndex: number) => (
                         <div key={machineIndex} className="flex items-center gap-2 text-xs">
                           <div className={`w-2 h-2 rounded-full ${machine.status === 'Completed' ? 'bg-green-500' :
-                              machine.status === 'In-progress' ? 'bg-yellow-500' : 'bg-blue-500'
+                            machine.status === 'In-progress' ? 'bg-yellow-500' : 'bg-blue-500'
                             }`}></div>
                           <span className="truncate">{machine.machineName}</span>
                         </div>
