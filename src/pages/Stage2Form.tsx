@@ -716,10 +716,11 @@ const Stage2Records: React.FC = () => {
                     value={editForm.testCondition}
                     onChange={(e) => handleEditInputChange('testCondition', e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                    disabled={true}
                   />
                 </div>
 
-                <div className="space-y-2">
+                {/* <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-500">Required Quantities <span className="text-red-600">*</span></label>
                   <input
                   type="text"
@@ -727,7 +728,7 @@ const Stage2Records: React.FC = () => {
                     onChange={(e) => handleEditInputChange('requiredQty', e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md text-sm"
                   />
-                </div>
+                </div> */}
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-500">Equipment <span className="text-red-600">*</span></label>
@@ -736,6 +737,7 @@ const Stage2Records: React.FC = () => {
                     value={editForm.equipment}
                     onChange={(e) => handleEditInputChange('equipment', e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                    disabled={true}
                   />
                 </div>
               </div>

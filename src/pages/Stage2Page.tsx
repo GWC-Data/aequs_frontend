@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 import { flaskData } from "@/data/flaskData";
 import { ArrowLeft, X } from "lucide-react";
+import DateTimePicker from "@/components/DatePicker";
 
 interface TestRecord {
   documentNumber: string;
@@ -64,8 +65,8 @@ const Stage2Page: React.FC = () => {
     testCondition: "",
     requiredQty: "",
     equipment: "",
-    startTime: "",
-    endTime: "",
+    startDateTime: "",
+    endDateTime: "",
     remark: "",
     projects: [] as string[],
     lines: [] as string[],
@@ -89,7 +90,7 @@ const Stage2Page: React.FC = () => {
       if (storedRecords) {
         const records: ORTLabRecord[] = JSON.parse(storedRecords);
         setOrtLabRecords(records);
-        
+
         // Extract unique projects
         const projects = new Set<string>();
         records.forEach(record => {
@@ -121,7 +122,7 @@ const Stage2Page: React.FC = () => {
 
       setAvailableLines(Array.from(lines));
       setAvailableParts(parts);
-      
+
       // Reset lines and parts when projects change
       setStage2Form(prev => ({
         ...prev,
@@ -146,15 +147,15 @@ const Stage2Page: React.FC = () => {
 
       ortLabRecords.forEach(record => {
         record.ortLab.splitRows.forEach(row => {
-          if (stage2Form.projects.includes(row.buildProject) && 
-              stage2Form.lines.includes(row.line)) {
+          if (stage2Form.projects.includes(row.buildProject) &&
+            stage2Form.lines.includes(row.line)) {
             parts.push(...row.assignedParts);
           }
         });
       });
 
       setAvailableParts(parts);
-      
+
       // Reset selected parts when lines change
       setStage2Form(prev => ({
         ...prev,
@@ -179,6 +180,58 @@ const Stage2Page: React.FC = () => {
   // Form handling functions
   const processStages = Array.from(new Set(flaskData.map(item => item.processStage)));
   const types = Array.from(new Set(flaskData.map(item => item.type)));
+
+  // const handleStage2InputChange = (field: keyof typeof stage2Form, value: string | string[]) => {
+  //   setStage2Form(prev => ({
+  //     ...prev,
+  //     [field]: value
+  //   }));
+
+  //   if (field === "processStage" || field === "type") {
+  //     const { processStage, type } = field === "processStage"
+  //       ? { processStage: value as string, type: stage2Form.type }
+  //       : { processStage: stage2Form.processStage, type: value as string };
+
+  //     if (processStage && type) {
+  //       const matchedData = flaskData.filter(
+  //         item => item.processStage === processStage && item.type === type
+  //       );
+
+  //       setFilteredData(matchedData);
+  //       const testNames = Array.from(new Set(matchedData.map(item => item.testName)));
+  //       setAvailableTestNames(testNames);
+
+  //       setStage2Form(prev => ({
+  //         ...prev,
+  //         testName: "",
+  //         testCondition: "",
+  //         requiredQty: "",
+  //         equipment: ""
+  //       }));
+  //     } else {
+  //       setFilteredData([]);
+  //       setAvailableTestNames([]);
+  //       setStage2Form(prev => ({
+  //         ...prev,
+  //         testName: "",
+  //         testCondition: "",
+  //         requiredQty: "",
+  //         equipment: ""
+  //       }));
+  //     }
+  //   }
+
+  //   if (field === "testName" && value) {
+  //     const selectedTest = filteredData.find(item => item.testName === value);
+  //     if (selectedTest) {
+  //       setStage2Form(prev => ({
+  //         ...prev,
+  //         equipment: selectedTest.equipment
+  //       }));
+  //     }
+  //   }
+  // };
+
 
   const handleStage2InputChange = (field: keyof typeof stage2Form, value: string | string[]) => {
     setStage2Form(prev => ({
@@ -225,11 +278,13 @@ const Stage2Page: React.FC = () => {
       if (selectedTest) {
         setStage2Form(prev => ({
           ...prev,
-          equipment: selectedTest.equipment
+          equipment: selectedTest.equipment,
+          testCondition: selectedTest.testCondition || "",
         }));
       }
     }
   };
+
 
   const handleProjectSelection = (project: string) => {
     setStage2Form(prev => {
@@ -333,8 +388,8 @@ const Stage2Page: React.FC = () => {
   const handleStage2Submit = () => {
     if (!selectedRecord) return;
 
-    if (!stage2Form.testName || !stage2Form.requiredQty || !stage2Form.processStage || 
-        !stage2Form.type || !stage2Form.testCondition) {
+    if (!stage2Form.testName || !stage2Form.processStage ||
+      !stage2Form.type || !stage2Form.testCondition) {
       toast({
         variant: "destructive",
         title: "Incomplete Form",
@@ -377,8 +432,8 @@ const Stage2Page: React.FC = () => {
           projects: stage2Form.projects,
           lines: stage2Form.lines,
           selectedParts: stage2Form.selectedParts,
-          startTime: stage2Form.startTime,
-          endTime: stage2Form.endTime,
+          startTime: stage2Form.startDateTime,
+          endTime: stage2Form.endDateTime,
           remark: stage2Form.remark,
           submittedAt: new Date().toISOString()
         }
@@ -424,7 +479,7 @@ const Stage2Page: React.FC = () => {
       stage2Form.type &&
       stage2Form.testName &&
       stage2Form.testCondition &&
-      stage2Form.requiredQty &&
+      // stage2Form.requiredQty &&
       stage2Form.equipment &&
       stage2Form.projects.length > 0 &&
       stage2Form.selectedParts.length > 0;
@@ -445,6 +500,45 @@ const Stage2Page: React.FC = () => {
   const unselectedParts = availableParts.filter(
     part => !stage2Form.selectedParts.includes(part)
   );
+  function Time12Hour({ label, value, onChange }) {
+    const [time, setTime] = React.useState(value?.split(" ")[0] || "");
+    const [period, setPeriod] = React.useState(value?.split(" ")[1] || "AM");
+
+    const handleTimeChange = (t) => {
+      setTime(t);
+      onChange(`${t} ${period}`);
+    };
+
+    const handlePeriodChange = (p) => {
+      setPeriod(p);
+      onChange(`${time} ${p}`);
+    };
+
+    return (
+      <div className="space-y-2">
+        <Label className="text-base">{label}</Label>
+
+        <div className="flex gap-2">
+          <Input
+            type="time"
+            value={time}
+            onChange={(e) => handleTimeChange(e.target.value)}
+            className="h-11"
+          />
+
+          <select
+            className="border rounded px-2"
+            value={period}
+            onChange={(e) => handlePeriodChange(e.target.value)}
+          >
+            <option>AM</option>
+            <option>PM</option>
+          </select>
+        </div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
@@ -481,7 +575,7 @@ const Stage2Page: React.FC = () => {
             </div>
           </div>
 
-        
+
 
           {/* Stage 2 Form Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -557,10 +651,12 @@ const Stage2Page: React.FC = () => {
                 id="testCondition"
                 value={stage2Form.testCondition}
                 onChange={(e) => handleStage2InputChange('testCondition', e.target.value)}
-                placeholder="Enter test condition"
+                placeholder="Test condition (auto-filled)"
                 className="h-11"
+                disabled={true}
               />
             </div>
+
 
             {/* <div className="space-y-2">
               <Label htmlFor="requiredQty" className="text-base">
@@ -588,181 +684,89 @@ const Stage2Page: React.FC = () => {
                 className="h-11 bg-gray-50"
               />
             </div>
+            <DateTimePicker
+              label="Start Date & Time"
+              value={stage2Form.startDateTime}
+              onChange={(val) => handleStage2InputChange("startDateTime", val)}
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="startTime" className="text-base">
-                Start Time
-              </Label>
-              <Input
-                id="startTime"
-                type="time"
-                value={stage2Form.startTime}
-                onChange={(e) => handleStage2InputChange('startTime', e.target.value)}
-                className="h-11"
-              />
-            </div>
+            <DateTimePicker
+              label="End Date & Time"
+              value={stage2Form.endDateTime}
+              onChange={(val) => handleStage2InputChange("endDateTime", val)}
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="endTime" className="text-base">
-                End Time
-              </Label>
-              <Input
-                id="endTime"
-                type="time"
-                value={stage2Form.endTime}
-                onChange={(e) => handleStage2InputChange('endTime', e.target.value)}
-                className="h-11"
-              />
-            </div>
+
             <div className="space-y-2"></div>
             <div className="space-y-2">
-            {/* Projects Selection */}
-            <div className="space-y-4 mb-6">
-              <div className="flex justify-between items-center">
-                <Label htmlFor="projects" className="text-base">
-                  Projects <span className="text-red-600">*</span>
-                </Label>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={selectAllProjects}
-                    disabled={stage2Form.projects.length === availableProjects.length}
-                  >
-                    Select All
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearAllProjects}
-                    disabled={stage2Form.projects.length === 0}
-                  >
-                    Clear All
-                  </Button>
-                </div>
-              </div>
-              <Select
-                onValueChange={handleProjectSelection}
-                disabled={unselectedProjects.length === 0}
-              >
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder={
-                    unselectedProjects.length === 0
-                      ? "All projects selected"
-                      : `Select from ${unselectedProjects.length} available project(s)`
-                  } />
-                </SelectTrigger>
-                <SelectContent>
-                  {unselectedProjects.map((project) => (
-                    <SelectItem key={project} value={project}>
-                      {project}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-gray-500">
-                {stage2Form.projects.length} of {availableProjects.length} projects selected
-              </p>
-
-              {/* Selected Projects Display */}
-              {stage2Form.projects.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-base flex items-center gap-2">
-                    Selected Projects
-                    <span className="text-sm font-normal text-gray-500">
-                      ({stage2Form.projects.length} selected)
-                    </span>
-                  </Label>
-                  <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
-                    {stage2Form.projects.map((project) => (
-                      <div
-                        key={project}
-                        className="flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
-                      >
-                        <span>{project}</span>
-                        <button
-                          onClick={() => removeSelectedProject(project)}
-                          className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
-                          title="Remove project"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Lines Selection */}
-            {availableLines.length > 0 && (
+              {/* Projects Selection */}
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between items-center">
-                  <Label htmlFor="lines" className="text-base">
-                    Lines
+                  <Label htmlFor="projects" className="text-base">
+                    Projects <span className="text-red-600">*</span>
                   </Label>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={selectAllLines}
-                      disabled={stage2Form.lines.length === availableLines.length}
+                      onClick={selectAllProjects}
+                      disabled={stage2Form.projects.length === availableProjects.length}
                     >
                       Select All
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={clearAllLines}
-                      disabled={stage2Form.lines.length === 0}
+                      onClick={clearAllProjects}
+                      disabled={stage2Form.projects.length === 0}
                     >
                       Clear All
                     </Button>
                   </div>
                 </div>
                 <Select
-                  onValueChange={handleLineSelection}
-                  disabled={unselectedLines.length === 0}
+                  onValueChange={handleProjectSelection}
+                  disabled={unselectedProjects.length === 0}
                 >
                   <SelectTrigger className="h-11">
                     <SelectValue placeholder={
-                      unselectedLines.length === 0
-                        ? "All lines selected"
-                        : `Select from ${unselectedLines.length} available line(s)`
+                      unselectedProjects.length === 0
+                        ? "All projects selected"
+                        : `Select from ${unselectedProjects.length} available project(s)`
                     } />
                   </SelectTrigger>
                   <SelectContent>
-                    {unselectedLines.map((line) => (
-                      <SelectItem key={line} value={line}>
-                        {line}
+                    {unselectedProjects.map((project) => (
+                      <SelectItem key={project} value={project}>
+                        {project}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-500">
-                  {stage2Form.lines.length} of {availableLines.length} lines selected
+                  {stage2Form.projects.length} of {availableProjects.length} projects selected
                 </p>
 
-                {/* Selected Lines Display */}
-                {stage2Form.lines.length > 0 && (
+                {/* Selected Projects Display */}
+                {stage2Form.projects.length > 0 && (
                   <div className="space-y-2">
                     <Label className="text-base flex items-center gap-2">
-                      Selected Lines
+                      Selected Projects
                       <span className="text-sm font-normal text-gray-500">
-                        ({stage2Form.lines.length} selected)
+                        ({stage2Form.projects.length} selected)
                       </span>
                     </Label>
                     <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
-                      {stage2Form.lines.map((line) => (
+                      {stage2Form.projects.map((project) => (
                         <div
-                          key={line}
-                          className="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm"
+                          key={project}
+                          className="flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
                         >
-                          <span>{line}</span>
+                          <span>{project}</span>
                           <button
-                            onClick={() => removeSelectedLine(line)}
-                            className="hover:bg-green-200 rounded-full p-0.5 transition-colors"
-                            title="Remove line"
+                            onClick={() => removeSelectedProject(project)}
+                            className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                            title="Remove project"
                           >
                             <X size={14} />
                           </button>
@@ -772,87 +776,166 @@ const Stage2Page: React.FC = () => {
                   </div>
                 )}
               </div>
-            )}
 
-            {/* Parts Selection */}
-            {availableParts.length > 0 && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <Label htmlFor="parts" className="text-base">
-                    Select Parts <span className="text-red-600">*</span>
-                  </Label>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={selectAllParts}
-                      disabled={stage2Form.selectedParts.length === availableParts.length}
-                    >
-                      Select All
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={clearAllParts}
-                      disabled={stage2Form.selectedParts.length === 0}
-                    >
-                      Clear All
-                    </Button>
-                  </div>
-                </div>
-                <Select
-                  onValueChange={handlePartSelection}
-                  disabled={unselectedParts.length === 0}
-                >
-                  <SelectTrigger className="h-11">
-                    <SelectValue placeholder={
-                      unselectedParts.length === 0
-                        ? "All parts selected"
-                        : `Select from ${unselectedParts.length} available part(s)`
-                    } />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {unselectedParts.map((part) => (
-                      <SelectItem key={part} value={part}>
-                        <span className="font-mono">{part}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-gray-500">
-                  {stage2Form.selectedParts.length} of {availableParts.length} parts selected
-                </p>
-
-                {/* Selected Parts Display */}
-                {stage2Form.selectedParts.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-base flex items-center gap-2">
-                      Selected Parts
-                      <span className="text-sm font-normal text-gray-500">
-                        ({stage2Form.selectedParts.length} selected)
-                      </span>
+              {/* Lines Selection */}
+              {availableLines.length > 0 && (
+                <div className="space-y-4 mb-6">
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="lines" className="text-base">
+                      Lines
                     </Label>
-                    <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
-                      {stage2Form.selectedParts.map((part) => (
-                        <div
-                          key={part}
-                          className="flex items-center gap-2 bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm"
-                        >
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={selectAllLines}
+                        disabled={stage2Form.lines.length === availableLines.length}
+                      >
+                        Select All
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={clearAllLines}
+                        disabled={stage2Form.lines.length === 0}
+                      >
+                        Clear All
+                      </Button>
+                    </div>
+                  </div>
+                  <Select
+                    onValueChange={handleLineSelection}
+                    disabled={unselectedLines.length === 0}
+                  >
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder={
+                        unselectedLines.length === 0
+                          ? "All lines selected"
+                          : `Select from ${unselectedLines.length} available line(s)`
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unselectedLines.map((line) => (
+                        <SelectItem key={line} value={line}>
+                          {line}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500">
+                    {stage2Form.lines.length} of {availableLines.length} lines selected
+                  </p>
+
+                  {/* Selected Lines Display */}
+                  {stage2Form.lines.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-base flex items-center gap-2">
+                        Selected Lines
+                        <span className="text-sm font-normal text-gray-500">
+                          ({stage2Form.lines.length} selected)
+                        </span>
+                      </Label>
+                      <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
+                        {stage2Form.lines.map((line) => (
+                          <div
+                            key={line}
+                            className="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm"
+                          >
+                            <span>{line}</span>
+                            <button
+                              onClick={() => removeSelectedLine(line)}
+                              className="hover:bg-green-200 rounded-full p-0.5 transition-colors"
+                              title="Remove line"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Parts Selection */}
+              {availableParts.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="parts" className="text-base">
+                      Select Parts <span className="text-red-600">*</span>
+                    </Label>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={selectAllParts}
+                        disabled={stage2Form.selectedParts.length === availableParts.length}
+                      >
+                        Select All
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={clearAllParts}
+                        disabled={stage2Form.selectedParts.length === 0}
+                      >
+                        Clear All
+                      </Button>
+                    </div>
+                  </div>
+                  <Select
+                    onValueChange={handlePartSelection}
+                    disabled={unselectedParts.length === 0}
+                  >
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder={
+                        unselectedParts.length === 0
+                          ? "All parts selected"
+                          : `Select from ${unselectedParts.length} available part(s)`
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unselectedParts.map((part) => (
+                        <SelectItem key={part} value={part}>
                           <span className="font-mono">{part}</span>
-                          <button
-                            onClick={() => removeSelectedPart(part)}
-                            className="hover:bg-purple-200 rounded-full p-0.5 transition-colors"
-                            title="Remove part"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
+                        </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500">
+                    {stage2Form.selectedParts.length} of {availableParts.length} parts selected
+                  </p>
+
+                  {/* Selected Parts Display */}
+                  {stage2Form.selectedParts.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-base flex items-center gap-2">
+                        Selected Parts
+                        <span className="text-sm font-normal text-gray-500">
+                          ({stage2Form.selectedParts.length} selected)
+                        </span>
+                      </Label>
+                      <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
+                        {stage2Form.selectedParts.map((part) => (
+                          <div
+                            key={part}
+                            className="flex items-center gap-2 bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm"
+                          >
+                            <span className="font-mono">{part}</span>
+                            <button
+                              onClick={() => removeSelectedPart(part)}
+                              className="hover:bg-purple-200 rounded-full p-0.5 transition-colors"
+                              title="Remove part"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
             </div>
 
             {/* <div className="space-y-2 md:col-span-2">
@@ -867,8 +950,8 @@ const Stage2Page: React.FC = () => {
                 className="min-h-[100px] resize-vertical"
               />
             </div> */}
-              {/* ORT Lab Data Selection Section */}
-       
+            {/* ORT Lab Data Selection Section */}
+
           </div>
 
           {/* Action Buttons */}
