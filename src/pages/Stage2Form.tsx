@@ -251,7 +251,7 @@ const Stage2Records: React.FC = () => {
   };
 
   const handleViewAuthor = (record: Stage2Record) => {
-    navigate("/author", { state: { record } });
+    navigate("/form-default", { state: { record } });
   };
 
   const getStatusColor = (status: string) => {
@@ -439,10 +439,11 @@ const Stage2Records: React.FC = () => {
                     <label className="text-sm font-medium text-gray-600">Color</label>
                     <div className="flex items-center gap-2">
                       <div
-                        className="h-4 w-4 rounded-full"
+                        className="h-4 w-4 rounded-full border border-gray-400"
                         style={{
                           backgroundColor:
-                            selectedRecord.color === "white" ? "#e5e5e5" : selectedRecord.color || "#6b7280",
+                            selectedRecord.color,
+                         
                         }}
                       ></div>
                       <p className="text-sm">{selectedRecord.color}</p>
@@ -458,14 +459,14 @@ const Stage2Records: React.FC = () => {
                       {selectedRecord.status}
                     </Badge>
                   </div>
-                  <div>
+                  {/* <div>
                     <label className="text-sm font-medium text-gray-600">Test Start Date</label>
                     <p className="text-sm">{new Date(selectedRecord.testStartDate).toLocaleDateString()}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Test Completion Date</label>
                     <p className="text-sm">{new Date(selectedRecord.testCompletionDate).toLocaleDateString()}</p>
-                  </div>
+                  </div> */}
                   <div>
                     <label className="text-sm font-medium text-gray-600">Sample Configuration</label>
                     <p className="text-sm">{selectedRecord.sampleConfig}</p>
@@ -547,10 +548,10 @@ const Stage2Records: React.FC = () => {
                     <label className="text-sm font-medium text-gray-600">Test Condition</label>
                     <p className="text-sm">{selectedRecord.stage2.testCondition}</p>
                   </div>
-                  <div>
+                  {/* <div>
                     <label className="text-sm font-medium text-gray-600">Required Quantity</label>
                     <p className="text-sm">{selectedRecord.stage2.requiredQty}</p>
-                  </div>
+                  </div> */}
                   <div>
                     <label className="text-sm font-medium text-gray-600">Equipment</label>
                     <p className="text-sm">{selectedRecord.stage2.equipment}</p>
@@ -709,7 +710,9 @@ const Stage2Records: React.FC = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
+                
+
+                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-500">Test Conditions <span className="text-red-600">*</span></label>
                   <input
                     type="text"
@@ -719,6 +722,7 @@ const Stage2Records: React.FC = () => {
                     disabled={true}
                   />
                 </div>
+ 
 
                 {/* <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-500">Required Quantities <span className="text-red-600">*</span></label>
