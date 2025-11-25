@@ -741,6 +741,7 @@ const Stage2Records: React.FC = () => {
                     value={editForm.equipment}
                     onChange={(e) => handleEditInputChange('equipment', e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                    disabled={true}
                   />
                 </div>
               </div>
