@@ -15,6 +15,9 @@ import NotFound from "./pages/NotFound";
 import Stage2Form from "./pages/Stage2Form";
 import DefaultForm from '@/components/DefaultForm'
 import Stage2Page from "./pages/Stage2Page";
+import PlanningModule from "./pages/PlanningPage"
+import ORTLabDetailsPage from "./pages/ORTLabDetailPage";
+import ORTLabPage from "./pages/ORTLabPage";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +42,9 @@ const App = () => (
                   <Route path="/stage2-form" element={<Stage2Page />} />
                   <Route path="/stage2" element={<Stage2Form />} />
                   <Route path="/form-default" element={<DefaultForm />} />
+                  <Route path="/planning-detail" element={<PlanningModule />} />
+                  <Route path="/ort-lab-details" element={<ORTLabDetailsPage />} />
+                  <Route path="/ort-lab-form" element={<ORTLabPage/>}/>
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>

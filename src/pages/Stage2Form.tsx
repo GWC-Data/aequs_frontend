@@ -9,7 +9,7 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { Eye, Edit, Trash2, FlaskConical, FlaskRound } from "lucide-react";
+import { Eye, Edit, Trash2, FlaskConical } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -20,38 +20,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/use-toast";
-import { flaskData } from "@/data/flaskData";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-// interface Stage2Record {
-//   documentNumber: string;
-//   documentTitle: string;
-//   projectName: string;
-//   color: string;
-//   testLocation: string;
-//   testStartDate: string;
-//   testCompletionDate: string;
-//   sampleConfig: string;
-//   status: string;
-//   id: number;
-//   createdAt: string;
-//   stage2: {
-//     processStage: string;
-//     type: string;
-//     testName: string;
-//     testCondition: string;
-//     requiredQty: string;
-//     equipment: string;
-//     submittedAt: string;
-//   };
-// }
 
 interface Stage2Record {
   documentNumber: string;
@@ -72,12 +40,12 @@ interface Stage2Record {
     testCondition: string;
     requiredQty: string;
     equipment: string;
-    serialNumber?: string;
-    partNumbers?: string[];
-    scannedPartNumbers?: string[];
-    startTime?: string;
-    endTime?: string;
-    remark?: string;
+    projects: string[];
+    lines: string[];
+    selectedParts: Array<{ part: string; color: string }> | string[];
+    startTime: string;
+    endTime: string;
+    remark: string;
     submittedAt: string;
   };
 }
@@ -90,19 +58,26 @@ const Stage2Records: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
   const [recordToDelete, setRecordToDelete] = React.useState<Stage2Record | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
-  const [filteredData, setFilteredData] = React.useState<typeof flaskData>([]);
   const [editingRecord, setEditingRecord] = React.useState<Stage2Record | null>(null);
-  const [availableTestNames, setAvailableTestNames] = React.useState<string[]>([]);
   const [editForm, setEditForm] = React.useState({
+    documentNumber: "",
+    documentTitle: "",
+    projectName: "",
+    color: "",
+    testLocation: "",
+    testStartDate: "",
+    testCompletionDate: "",
+    sampleConfig: "",
+    status: "",
     processStage: "",
     type: "",
     testName: "",
     testCondition: "",
     requiredQty: "",
     equipment: "",
-    serialNumber: "",
-    partNumbers: [] as string[],
-    scannedPartNumbers: [] as string[],
+    projects: [] as string[],
+    lines: [] as string[],
+    selectedParts: [] as string[],
     startTime: "",
     endTime: "",
     remark: ""
@@ -135,79 +110,45 @@ const Stage2Records: React.FC = () => {
     setIsDetailModalOpen(true);
   };
 
-  // Update the handleEdit function to populate availableTestNames
+  // Add the edit handler functions
   const handleEdit = (record: Stage2Record) => {
     setEditingRecord(record);
     setEditForm({
+      documentNumber: record.documentNumber,
+      documentTitle: record.documentTitle,
+      projectName: record.projectName,
+      color: record.color,
+      testLocation: record.testLocation,
+      testStartDate: record.testStartDate,
+      testCompletionDate: record.testCompletionDate,
+      sampleConfig: record.sampleConfig,
+      status: record.status,
       processStage: record.stage2.processStage,
       type: record.stage2.type,
       testName: record.stage2.testName,
       testCondition: record.stage2.testCondition,
       requiredQty: record.stage2.requiredQty,
       equipment: record.stage2.equipment,
-      serialNumber: record.stage2.serialNumber || "",
-      partNumbers: record.stage2.partNumbers || [],
-      scannedPartNumbers: record.stage2.scannedPartNumbers || [],
+      projects: Array.isArray(record.stage2.projects) ? record.stage2.projects : [],
+      lines: Array.isArray(record.stage2.lines) ? record.stage2.lines : [],
+      selectedParts: Array.isArray(record.stage2.selectedParts) 
+        ? record.stage2.selectedParts.map((part: any) => 
+            typeof part === 'string' ? part : part.part
+          )
+        : [],
       startTime: record.stage2.startTime || "",
       endTime: record.stage2.endTime || "",
       remark: record.stage2.remark || ""
     });
-
-    // Populate available test names based on the record's processStage and type
-    const matchedData = flaskData.filter(
-      item => item.processStage === record.stage2.processStage && item.type === record.stage2.type
-    );
-    const testNames = Array.from(new Set(matchedData.map(item => item.testName)));
-    setAvailableTestNames(testNames);
-
     setIsEditModalOpen(true);
   };
 
-
-  // const handleSaveEdit = () => {
-  //   if (!editingRecord) return;
-
-  //   try {
-  //     const updatedRecord: Stage2Record = {
-  //       ...editingRecord,
-  //       stage2: {
-  //         processStage: editForm.processStage,
-  //         type: editForm.type,
-  //         testName: editForm.testName,
-  //         testCondition: editForm.testCondition,
-  //         requiredQty: editForm.requiredQty,
-  //         equipment: editForm.equipment,
-  //         submittedAt: editingRecord.stage2.submittedAt // Keep original submission time
-  //       }
-  //     };
-
-  //     // Update the record in stage2Records state
-  //     const updatedRecords = stage2Records.map(record =>
-  //       record.id === editingRecord.id ? updatedRecord : record
-  //     );
-
-  //     setStage2Records(updatedRecords);
-  //     localStorage.setItem("stage2Records", JSON.stringify(updatedRecords));
-
-  //     setIsEditModalOpen(false);
-  //     setEditingRecord(null);
-
-  //     // toast({
-  //     //   title: "✅ Record Updated",
-  //     //   description: `Record ${editForm.documentNumber} has been updated successfully!`,
-  //     //   duration: 3000,
-  //     // });
-
-  //   } catch (error) {
-  //     toast({
-  //       variant: "destructive",
-  //       title: "Update Failed",
-  //       description: "There was an error updating the record. Please try again.",
-  //       duration: 3000,
-  //     });
-  //     console.error("Error updating record:", error);
-  //   }
-  // };
+  const handleEditInputChange = (field: keyof typeof editForm, value: string | string[]) => {
+    setEditForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
   const handleSaveEdit = () => {
     if (!editingRecord) return;
@@ -215,17 +156,26 @@ const Stage2Records: React.FC = () => {
     try {
       const updatedRecord: Stage2Record = {
         ...editingRecord,
+        documentNumber: editForm.documentNumber,
+        documentTitle: editForm.documentTitle,
+        projectName: editForm.projectName,
+        color: editForm.color,
+        testLocation: editForm.testLocation,
+        testStartDate: editForm.testStartDate,
+        testCompletionDate: editForm.testCompletionDate,
+        sampleConfig: editForm.sampleConfig,
+        status: editForm.status,
         stage2: {
-          ...editingRecord.stage2, // Keep all existing fields
+          ...editingRecord.stage2,
           processStage: editForm.processStage,
           type: editForm.type,
           testName: editForm.testName,
           testCondition: editForm.testCondition,
           requiredQty: editForm.requiredQty,
           equipment: editForm.equipment,
-          serialNumber: editForm.serialNumber,
-          partNumbers: editForm.partNumbers,
-          scannedPartNumbers: editForm.scannedPartNumbers,
+          projects: editForm.projects,
+          lines: editForm.lines,
+          selectedParts: editForm.selectedParts,
           startTime: editForm.startTime,
           endTime: editForm.endTime,
           remark: editForm.remark,
@@ -246,7 +196,7 @@ const Stage2Records: React.FC = () => {
 
       toast({
         title: "✅ Record Updated",
-        description: `Record ${editingRecord.documentNumber} has been updated successfully!`,
+        description: `Record ${editForm.documentNumber} has been updated successfully!`,
         duration: 3000,
       });
 
@@ -269,151 +219,6 @@ const Stage2Records: React.FC = () => {
   const handleDelete = (record: Stage2Record) => {
     setRecordToDelete(record);
     setIsDeleteModalOpen(true);
-  };
-
-  // Update the handleStage2InputChange function
-  // const handleStage2InputChange = (field: keyof typeof editForm, value: string) => {
-  //   setEditForm(prev => ({
-  //     ...prev,
-  //     [field]: value
-  //   }));
-
-  //   // Filter data when both processStage and type are selected
-  //   if (field === "processStage" || field === "type") {
-  //     const { processStage, type } = field === "processStage"
-  //       ? { processStage: value, type: editForm.type }
-  //       : { processStage: editForm.processStage, type: value };
-
-  //     if (processStage && type) {
-  //       const matchedData = flaskData.filter(
-  //         item => item.processStage === processStage && item.type === type
-  //       );
-
-  //       setFilteredData(matchedData);
-
-  //       // Populate available test names for dropdown
-  //       const testNames = Array.from(new Set(matchedData.map(item => item.testName)));
-  //       setAvailableTestNames(testNames);
-
-  //       // Auto-populate other fields if only one match
-  //       if (matchedData.length === 1) {
-  //         setEditForm(prev => ({
-  //           ...prev,
-  //           testName: matchedData[0].testName,
-  //           equipment: matchedData[0].equipment
-  //         }));
-  //       } else {
-  //         // Clear fields if multiple matches or no matches
-  //         setEditForm(prev => ({
-  //           ...prev,
-  //           testName: "",
-  //           equipment: ""
-  //         }));
-  //       }
-  //     } else {
-  //       // Clear filtered data if either field is empty
-  //       setFilteredData([]);
-  //       setAvailableTestNames([]);
-  //       setEditForm(prev => ({
-  //         ...prev,
-  //         testName: "",
-  //         equipment: ""
-  //       }));
-  //     }
-  //   }
-
-  //   // Auto-populate equipment when testName is selected
-  //   if (field === "testName" && value) {
-  //     const { processStage, type } = editForm;
-  //     if (processStage && type) {
-  //       const matchedItem = flaskData.find(
-  //         item => item.processStage === processStage &&
-  //           item.type === type &&
-  //           item.testName === value
-  //       );
-
-  //       if (matchedItem) {
-  //         setEditForm(prev => ({
-  //           ...prev,
-  //           equipment: matchedItem.equipment
-  //         }));
-  //       }
-  //     }
-  //   }
-  // };
-
-  const handleStage2InputChange = (field: keyof typeof editForm, value: string | string[]) => {
-    setEditForm(prev => ({
-      ...prev,
-      [field]: value
-    }));
-
-    // Filter data when both processStage and type are selected
-    if (field === "processStage" || field === "type") {
-      const { processStage, type } = field === "processStage"
-        ? { processStage: value as string, type: editForm.type }
-        : { processStage: editForm.processStage, type: value as string };
-
-      if (processStage && type) {
-        const matchedData = flaskData.filter(
-          item => item.processStage === processStage && item.type === type
-        );
-
-        setFilteredData(matchedData);
-
-        // Populate available test names for dropdown
-        const testNames = Array.from(new Set(matchedData.map(item => item.testName)));
-        setAvailableTestNames(testNames);
-
-        // Auto-populate other fields if only one match
-        if (matchedData.length === 1) {
-          setEditForm(prev => ({
-            ...prev,
-            testName: matchedData[0].testName,
-            testCondition: matchedData[0].testCondition || "", // Auto-populate test condition
-            equipment: matchedData[0].equipment
-          }));
-        } else {
-          // Clear fields if multiple matches or no matches
-          setEditForm(prev => ({
-            ...prev,
-            testName: "",
-            testCondition: "",
-            equipment: ""
-          }));
-        }
-      } else {
-        // Clear filtered data if either field is empty
-        setFilteredData([]);
-        setAvailableTestNames([]);
-        setEditForm(prev => ({
-          ...prev,
-          testName: "",
-          testCondition: "",
-          equipment: ""
-        }));
-      }
-    }
-
-    // Auto-populate equipment and test condition when testName is selected
-    if (field === "testName" && value) {
-      const { processStage, type } = editForm;
-      if (processStage && type) {
-        const matchedItem = flaskData.find(
-          item => item.processStage === processStage &&
-            item.type === type &&
-            item.testName === value
-        );
-
-        if (matchedItem) {
-          setEditForm(prev => ({
-            ...prev,
-            testCondition: matchedItem.testCondition || "", // Auto-populate test condition
-            equipment: matchedItem.equipment
-          }));
-        }
-      }
-    }
   };
 
   const confirmDelete = () => {
@@ -448,18 +253,6 @@ const Stage2Records: React.FC = () => {
   const handleViewAuthor = (record: Stage2Record) => {
     navigate("/author", { state: { record } });
   };
-
-  const handleViewDefault = (record: Stage2Record) => {
-    navigate("/form-default", { state: { record } });
-  };
-
-  const parseMultipleValues = (value: string) => {
-    return value.split(",").map(item => item.trim()).filter(item => item);
-  };
-
-  const processStages = Array.from(new Set(flaskData.map(item => item.processStage)));
-  const types = Array.from(new Set(flaskData.map(item => item.type)));
-
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -515,7 +308,7 @@ const Stage2Records: React.FC = () => {
                   {stage2Records.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center py-8 text-gray-500"
                       >
                         No stage 2 records found
@@ -569,8 +362,8 @@ const Stage2Records: React.FC = () => {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleViewDetails(record)}
-                              className="h-8 w-8 mr-10"
-                              title="View TestInfo"
+                              className="h-8 w-8 p-0"
+                              title="View Details"
                             >
                               <Eye size={16} />
                             </Button>
@@ -578,7 +371,7 @@ const Stage2Records: React.FC = () => {
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2">
-                            {/* <Button
+                            <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleViewAuthor(record)}
@@ -586,15 +379,6 @@ const Stage2Records: React.FC = () => {
                               title="Move to Testing"
                             >
                               <FlaskConical size={16} />
-                            </Button> */}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewDefault(record)}
-                              className="h-8 w-8 p-0 text-green-600"
-                              title="Move to default"
-                            >
-                              <FlaskRound size={16} />
                             </Button>
                             <Button
                               variant="ghost"
@@ -628,120 +412,187 @@ const Stage2Records: React.FC = () => {
 
       {/* Detail Modal */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
-            <DialogTitle>Stage 2 Record Details</DialogTitle>
+            <DialogTitle>Stage 2 Record - Complete Details</DialogTitle>
           </DialogHeader>
 
           {selectedRecord && (
             <div className="space-y-6 py-4">
               {/* Basic Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg">
-                <h3 className="md:col-span-2 font-semibold text-lg mb-2">Basic Information</h3>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Document Number</label>
-                  <p className="text-sm">{selectedRecord.documentNumber}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Document Title</label>
-                  <p className="text-sm">{selectedRecord.documentTitle}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Project Name</label>
-                  <p className="text-sm">{selectedRecord.projectName}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Status</label>
-                  <Badge variant="secondary" className={getStatusColor(selectedRecord.status)}>
-                    {selectedRecord.status}
-                  </Badge>
+              <div className="p-4 border rounded-lg bg-gray-50">
+                <h3 className="font-semibold text-lg mb-4 text-gray-800">Basic Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Document Number</label>
+                    <p className="text-sm font-semibold">{selectedRecord.documentNumber}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Document Title</label>
+                    <p className="text-sm">{selectedRecord.documentTitle}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Project Name</label>
+                    <p className="text-sm">{selectedRecord.projectName}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Color</label>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-4 w-4 rounded-full"
+                        style={{
+                          backgroundColor:
+                            selectedRecord.color === "white" ? "#e5e5e5" : selectedRecord.color || "#6b7280",
+                        }}
+                      ></div>
+                      <p className="text-sm">{selectedRecord.color}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Test Location</label>
+                    <p className="text-sm">{selectedRecord.testLocation}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Status</label>
+                    <Badge variant="secondary" className={getStatusColor(selectedRecord.status)}>
+                      {selectedRecord.status}
+                    </Badge>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Test Start Date</label>
+                    <p className="text-sm">{new Date(selectedRecord.testStartDate).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Test Completion Date</label>
+                    <p className="text-sm">{new Date(selectedRecord.testCompletionDate).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Sample Configuration</label>
+                    <p className="text-sm">{selectedRecord.sampleConfig}</p>
+                  </div>
                 </div>
               </div>
 
-              {/* Stage 2 Details */}
-              <div className="space-y-4 p-4 border rounded-lg">
-                <h3 className="font-semibold text-lg">Stage 2 Configuration</h3>
+              {/* ORT Lab Data Selection */}
+              <div className="p-4 border rounded-lg bg-blue-50">
+                <h3 className="font-semibold text-lg mb-4 text-blue-800">ORT Lab Data Selection</h3>
+                
+                {/* Selected Projects */}
+                <div className="mb-4">
+                  <label className="text-sm font-medium text-gray-600 mb-2 block">Selected Projects</label>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.isArray(selectedRecord.stage2.projects) && selectedRecord.stage2.projects.length > 0 ? (
+                      selectedRecord.stage2.projects.map((project, index) => (
+                        <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-800">
+                          {project}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500">No projects selected</p>
+                    )}
+                  </div>
+                </div>
 
-                {/* Process Stage and Type */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {/* Selected Lines */}
+                <div className="mb-4">
+                  <label className="text-sm font-medium text-gray-600 mb-2 block">Selected Lines</label>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.isArray(selectedRecord.stage2.lines) && selectedRecord.stage2.lines.length > 0 ? (
+                      selectedRecord.stage2.lines.map((line, index) => (
+                        <Badge key={index} variant="secondary" className="bg-green-100 text-green-800">
+                          {line}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500">No lines selected</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Selected Parts */}
+                <div>
+                  <label className="text-sm font-medium text-gray-600 mb-2 block">Selected Parts ({selectedRecord.stage2.selectedParts?.length || 0})</label>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.isArray(selectedRecord.stage2.selectedParts) && selectedRecord.stage2.selectedParts.length > 0 ? (
+                      selectedRecord.stage2.selectedParts.map((part, index) => (
+                        <Badge key={index} variant="secondary" className="bg-purple-100 text-purple-800 font-mono">
+                          {typeof part === 'string' ? part : part.part}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500">No parts selected</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Stage 2 Configuration */}
+              <div className="p-4 border rounded-lg bg-green-50">
+                <h3 className="font-semibold text-lg mb-4 text-green-800">Stage 2 Configuration</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Process Stage</label>
-                    <p className="text-sm font-medium">{selectedRecord.stage2.processStage}</p>
+                    <label className="text-sm font-medium text-gray-600">Process Stage</label>
+                    <p className="text-sm font-semibold">{selectedRecord.stage2.processStage}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Type</label>
-                    <p className="text-sm font-medium">{selectedRecord.stage2.type}</p>
+                    <label className="text-sm font-medium text-gray-600">Type</label>
+                    <p className="text-sm font-semibold">{selectedRecord.stage2.type}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Test Name</label>
+                    <p className="text-sm">{selectedRecord.stage2.testName}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Test Condition</label>
+                    <p className="text-sm">{selectedRecord.stage2.testCondition}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Required Quantity</label>
+                    <p className="text-sm">{selectedRecord.stage2.requiredQty}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Equipment</label>
+                    <p className="text-sm">{selectedRecord.stage2.equipment}</p>
                   </div>
                 </div>
+              </div>
 
-                {/* Test Names */}
-                <div>
-                  <label className="text-sm font-medium text-gray-500 mb-2 block">Test Names</label>
-                  <div className="space-y-2">
-                    {parseMultipleValues(selectedRecord.stage2.testName).map((testName, index) => (
-                      <div key={index} className="flex items-start gap-2 p-2 bg-gray-50 rounded">
-                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                          {index + 1}
-                        </span>
-                        <span className="text-sm flex-1">{testName}</span>
-                      </div>
-                    ))}
+              {/* Timing Information */}
+              <div className="p-4 border rounded-lg bg-yellow-50">
+                <h3 className="font-semibold text-lg mb-4 text-yellow-800">Timing Information</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Start Time</label>
+                    <p className="text-sm">
+                      {selectedRecord.stage2.startTime ? selectedRecord.stage2.startTime : "Not specified"}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">End Time</label>
+                    <p className="text-sm">
+                      {selectedRecord.stage2.endTime ? selectedRecord.stage2.endTime : "Not specified"}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Submitted At</label>
+                    <p className="text-sm">
+                      {new Date(selectedRecord.stage2.submittedAt).toLocaleString()}
+                    </p>
                   </div>
                 </div>
+              </div>
 
-                {/* Test Conditions */}
-                <div>
-                  <label className="text-sm font-medium text-gray-500 mb-2 block">Test Conditions</label>
-                  <div className="space-y-2">
-                    {parseMultipleValues(selectedRecord.stage2.testCondition).map((condition, index) => (
-                      <div key={index} className="flex items-start gap-2 p-2 bg-gray-50 rounded">
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                          {index + 1}
-                        </span>
-                        <span className="text-sm flex-1">{condition}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Required Quantities */}
-                <div>
-                  <label className="text-sm font-medium text-gray-500 mb-2 block">Required Quantities</label>
-                  <div className="space-y-2">
-                    {parseMultipleValues(selectedRecord.stage2.requiredQty).map((qty, index) => (
-                      <div key={index} className="flex items-start gap-2 p-2 bg-gray-50 rounded">
-                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
-                          {index + 1}
-                        </span>
-                        <span className="text-sm flex-1">{qty}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Equipment */}
-                <div>
-                  <label className="text-sm font-medium text-gray-500 mb-2 block">Equipment</label>
-                  <div className="space-y-2">
-                    {parseMultipleValues(selectedRecord.stage2.equipment).map((equipment, index) => (
-                      <div key={index} className="flex items-start gap-2 p-2 bg-gray-50 rounded">
-                        <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
-                          {index + 1}
-                        </span>
-                        <span className="text-sm flex-1">{equipment}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Submission Info */}
-                <div className="pt-4 border-t">
-                  <label className="text-sm font-medium text-gray-500">Submitted At</label>
-                  <p className="text-sm">
-                    {new Date(selectedRecord.stage2.submittedAt).toLocaleString()}
+              {/* Remarks */}
+              {selectedRecord.stage2.remark && (
+                <div className="p-4 border rounded-lg bg-gray-50">
+                  <h3 className="font-semibold text-lg mb-2 text-gray-800">Remarks</h3>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                    {selectedRecord.stage2.remark}
                   </p>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -753,192 +604,151 @@ const Stage2Records: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Stage 2 Modal */}
-      {/* Stage 2 Modal */}
+      {/* Edit Modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
-            <DialogTitle>Edit Stage 2 Records</DialogTitle>
+            <DialogTitle>Edit Stage 2 Record</DialogTitle>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4 bg-white">
-            {/* Process Stage Dropdown */}
-            <div className="space-y-2">
-              <Label htmlFor="processStage">Process Stage <span className="text-red-600">*</span></Label>
-              <Select
-                value={editForm.processStage}
-                onValueChange={(value) => handleStage2InputChange('processStage', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Process Stage" />
-                </SelectTrigger>
-                <SelectContent>
-                  {processStages.map((stage) => (
-                    <SelectItem key={stage} value={stage}>
-                      {stage}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {editingRecord && (
+            <div className="space-y-6 py-4">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Document Number <span className="text-red-600">*</span></label>
+                  <input
+                    type="text"
+                    value={editForm.documentNumber}
+                    onChange={(e) => handleEditInputChange('documentNumber', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
 
-            {/* Type Dropdown */}
-            <div className="space-y-2">
-              <Label htmlFor="type">Type <span className="text-red-600">*</span></Label>
-              <Select
-                value={editForm.type}
-                onValueChange={(value) => handleStage2InputChange('type', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {types.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Document Title <span className="text-red-600">*</span></label>
+                  <input
+                    type="text"
+                    value={editForm.documentTitle}
+                    onChange={(e) => handleEditInputChange('documentTitle', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
 
-            {/* Test Name Dropdown */}
-            <div className="space-y-2">
-              <Label htmlFor="testName">Test Name <span className="text-red-600">*</span></Label>
-              <Select
-                value={editForm.testName}
-                onValueChange={(value) => handleStage2InputChange('testName', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Test Name" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableTestNames.map((name) => (
-                    <SelectItem key={name} value={name}>
-                      {name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Project Name <span className="text-red-600">*</span></label>
+                  <input
+                    type="text"
+                    value={editForm.projectName}
+                    onChange={(e) => handleEditInputChange('projectName', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
 
-            {/* Test Condition */}
-            <div className="space-y-2">
-              <Label htmlFor="testCondition">Test Condition </Label>
-              <Input
-                id="testCondition"
-                value={editForm.testCondition}
-                onChange={(e) => handleStage2InputChange('testCondition', e.target.value)}
-                disabled
-              />
-            </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Color</label>
+                  <input
+                    type="text"
+                    value={editForm.color}
+                    onChange={(e) => handleEditInputChange('color', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
 
-            {/* Required Quantity */}
-            <div className="space-y-2">
-              <Label htmlFor="requiredQty">Required Quantity <span className="text-red-600">*</span></Label>
-              <Input
-                id="requiredQty"
-                value={editForm.requiredQty}
-                onChange={(e) => handleStage2InputChange('requiredQty', e.target.value)}
-                placeholder="Enter required quantity"
-              />
-            </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Test Location</label>
+                  <input
+                    type="text"
+                    value={editForm.testLocation}
+                    onChange={(e) => handleEditInputChange('testLocation', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
 
-            {/* Equipment */}
-            <div className="space-y-2">
-              <Label htmlFor="equipment">Equipment</Label>
-              <Input
-                id="equipment"
-                value={editForm.equipment}
-                onChange={(e) => handleStage2InputChange('equipment', e.target.value)}
-                disabled
-              />
-            </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => handleEditInputChange('status', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  >
+                    <option value="Received">Received</option>
+                    <option value="In-progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                  </select>
+                </div>
 
-            {/* Serial Number */}
-            <div className="space-y-2">
-              <Label htmlFor="serialNumber">Serial Number <span className="text-red-600">*</span></Label>
-              <Input
-                id="serialNumber"
-                value={editForm.serialNumber}
-                onChange={(e) => handleStage2InputChange('serialNumber', e.target.value)}
-                placeholder="Enter serial number"
-              />
-            </div>
+                {/* Stage 2 Configuration */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Process Stage <span className="text-red-600">*</span></label>
+                  <input
+                    type="text"
+                    value={editForm.processStage}
+                    onChange={(e) => handleEditInputChange('processStage', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
 
-            {/* Start Time */}
-            <div className="space-y-2">
-              <Label htmlFor="startTime">Start Time</Label>
-              <Input
-                id="startTime"
-                type="time"
-                value={editForm.startTime}
-                onChange={(e) => handleStage2InputChange('startTime', e.target.value)}
-              />
-            </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Type <span className="text-red-600">*</span></label>
+                  <input
+                    type="text"
+                    value={editForm.type}
+                    onChange={(e) => handleEditInputChange('type', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
 
-            {/* End Time */}
-            <div className="space-y-2">
-              <Label htmlFor="endTime">End Time</Label>
-              <Input
-                id="endTime"
-                type="time"
-                value={editForm.endTime}
-                onChange={(e) => handleStage2InputChange('endTime', e.target.value)}
-              />
-            </div>
-          </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Test Names <span className="text-red-600">*</span></label>
+                  <input
+                    type="text"
+                    value={editForm.testName}
+                    onChange={(e) => handleEditInputChange('testName', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
 
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Test Conditions <span className="text-red-600">*</span></label>
+                  <input
+                    type="text"
+                    value={editForm.testCondition}
+                    onChange={(e) => handleEditInputChange('testCondition', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
 
-          {/* Part Numbers (read-only display since it's complex to edit) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4 bg-white">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Required Quantities <span className="text-red-600">*</span></label>
+                  <input
+                  type="text"
+                    value={editForm.requiredQty}
+                    onChange={(e) => handleEditInputChange('requiredQty', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
 
-            {editForm.partNumbers && editForm.partNumbers.length > 0 && (
-              <div className="space-y-2">
-                <Label>Part Numbers</Label>
-                <div className="p-3 border border-gray-300 rounded-lg bg-gray-50">
-                  <div className="text-sm">
-                    {editForm.partNumbers.join(', ')}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">Part numbers are displayed</p>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Equipment <span className="text-red-600">*</span></label>
+                  <input
+                    type="text"
+                    value={editForm.equipment}
+                    onChange={(e) => handleEditInputChange('equipment', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  />
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Scanned Part Numbers (read-only display) */}
-            {editForm.scannedPartNumbers && editForm.scannedPartNumbers.length > 0 && (
-              <div className="space-y-2">
-                <Label>Scanned Part Numbers</Label>
-                <div className="p-3 border border-gray-300 rounded-lg bg-gray-50">
-                  <div className="text-sm">
-                    {editForm.scannedPartNumbers.join(', ')}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">Scanned part numbers are displayed</p>
-                </div>
-              </div>
-            )}
-          </div>
 
-          {/* Remark */}
-          <div className="space-y-2">
-            <Label htmlFor="remark">Remark</Label>
-            <textarea
-              id="remark"
-              value={editForm.remark}
-              onChange={(e) => handleStage2InputChange('remark', e.target.value)}
-              placeholder="Enter any remarks"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical min-h-[80px]"
-            />
-          </div>
           <DialogFooter>
             <Button variant="outline" onClick={handleCancelEdit}>
               Cancel
             </Button>
-            <Button
-              onClick={handleSaveEdit}
-              className="bg-[#e0413a] text-white hover:bg-[#e0413a] hover:text-black"
-            >
-              Update Record
+            <Button onClick={handleSaveEdit}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
