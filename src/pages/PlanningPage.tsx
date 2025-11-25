@@ -1,20 +1,20 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Clock, Search, AlertCircle, CheckCircle2, PlayCircle, Edit, Trash2, Plus, Eye, User, Shield, Activity, AlertTriangle } from "lucide-react";
+import { Calendar, Clock, Search, ChevronRight, AlertCircle, CheckCircle2, PlayCircle, Edit, Trash2, Plus, Eye, User, Shield } from "lucide-react";
 
 const PlanningModule = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
-  const [userMode, setUserMode] = useState("admin");
+  const [userMode, setUserMode] = useState<"admin" | "user">("admin"); // Toggle between admin and user
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingTest, setEditingTest] = useState(null);
-  const [showMachineStatus, setShowMachineStatus] = useState(false);
+  const [editingTest, setEditingTest] = useState<any>(null);
   
+  // Form state for creating/editing tests
   const [formData, setFormData] = useState({
     project: "",
     documentNumber: "",
@@ -30,6 +30,7 @@ const PlanningModule = () => {
     testCondition: ""
   });
 
+  // Sample data - in real app, this would come from localStorage or API
   const [upcomingTests, setUpcomingTests] = useState([
     {
       id: "TST-001",
@@ -44,6 +45,7 @@ const PlanningModule = () => {
       status: "Scheduled",
       sampleQty: 5,
       testLocation: "Lab A",
+      requiredQty: "3 samples",
       testCondition: "ASTM B117"
     },
     {
@@ -59,6 +61,7 @@ const PlanningModule = () => {
       status: "Scheduled",
       sampleQty: 3,
       testLocation: "Lab B",
+      requiredQty: "2 samples",
       testCondition: "-40°C to 85°C"
     },
     {
@@ -74,58 +77,60 @@ const PlanningModule = () => {
       status: "Pending Approval",
       sampleQty: 10,
       testLocation: "Lab A",
+      requiredQty: "8 samples",
       testCondition: "1.5m height"
+    },
+    {
+      id: "TST-004",
+      project: "Automotive Component A",
+      documentNumber: "DOC-2024-001",
+      testName: "Vibration Test",
+      equipment: "Vibration Shaker #1",
+      scheduledDate: "2024-11-27",
+      scheduledTime: "11:00 AM",
+      duration: "6 hours",
+      priority: "Medium",
+      status: "Scheduled",
+      sampleQty: 4,
+      testLocation: "Lab C",
+      requiredQty: "3 samples",
+      testCondition: "10-2000 Hz"
+    },
+    {
+      id: "TST-005",
+      project: "Medical Device D",
+      documentNumber: "DOC-2024-004",
+      testName: "Torque Test",
+      equipment: "Torque Tester #2",
+      scheduledDate: "2024-11-28",
+      scheduledTime: "09:30 AM",
+      duration: "2 hours",
+      priority: "Low",
+      status: "Scheduled",
+      sampleQty: 6,
+      testLocation: "Lab B",
+      requiredQty: "5 samples",
+      testCondition: "5-50 Nm"
+    },
+    {
+      id: "TST-006",
+      project: "Electronics Module B",
+      documentNumber: "DOC-2024-002",
+      testName: "Push/Pull Test",
+      equipment: "Universal Testing Machine",
+      scheduledDate: "2024-11-29",
+      scheduledTime: "01:00 PM",
+      duration: "3 hours",
+      priority: "High",
+      status: "Ready to Start",
+      sampleQty: 8,
+      testLocation: "Lab A",
+      requiredQty: "6 samples",
+      testCondition: "50N max force"
     }
   ]);
 
-  // Define all available machines/equipment
-  const allMachines = [
-    { id: "M001", name: "Salt Spray Chamber #1", location: "Lab A", capacity: 10 },
-    { id: "M002", name: "Salt Spray Chamber #2", location: "Lab A", capacity: 8 },
-    { id: "M003", name: "Thermal Chamber #1", location: "Lab B", capacity: 6 },
-    { id: "M004", name: "Thermal Chamber #2", location: "Lab B", capacity: 6 },
-    { id: "M005", name: "Drop Test Machine", location: "Lab A", capacity: 15 },
-    { id: "M006", name: "Vibration Shaker #1", location: "Lab C", capacity: 5 },
-    { id: "M007", name: "Vibration Shaker #2", location: "Lab C", capacity: 5 },
-    { id: "M008", name: "Torque Tester #1", location: "Lab B", capacity: 12 },
-    { id: "M009", name: "Torque Tester #2", location: "Lab B", capacity: 12 },
-    { id: "M010", name: "Universal Testing Machine", location: "Lab A", capacity: 20 },
-    { id: "M011", name: "Hardness Testing Machine", location: "Lab B", capacity: 8 },
-    { id: "M012", name: "Heat Sink Testing", location: "Lab C", capacity: 4 }
-  ];
-
-  // Calculate machine occupancy status
-  const machineStatus = useMemo(() => {
-    return allMachines.map(machine => {
-      const occupiedTests = upcomingTests.filter(test => 
-        test.equipment === machine.name && 
-        (test.status === "Scheduled" || test.status === "Ready to Start")
-      );
-      
-      const totalOccupied = occupiedTests.reduce((sum, test) => sum + test.sampleQty, 0);
-      const isOccupied = occupiedTests.length > 0;
-      const availableCapacity = machine.capacity - totalOccupied;
-      const occupancyPercentage = (totalOccupied / machine.capacity) * 100;
-
-      return {
-        ...machine,
-        isOccupied,
-        occupiedBy: occupiedTests,
-        totalOccupied,
-        availableCapacity,
-        occupancyPercentage,
-        status: occupancyPercentage >= 100 ? "full" : 
-                occupancyPercentage >= 70 ? "busy" : 
-                occupancyPercentage > 0 ? "partial" : "available"
-      };
-    });
-  }, [upcomingTests]);
-
-  // Get machine availability for dropdown
-  const getAvailableMachines = () => {
-    return machineStatus.filter(m => m.status !== "full");
-  };
-
+  // Filter tests based on search and filters
   const filteredTests = upcomingTests.filter((test) => {
     const matchesSearch = searchQuery === "" ||
       test.project.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -143,16 +148,15 @@ const PlanningModule = () => {
     return matchesSearch && matchesPriority && matchesDate;
   });
 
+  // Calculate summary stats
   const stats = {
     totalScheduled: upcomingTests.filter(t => t.status === "Scheduled").length,
     highPriority: upcomingTests.filter(t => t.priority === "High").length,
     today: upcomingTests.filter(t => t.scheduledDate === "2024-11-25").length,
-    thisWeek: upcomingTests.filter(t => new Date(t.scheduledDate) <= new Date("2024-12-01")).length,
-    machinesOccupied: machineStatus.filter(m => m.isOccupied).length,
-    machinesAvailable: machineStatus.filter(m => m.status === "available").length
+    thisWeek: upcomingTests.filter(t => new Date(t.scheduledDate) <= new Date("2024-12-01")).length
   };
 
-  const getPriorityColor = (priority) => {
+  const getPriorityColor = (priority: string) => {
     switch (priority.toLowerCase()) {
       case "high": return "bg-red-600";
       case "medium": return "bg-yellow-600";
@@ -161,7 +165,7 @@ const PlanningModule = () => {
     }
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "Scheduled": return "bg-blue-600";
       case "Ready to Start": return "bg-green-600";
@@ -170,27 +174,7 @@ const PlanningModule = () => {
     }
   };
 
-  const getMachineStatusColor = (status) => {
-    switch (status) {
-      case "available": return "bg-green-600";
-      case "partial": return "bg-blue-600";
-      case "busy": return "bg-yellow-600";
-      case "full": return "bg-red-600";
-      default: return "bg-gray-600";
-    }
-  };
-
-  const getMachineStatusIcon = (status) => {
-    switch (status) {
-      case "available": return <CheckCircle2 className="h-3 w-3" />;
-      case "partial": return <Activity className="h-3 w-3" />;
-      case "busy": return <AlertCircle className="h-3 w-3" />;
-      case "full": return <AlertTriangle className="h-3 w-3" />;
-      default: return <CheckCircle2 className="h-3 w-3" />;
-    }
-  };
-
-  const getStatusIcon = (status) => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
       case "Scheduled": return <Clock className="h-3 w-3" />;
       case "Ready to Start": return <PlayCircle className="h-3 w-3" />;
@@ -199,25 +183,17 @@ const PlanningModule = () => {
     }
   };
 
+  // Admin functions
   const handleCreateTest = () => {
-    if (!formData.project || !formData.testName || !formData.scheduledDate || !formData.equipment) {
+    if (!formData.project || !formData.testName || !formData.scheduledDate) {
       alert("Please fill in all required fields");
-      return;
-    }
-
-    // Check machine availability
-    const selectedMachine = machineStatus.find(m => m.name === formData.equipment);
-    const requestedQty = parseInt(formData.sampleQty) || 0;
-    
-    if (selectedMachine && requestedQty > selectedMachine.availableCapacity) {
-      alert(`Warning: Machine capacity exceeded! Available: ${selectedMachine.availableCapacity}, Requested: ${requestedQty}`);
       return;
     }
 
     const newTest = {
       id: `TST-${String(upcomingTests.length + 1).padStart(3, '0')}`,
       ...formData,
-      sampleQty: requestedQty
+      sampleQty: parseInt(formData.sampleQty) || 0
     };
 
     setUpcomingTests([...upcomingTests, newTest]);
@@ -230,7 +206,7 @@ const PlanningModule = () => {
     if (!editingTest) return;
 
     const updatedTests = upcomingTests.map(test => 
-      test.id === editingTest.id ? { ...editingTest, ...formData, sampleQty: parseInt(formData.sampleQty) } : test
+      test.id === editingTest.id ? { ...editingTest, ...formData } : test
     );
 
     setUpcomingTests(updatedTests);
@@ -239,14 +215,14 @@ const PlanningModule = () => {
     alert("Test updated successfully!");
   };
 
-  const handleDeleteTest = (testId) => {
+  const handleDeleteTest = (testId: string) => {
     if (window.confirm("Are you sure you want to delete this test?")) {
       setUpcomingTests(upcomingTests.filter(test => test.id !== testId));
       alert("Test deleted successfully!");
     }
   };
 
-  const handleEditClick = (test) => {
+  const handleEditClick = (test: any) => {
     setEditingTest(test);
     setFormData({
       project: test.project,
@@ -283,20 +259,21 @@ const PlanningModule = () => {
     setShowCreateModal(false);
   };
 
-  const handleViewDetails = (test) => {
+  const handleViewDetails = (test: any) => {
     alert(`Viewing details for: ${test.testName}\n\nProject: ${test.project}\nDocument: ${test.documentNumber}\nEquipment: ${test.equipment}\nScheduled: ${test.scheduledDate} at ${test.scheduledTime}`);
   };
 
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="p-6 space-y-6">
-        {/* Header */}
+        {/* Header with Mode Toggle */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex flex-col gap-1">
             <h1 className="text-3xl font-bold text-gray-800 tracking-tight">Testing Planning Module</h1>
-            <p className="text-sm text-gray-500">View and manage upcoming testing schedules with machine availability</p>
+            <p className="text-sm text-gray-500">View and manage upcoming testing schedules</p>
           </div>
           
+          {/* Mode Toggle */}
           <div className="flex items-center gap-2 bg-white rounded-lg p-1 shadow-sm border">
             <Button
               onClick={() => setUserMode("user")}
@@ -318,115 +295,28 @@ const PlanningModule = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[
-            { icon: Calendar, color: "blue", title: "Total Scheduled", value: stats.totalScheduled },
-            { icon: AlertCircle, color: "red", title: "High Priority", value: stats.highPriority },
-            { icon: Clock, color: "green", title: "Today", value: stats.today },
-            { icon: CheckCircle2, color: "purple", title: "This Week", value: stats.thisWeek },
-            { icon: Activity, color: "orange", title: "Machines Occupied", value: stats.machinesOccupied },
-            { icon: CheckCircle2, color: "teal", title: "Machines Available", value: stats.machinesAvailable },
+            { icon: Calendar, color: "blue", title: "Total Scheduled", value: stats.totalScheduled, sub: "tests planned" },
+            { icon: AlertCircle, color: "red", title: "High Priority", value: stats.highPriority, sub: "urgent tests" },
+            { icon: Clock, color: "green", title: "Today", value: stats.today, sub: "tests scheduled" },
+            { icon: CheckCircle2, color: "purple", title: "This Week", value: stats.thisWeek, sub: "tests planned" },
           ].map((item, i) => (
-            <Card key={i} className="border-t-4 rounded-xl shadow-sm hover:shadow-md transition-shadow bg-white">
+            <Card key={i} className={`border-t-4 border-t-${item.color}-500 rounded-xl shadow-sm hover:shadow-md transition-shadow bg-white`}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs font-semibold text-gray-600 flex items-center gap-2">
                   <item.icon className="h-4 w-4" /> {item.title}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{item.value}</div>
+                <div className="text-3xl font-bold">{item.value}</div>
+                <p className="text-xs text-gray-500 mt-1">{item.sub}</p>
               </CardContent>
             </Card>
           ))}
         </div>
 
-        {/* Machine Status Overview - Visible to Admin */}
-        {userMode === "admin" && (
-          <Card className="shadow-sm rounded-xl border-l-4 border-l-blue-600">
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-blue-600" />
-                  Machine Availability Status
-                </CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowMachineStatus(!showMachineStatus)}
-                >
-                  {showMachineStatus ? "Hide Details" : "Show Details"}
-                </Button>
-              </div>
-            </CardHeader>
-            {showMachineStatus && (
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {machineStatus.map((machine) => (
-                    <div key={machine.id} className="border rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h4 className="font-semibold text-sm text-gray-800">{machine.name}</h4>
-                          <p className="text-xs text-gray-500">{machine.location}</p>
-                        </div>
-                        <Badge className={`${getMachineStatusColor(machine.status)} text-white text-xs flex items-center gap-1`}>
-                          {getMachineStatusIcon(machine.status)}
-                          {machine.status}
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-2 text-xs">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Capacity:</span>
-                          <span className="font-medium">{machine.capacity} samples</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Occupied:</span>
-                          <span className="font-medium">{machine.totalOccupied} samples</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Available:</span>
-                          <span className="font-medium text-green-600">{machine.availableCapacity} samples</span>
-                        </div>
-                        
-                        {/* Progress bar */}
-                        <div className="mt-2">
-                          <div className="flex justify-between text-xs mb-1">
-                            <span>Occupancy</span>
-                            <span>{Math.round(machine.occupancyPercentage)}%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className={`h-2 rounded-full transition-all ${
-                                machine.status === "full" ? "bg-red-600" :
-                                machine.status === "busy" ? "bg-yellow-600" :
-                                machine.status === "partial" ? "bg-blue-600" : "bg-green-600"
-                              }`}
-                              style={{ width: `${Math.min(machine.occupancyPercentage, 100)}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Show tests using this machine */}
-                        {machine.occupiedBy.length > 0 && (
-                          <div className="mt-3 pt-3 border-t">
-                            <p className="text-gray-600 font-medium mb-1">Currently Scheduled:</p>
-                            {machine.occupiedBy.map((test, idx) => (
-                              <div key={idx} className="text-xs text-gray-700 ml-2">
-                                • {test.testName} ({test.sampleQty} samples)
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            )}
-          </Card>
-        )}
-
-        {/* Filters */}
+        {/* Filters and Admin Actions */}
         <Card className="shadow-sm rounded-xl">
           <CardContent className="pt-6 space-y-4">
             <div className="flex flex-col md:flex-row gap-4">
@@ -478,6 +368,7 @@ const PlanningModule = () => {
               </div>
             </div>
 
+            {/* Admin Only: Create Button */}
             {userMode === "admin" && (
               <div className="flex justify-end">
                 <Button 
@@ -504,7 +395,7 @@ const PlanningModule = () => {
             <CardContent className="pt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Project Name *</label>
+                  <label className="text-sm font-medium text-gray-700 text-nowrap">Project Name *</label>
                   <Input
                     value={formData.project}
                     onChange={(e) => setFormData({...formData, project: e.target.value})}
@@ -513,7 +404,7 @@ const PlanningModule = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Document Number</label>
+                  <label className="text-sm font-medium text-gray-700 text-nowrap">Document Number</label>
                   <Input
                     value={formData.documentNumber}
                     onChange={(e) => setFormData({...formData, documentNumber: e.target.value})}
@@ -522,7 +413,7 @@ const PlanningModule = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Test Name *</label>
+                  <label className="text-sm font-medium text-gray-700 text-nowrap">Test Name *</label>
                   <Input
                     value={formData.testName}
                     onChange={(e) => setFormData({...formData, testName: e.target.value})}
@@ -531,27 +422,16 @@ const PlanningModule = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Equipment *</label>
-                  <Select value={formData.equipment} onValueChange={(value) => setFormData({...formData, equipment: value})}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select equipment" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getAvailableMachines().map((machine) => (
-                        <SelectItem key={machine.id} value={machine.name}>
-                          {machine.name} - Available: {machine.availableCapacity}/{machine.capacity}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {formData.equipment && (
-                    <p className="text-xs text-blue-600 mt-1">
-                      {machineStatus.find(m => m.name === formData.equipment)?.availableCapacity} samples available
-                    </p>
-                  )}
+                  <label className="text-sm font-medium text-gray-700 text-nowrap">Equipment</label>
+                  <Input
+                    value={formData.equipment}
+                    onChange={(e) => setFormData({...formData, equipment: e.target.value})}
+                    placeholder="Enter equipment name"
+                    className="mt-1"
+                  />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Scheduled Date *</label>
+                  <label className="text-sm font-medium text-gray-700 text-nowrap">Scheduled Date *</label>
                   <Input
                     type="date"
                     value={formData.scheduledDate}
@@ -560,7 +440,7 @@ const PlanningModule = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Scheduled Time</label>
+                  <label className="text-sm font-medium text-gray-700 text-nowrap">Scheduled Time</label>
                   <Input
                     type="time"
                     value={formData.scheduledTime}
@@ -569,7 +449,7 @@ const PlanningModule = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Duration</label>
+                  <label className="text-sm font-medium text-gray-700 text-nowrap">Duration</label>
                   <Input
                     value={formData.duration}
                     onChange={(e) => setFormData({...formData, duration: e.target.value})}
@@ -578,7 +458,7 @@ const PlanningModule = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Priority</label>
+                  <label className="text-sm font-medium text-gray-700 text-nowrap">Priority</label>
                   <Select value={formData.priority} onValueChange={(value) => setFormData({...formData, priority: value})}>
                     <SelectTrigger className="mt-1">
                       <SelectValue />
@@ -591,7 +471,7 @@ const PlanningModule = () => {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Status</label>
+                  <label className="text-sm font-medium text-gray-700 text-nowrap">Status</label>
                   <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
                     <SelectTrigger className="mt-1">
                       <SelectValue />
@@ -604,7 +484,7 @@ const PlanningModule = () => {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Sample Quantity *</label>
+                  <label className="text-sm font-medium text-gray-700 text-nowrap">Sample Quantity</label>
                   <Input
                     type="number"
                     value={formData.sampleQty}
@@ -614,7 +494,7 @@ const PlanningModule = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Test Location</label>
+                  <label className="text-sm font-medium text-gray-700 text-nowrap">Test Location</label>
                   <Input
                     value={formData.testLocation}
                     onChange={(e) => setFormData({...formData, testLocation: e.target.value})}
@@ -623,7 +503,7 @@ const PlanningModule = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Test Condition</label>
+                  <label className="text-sm font-medium text-gray-700 text-nowrap">Test Condition</label>
                   <Input
                     value={formData.testCondition}
                     onChange={(e) => setFormData({...formData, testCondition: e.target.value})}
@@ -661,41 +541,47 @@ const PlanningModule = () => {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-gray-50 border-b">
-                    <th className="text-left p-3 font-semibold text-sm text-gray-700">Project</th>
-                    <th className="text-left p-3 font-semibold text-sm text-gray-700">Test Name</th>
-                    <th className="text-left p-3 font-semibold text-sm text-gray-700">Equipment</th>
-                    <th className="text-left p-3 font-semibold text-sm text-gray-700">Date</th>
-                    <th className="text-left p-3 font-semibold text-sm text-gray-700">Time</th>
-                    <th className="text-left p-3 font-semibold text-sm text-gray-700">Duration</th>
-                    <th className="text-left p-3 font-semibold text-sm text-gray-700">Samples</th>
-                    <th className="text-left p-3 font-semibold text-sm text-gray-700">Priority</th>
-                    <th className="text-left p-3 font-semibold text-sm text-gray-700">Status</th>
-                    <th className="text-left p-3 font-semibold text-sm text-gray-700">Actions</th>
+                    <th className="text-left p-3 font-semibold text-sm text-gray-700 text-nowrap min-w-[100px]">Project</th>
+                    <th className="text-left p-3 font-semibold text-sm text-gray-700 text-nowrap min-w-[120px]">Document No.</th>
+                    <th className="text-left p-3 font-semibold text-sm text-gray-700 text-nowrap min-w-[150px]">Test Name</th>
+                    <th className="text-left p-3 font-semibold text-sm text-gray-700 text-nowrap min-w-[150px]">Equipment</th>
+                    <th className="text-left p-3 font-semibold text-sm text-gray-700 text-nowrap min-w-[100px]">Scheduled Date</th>
+                    <th className="text-left p-3 font-semibold text-sm text-gray-700 text-nowrap min-w-[100px]">Time</th>
+                    <th className="text-left p-3 font-semibold text-sm text-gray-700 text-nowrap min-w-[80px]">Duration</th>
+                    <th className="text-left p-3 font-semibold text-sm text-gray-700 text-nowrap min-w-[120px]">Test Condition</th>
+                    <th className="text-left p-3 font-semibold text-sm text-gray-700 text-nowrap min-w-[80px]">Samples</th>
+                    <th className="text-left p-3 font-semibold text-sm text-gray-700 text-nowrap min-w-[100px]">Location</th>
+                    <th className="text-left p-3 font-semibold text-sm text-gray-700 text-nowrap min-w-[80px]">Priority</th>
+                    <th className="text-left p-3 font-semibold text-sm text-gray-700 text-nowrap min-w-[120px]">Status</th>
+                    <th className="text-left p-3 font-semibold text-sm text-gray-700 text-nowrap min-w-[120px]">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredTests.length > 0 ? (
                     filteredTests.map((test) => (
                       <tr key={test.id} className="border-b hover:bg-gray-50 transition-colors text-sm">
-                        <td className="p-3 font-medium text-gray-800">{test.project}</td>
-                        <td className="p-3 text-gray-800">{test.testName}</td>
-                        <td className="p-3 text-gray-600">{test.equipment}</td>
-                        <td className="p-3 text-gray-800">{test.scheduledDate}</td>
-                        <td className="p-3 text-gray-600">{test.scheduledTime}</td>
-                        <td className="p-3 text-gray-600">{test.duration}</td>
-                        <td className="p-3 text-gray-800">{test.sampleQty}</td>
-                        <td className="p-3">
+                        <td className="p-3 text-nowrap  font-medium text-gray-800">{test.project}</td>
+                        <td className="p-3 text-nowrap  text-gray-600">{test.documentNumber}</td>
+                        <td className="p-3 text-nowrap  text-gray-800">{test.testName}</td>
+                        <td className="p-3 text-nowrap  text-gray-600">{test.equipment}</td>
+                        <td className="p-3 text-nowrap  text-gray-800">{test.scheduledDate}</td>
+                        <td className="p-3 text-nowrap  text-gray-600">{test.scheduledTime}</td>
+                        <td className="p-3 text-nowrap  text-gray-600">{test.duration}</td>
+                        <td className="p-3 text-nowrap  text-gray-600 text-xs">{test.testCondition}</td>
+                        <td className="p-3 text-nowrap  text-gray-800">{test.sampleQty}</td>
+                        <td className="p-3 text-nowrap  text-gray-600">{test.testLocation}</td>
+                        <td className="p-3 text-nowrap ">
                           <Badge className={`${getPriorityColor(test.priority)} text-white text-xs px-2 py-1`}>
                             {test.priority}
                           </Badge>
                         </td>
-                        <td className="p-3">
+                        <td className="p-3 text-nowrap ">
                           <Badge className={`${getStatusColor(test.status)} text-white text-xs px-2 py-1 flex items-center gap-1 w-fit`}>
                             {getStatusIcon(test.status)}
                             {test.status}
                           </Badge>
                         </td>
-                        <td className="p-3">
+                        <td className="p-3 text-nowrap ">
                           <div className="flex items-center gap-2">
                             {userMode === "admin" ? (
                               <>
@@ -732,7 +618,7 @@ const PlanningModule = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={10} className="text-center py-8 text-gray-500">
+                      <td colSpan={13} className="text-center py-8 text-gray-500">
                         No upcoming tests found matching your filters
                       </td>
                     </tr>
@@ -762,21 +648,12 @@ const PlanningModule = () => {
               Print Calendar
             </Button>
             {userMode === "admin" && (
-              <>
-                <Button 
-                  variant="outline" 
-                  className="border-gray-300 hover:bg-gray-50"
-                >
-                  Send Reminders
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="border-gray-300 hover:bg-gray-50"
-                  onClick={() => setShowMachineStatus(!showMachineStatus)}
-                >
-                  View Machine Status
-                </Button>
-              </>
+              <Button 
+                variant="outline" 
+                className="border-gray-300 hover:bg-gray-50"
+              >
+                Send Reminders
+              </Button>
             )}
           </CardContent>
         </Card>
