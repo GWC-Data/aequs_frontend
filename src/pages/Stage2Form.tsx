@@ -131,10 +131,10 @@ const Stage2Records: React.FC = () => {
       equipment: record.stage2.equipment,
       projects: Array.isArray(record.stage2.projects) ? record.stage2.projects : [],
       lines: Array.isArray(record.stage2.lines) ? record.stage2.lines : [],
-      selectedParts: Array.isArray(record.stage2.selectedParts) 
-        ? record.stage2.selectedParts.map((part: any) => 
-            typeof part === 'string' ? part : part.part
-          )
+      selectedParts: Array.isArray(record.stage2.selectedParts)
+        ? record.stage2.selectedParts.map((part: any) =>
+          typeof part === 'string' ? part : part.part
+        )
         : [],
       startTime: record.stage2.startTime || "",
       endTime: record.stage2.endTime || "",
@@ -443,7 +443,7 @@ const Stage2Records: React.FC = () => {
                         style={{
                           backgroundColor:
                             selectedRecord.color,
-                         
+
                         }}
                       ></div>
                       <p className="text-sm">{selectedRecord.color}</p>
@@ -458,15 +458,7 @@ const Stage2Records: React.FC = () => {
                     <Badge variant="secondary" className={getStatusColor(selectedRecord.status)}>
                       {selectedRecord.status}
                     </Badge>
-                  </div>
-                  {/* <div>
-                    <label className="text-sm font-medium text-gray-600">Test Start Date</label>
-                    <p className="text-sm">{new Date(selectedRecord.testStartDate).toLocaleDateString()}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Test Completion Date</label>
-                    <p className="text-sm">{new Date(selectedRecord.testCompletionDate).toLocaleDateString()}</p>
-                  </div> */}
+                  </div>y
                   <div>
                     <label className="text-sm font-medium text-gray-600">Sample Configuration</label>
                     <p className="text-sm">{selectedRecord.sampleConfig}</p>
@@ -477,7 +469,7 @@ const Stage2Records: React.FC = () => {
               {/* ORT Lab Data Selection */}
               <div className="p-4 border rounded-lg bg-blue-50">
                 <h3 className="font-semibold text-lg mb-4 text-blue-800">ORT Lab Data Selection</h3>
-                
+
                 {/* Selected Projects */}
                 <div className="mb-4">
                   <label className="text-sm font-medium text-gray-600 mb-2 block">Selected Projects</label>
@@ -530,7 +522,7 @@ const Stage2Records: React.FC = () => {
               {/* Stage 2 Configuration */}
               <div className="p-4 border rounded-lg bg-green-50">
                 <h3 className="font-semibold text-lg mb-4 text-green-800">Stage 2 Configuration</h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="text-sm font-medium text-gray-600">Process Stage</label>
@@ -562,7 +554,7 @@ const Stage2Records: React.FC = () => {
               {/* Timing Information */}
               <div className="p-4 border rounded-lg bg-yellow-50">
                 <h3 className="font-semibold text-lg mb-4 text-yellow-800">Timing Information</h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="text-sm font-medium text-gray-600">Start Time</label>
@@ -710,9 +702,9 @@ const Stage2Records: React.FC = () => {
                   />
                 </div>
 
-                
 
-                 <div className="space-y-2">
+
+                <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-500">Test Conditions <span className="text-red-600">*</span></label>
                   <input
                     type="text"
@@ -722,7 +714,7 @@ const Stage2Records: React.FC = () => {
                     disabled={true}
                   />
                 </div>
- 
+
 
                 {/* <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-500">Required Quantities <span className="text-red-600">*</span></label>
