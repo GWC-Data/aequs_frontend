@@ -1,10 +1,48 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, Clock, Search, AlertCircle, CheckCircle2, PlayCircle, Edit, Trash2, Plus, Eye, User, Shield, Activity, AlertTriangle } from "lucide-react";
+import { flaskData, FlaskItem } from "@/data/flaskData";
+
+// Define types for local storage response
+interface Stage2Record {
+  processStage: string;
+  type: string;
+  testName: string;
+  testCondition: string;
+  requiredQty: string;
+  equipment: string;
+  projects: string[];
+  lines: string[];
+  selectedParts: string[];
+  startTime: string;
+  endTime: string;
+  remark: string;
+  submittedAt: string;
+}
+
+interface LocalStorageResponse {
+  documentNumber: string;
+  documentTitle: string;
+  projectName: string;
+  color: string;
+  testLocation: string;
+  submissionDate: string;
+  sampleConfig: string;
+  status: string;
+  id: number;
+  createdAt: string;
+  stage2?: Stage2Record;
+  forms: any;
+  completedAt: string;
+  sharedImages: any;
+  sampleQty: string;
+  testCompletionDate: string;
+  completedTests: string[];
+}
 
 const PlanningModule = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -14,7 +52,8 @@ const PlanningModule = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTest, setEditingTest] = useState(null);
   const [showMachineStatus, setShowMachineStatus] = useState(false);
-  
+  const [stage2Records, setStage2Records] = useState<LocalStorageResponse[]>([]);
+
   const [formData, setFormData] = useState({
     project: "",
     documentNumber: "",
@@ -60,70 +99,105 @@ const PlanningModule = () => {
       sampleQty: 3,
       testLocation: "Lab B",
       testCondition: "-40°C to 85°C"
-    },
-    {
-      id: "TST-003",
-      project: "Connector System C",
-      documentNumber: "DOC-2024-003",
-      testName: "Drop Test",
-      equipment: "Drop Test Machine",
-      scheduledDate: "2024-11-26",
-      scheduledTime: "10:00 AM",
-      duration: "4 hours",
-      priority: "High",
-      status: "Pending Approval",
-      sampleQty: 10,
-      testLocation: "Lab A",
-      testCondition: "1.5m height"
     }
   ]);
 
-  // Define all available machines/equipment
-  const allMachines = [
-    { id: "M001", name: "Salt Spray Chamber #1", location: "Lab A", capacity: 10 },
-    { id: "M002", name: "Salt Spray Chamber #2", location: "Lab A", capacity: 8 },
-    { id: "M003", name: "Thermal Chamber #1", location: "Lab B", capacity: 6 },
-    { id: "M004", name: "Thermal Chamber #2", location: "Lab B", capacity: 6 },
-    { id: "M005", name: "Drop Test Machine", location: "Lab A", capacity: 15 },
-    { id: "M006", name: "Vibration Shaker #1", location: "Lab C", capacity: 5 },
-    { id: "M007", name: "Vibration Shaker #2", location: "Lab C", capacity: 5 },
-    { id: "M008", name: "Torque Tester #1", location: "Lab B", capacity: 12 },
-    { id: "M009", name: "Torque Tester #2", location: "Lab B", capacity: 12 },
-    { id: "M010", name: "Universal Testing Machine", location: "Lab A", capacity: 20 },
-    { id: "M011", name: "Hardness Testing Machine", location: "Lab B", capacity: 8 },
-    { id: "M012", name: "Heat Sink Testing", location: "Lab C", capacity: 4 }
-  ];
+  const stage2Record = JSON.parse(localStorage.getItem('stage2Records') || '[]');
 
-  // Calculate machine occupancy status
-  const machineStatus = useMemo(() => {
-    return allMachines.map(machine => {
-      const occupiedTests = upcomingTests.filter(test => 
-        test.equipment === machine.name && 
-        (test.status === "Scheduled" || test.status === "Ready to Start")
-      );
-      
-      const totalOccupied = occupiedTests.reduce((sum, test) => sum + test.sampleQty, 0);
-      const isOccupied = occupiedTests.length > 0;
-      const availableCapacity = machine.capacity - totalOccupied;
-      const occupancyPercentage = (totalOccupied / machine.capacity) * 100;
+  // Create machine cards and separate into occupied (left) and available (right)
+  const { occupiedMachines, availableMachines } = useMemo(() => {
+    const occupied: any[] = [];
+    const available: any[] = [];
 
-      return {
-        ...machine,
-        isOccupied,
-        occupiedBy: occupiedTests,
-        totalOccupied,
-        availableCapacity,
-        occupancyPercentage,
-        status: occupancyPercentage >= 100 ? "full" : 
-                occupancyPercentage >= 70 ? "busy" : 
-                occupancyPercentage > 0 ? "partial" : "available"
+    console.log('=== Processing Flask Data ===');
+    console.log('Total stage2Records:', stage2Record);
+
+    flaskData.forEach((item: FlaskItem, index: number) => {
+      // Find matching records in localStorage for this specific test
+      const matchingRecords = stage2Record.filter(record => {
+        const stage2 = record.stage2;
+        if (!stage2) {
+          console.log(`Record ${record.projectName} has no stage2 data`);
+          return false;
+        }
+
+        // Trim whitespace for comparison
+        const testNameMatch = stage2.testName?.trim() === item.testName?.trim();
+        const equipmentMatch = stage2.equipment?.trim() === item.equipment?.trim();
+
+        if (testNameMatch && equipmentMatch) {
+          console.log('✓ MATCH FOUND:', {
+            flaskTest: item.testName,
+            flaskEquipment: item.equipment,
+            recordProject: record.projectName,
+            recordStatus: record.status
+          });
+        }
+
+        return testNameMatch && equipmentMatch;
+      });
+
+      // Check status of matching records - ONLY consider "Received" or "In Progress" as occupied
+      const receivedRecords = matchingRecords.filter(r => r.status === "Received");
+      const inProgressRecords = matchingRecords.filter(r => r.status === "In Progress");
+      const completedRecords = matchingRecords.filter(r => r.status === "Completed");
+
+      const hasReceived = receivedRecords.length > 0;
+      const hasInProgress = inProgressRecords.length > 0;
+      const hasCompleted = completedRecords.length > 0;
+
+      // Machine is OCCUPIED only if status is "Received" or "In Progress"
+      const isOccupied = hasReceived || hasInProgress;
+      const isAvailable = !isOccupied;
+
+      const machineData = {
+        id: `M${String(index + 1).padStart(3, '0')}`,
+        name: item.equipment,
+        location: "Lab A",
+        capacity: 20,
+        processStage: item.processStage,
+        type: item.type,
+        testName: item.testName,
+        testCondition: item.testCondition,
+        requiredQty: item.requiredQty,
+        matchingRecords: matchingRecords,
+        isOccupied: isOccupied,
+        isAvailable: isAvailable,
+        status: isOccupied ? "occupied" : "available",
+        hasCompleted: hasCompleted
       };
-    });
-  }, [upcomingTests]);
 
-  // Get machine availability for dropdown
-  const getAvailableMachines = () => {
-    return machineStatus.filter(m => m.status !== "full");
+      if (isOccupied) {
+        console.log(`→ Machine ${item.equipment} is OCCUPIED (${receivedRecords.length} received, ${inProgressRecords.length} in progress)`);
+        occupied.push(machineData);
+      } else {
+        console.log(`→ Machine ${item.equipment} is AVAILABLE (${completedRecords.length} completed, ${matchingRecords.length} total matches)`);
+        available.push(machineData);
+      }
+    });
+
+    console.log('=== Summary ===');
+    console.log('Occupied machines:', occupied.length);
+    console.log('Available machines:', available.length);
+
+    return { occupiedMachines: occupied, availableMachines: available };
+  }, [stage2Record]);
+  // Get unique machines for dropdown (only available ones)
+  const getAvailableMachinesForDropdown = () => {
+    const uniqueMachines = new Map();
+
+    availableMachines.forEach(machine => {
+      if (!uniqueMachines.has(machine.name)) {
+        uniqueMachines.set(machine.name, {
+          id: machine.id,
+          name: machine.name,
+          location: machine.location,
+          capacity: machine.capacity
+        });
+      }
+    });
+
+    return Array.from(uniqueMachines.values());
   };
 
   const filteredTests = upcomingTests.filter((test) => {
@@ -135,7 +209,7 @@ const PlanningModule = () => {
 
     const matchesPriority = priorityFilter === "all" || test.priority.toLowerCase() === priorityFilter.toLowerCase();
 
-    const matchesDate = dateFilter === "all" || 
+    const matchesDate = dateFilter === "all" ||
       (dateFilter === "today" && test.scheduledDate === "2024-11-25") ||
       (dateFilter === "tomorrow" && test.scheduledDate === "2024-11-26") ||
       (dateFilter === "week" && new Date(test.scheduledDate) <= new Date("2024-12-01"));
@@ -148,8 +222,11 @@ const PlanningModule = () => {
     highPriority: upcomingTests.filter(t => t.priority === "High").length,
     today: upcomingTests.filter(t => t.scheduledDate === "2024-11-25").length,
     thisWeek: upcomingTests.filter(t => new Date(t.scheduledDate) <= new Date("2024-12-01")).length,
-    machinesOccupied: machineStatus.filter(m => m.isOccupied).length,
-    machinesAvailable: machineStatus.filter(m => m.status === "available").length
+    machinesOccupied: occupiedMachines.length,
+    machinesAvailable: availableMachines.length,
+    totalTests: flaskData.length,
+    receivedTests: stage2Record.filter(r => r.status === "Received").length,
+    completedTests: stage2Record.filter(r => r.status === "Completed").length
   };
 
   const getPriorityColor = (priority) => {
@@ -173,9 +250,7 @@ const PlanningModule = () => {
   const getMachineStatusColor = (status) => {
     switch (status) {
       case "available": return "bg-green-600";
-      case "partial": return "bg-blue-600";
-      case "busy": return "bg-yellow-600";
-      case "full": return "bg-red-600";
+      case "occupied": return "bg-red-600";
       default: return "bg-gray-600";
     }
   };
@@ -183,9 +258,7 @@ const PlanningModule = () => {
   const getMachineStatusIcon = (status) => {
     switch (status) {
       case "available": return <CheckCircle2 className="h-3 w-3" />;
-      case "partial": return <Activity className="h-3 w-3" />;
-      case "busy": return <AlertCircle className="h-3 w-3" />;
-      case "full": return <AlertTriangle className="h-3 w-3" />;
+      case "occupied": return <AlertCircle className="h-3 w-3" />;
       default: return <CheckCircle2 className="h-3 w-3" />;
     }
   };
@@ -205,19 +278,10 @@ const PlanningModule = () => {
       return;
     }
 
-    // Check machine availability
-    const selectedMachine = machineStatus.find(m => m.name === formData.equipment);
-    const requestedQty = parseInt(formData.sampleQty) || 0;
-    
-    if (selectedMachine && requestedQty > selectedMachine.availableCapacity) {
-      alert(`Warning: Machine capacity exceeded! Available: ${selectedMachine.availableCapacity}, Requested: ${requestedQty}`);
-      return;
-    }
-
     const newTest = {
       id: `TST-${String(upcomingTests.length + 1).padStart(3, '0')}`,
       ...formData,
-      sampleQty: requestedQty
+      sampleQty: parseInt(formData.sampleQty) || 0
     };
 
     setUpcomingTests([...upcomingTests, newTest]);
@@ -229,7 +293,7 @@ const PlanningModule = () => {
   const handleUpdateTest = () => {
     if (!editingTest) return;
 
-    const updatedTests = upcomingTests.map(test => 
+    const updatedTests = upcomingTests.map(test =>
       test.id === editingTest.id ? { ...editingTest, ...formData, sampleQty: parseInt(formData.sampleQty) } : test
     );
 
@@ -287,6 +351,99 @@ const PlanningModule = () => {
     alert(`Viewing details for: ${test.testName}\n\nProject: ${test.project}\nDocument: ${test.documentNumber}\nEquipment: ${test.equipment}\nScheduled: ${test.scheduledDate} at ${test.scheduledTime}`);
   };
 
+  // Refresh stage2 records
+  const refreshStage2Records = () => {
+    const keys = Object.keys(localStorage);
+    const records: LocalStorageResponse[] = [];
+
+    keys.forEach(key => {
+      try {
+        const item = localStorage.getItem(key);
+        if (item) {
+          const parsed = JSON.parse(item);
+          if (parsed.projectName && parsed.status !== undefined) {
+            records.push(parsed);
+          }
+        }
+      } catch (error) {
+        console.warn(`Error parsing localStorage item ${key}:`, error);
+      }
+    });
+
+    setStage2Records(records);
+    alert(`Refreshed! Loaded ${records.length} records from localStorage`);
+  };
+
+  const renderMachineCard = (machine, isOccupied) => (
+    <div key={machine.id} className="border rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start mb-2">
+        <div>
+          <h4 className="font-semibold text-sm text-gray-800">{machine.name}</h4>
+          <p className="text-xs text-gray-500">{machine.testName}</p>
+          <p className="text-xs text-gray-400">{machine.processStage} • {machine.type}</p>
+        </div>
+        <Badge className={`${getMachineStatusColor(machine.status)} text-white text-xs flex items-center gap-1`}>
+          {getMachineStatusIcon(machine.status)}
+          {isOccupied ? "Occupied" : "Available"}
+        </Badge>
+      </div>
+
+      <div className="space-y-2 text-xs">
+        <div className="flex justify-between">
+          <span className="text-gray-600">Process Stage:</span>
+          <span className="font-medium">{machine.processStage}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Type:</span>
+          <span className="font-medium">{machine.type}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Test Condition:</span>
+          <span className="font-medium">{machine.testCondition}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Required Qty:</span>
+          <span className="font-medium">{machine.requiredQty}</span>
+        </div>
+
+        {/* Show matching records */}
+        {machine.matchingRecords.length > 0 && (
+          <div className="mt-3 pt-3 border-t">
+            <p className="text-gray-600 font-medium mb-1">
+              {isOccupied ? "Occupied by:" : "Completed by:"}
+            </p>
+            {machine.matchingRecords.map((record, idx) => (
+              <div key={idx} className="text-xs text-gray-700 ml-2 mb-1">
+                <div className="font-medium">• {record.projectName}</div>
+                <div className="text-gray-500 ml-2">
+                  Status: <span className={isOccupied ? "text-red-600" : "text-green-600"}>{record.status}</span>
+                  <br />
+                  Document: {record.documentNumber}
+                  {record.completedAt && !isOccupied && (
+                    <>
+                      <br />
+                      Completed: {new Date(record.completedAt).toLocaleDateString()}
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Show if no matching records found */}
+        {machine.matchingRecords.length === 0 && (
+          <div className="mt-2 pt-2 border-t">
+            <p className="text-gray-600 font-medium mb-1 text-blue-600">No matching records</p>
+            <div className="text-xs text-gray-500 ml-2">
+              This test configuration hasn't been recorded in localStorage yet
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="p-6 space-y-6">
@@ -296,7 +453,7 @@ const PlanningModule = () => {
             <h1 className="text-3xl font-bold text-gray-800 tracking-tight">Testing Planning Module</h1>
             <p className="text-sm text-gray-500">View and manage upcoming testing schedules with machine availability</p>
           </div>
-          
+
           <div className="flex items-center gap-2 bg-white rounded-lg p-1 shadow-sm border">
             <Button
               onClick={() => setUserMode("user")}
@@ -349,83 +506,87 @@ const PlanningModule = () => {
                   <Activity className="h-5 w-5 text-blue-600" />
                   Machine Availability Status
                 </CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowMachineStatus(!showMachineStatus)}
-                >
-                  {showMachineStatus ? "Hide Details" : "Show Details"}
-                </Button>
+                <div className="flex gap-2">
+                  {/* <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={refreshStage2Records}
+                  >
+                    Refresh Data
+                  </Button> */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowMachineStatus(!showMachineStatus)}
+                  >
+                    {showMachineStatus ? "Hide Details" : "Show Details"}
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             {showMachineStatus && (
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {machineStatus.map((machine) => (
-                    <div key={machine.id} className="border rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h4 className="font-semibold text-sm text-gray-800">{machine.name}</h4>
-                          <p className="text-xs text-gray-500">{machine.location}</p>
-                        </div>
-                        <Badge className={`${getMachineStatusColor(machine.status)} text-white text-xs flex items-center gap-1`}>
-                          {getMachineStatusIcon(machine.status)}
-                          {machine.status}
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-2 text-xs">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Capacity:</span>
-                          <span className="font-medium">{machine.capacity} samples</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Occupied:</span>
-                          <span className="font-medium">{machine.totalOccupied} samples</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Available:</span>
-                          <span className="font-medium text-green-600">{machine.availableCapacity} samples</span>
-                        </div>
-                        
-                        {/* Progress bar */}
-                        <div className="mt-2">
-                          <div className="flex justify-between text-xs mb-1">
-                            <span>Occupancy</span>
-                            <span>{Math.round(machine.occupancyPercentage)}%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className={`h-2 rounded-full transition-all ${
-                                machine.status === "full" ? "bg-red-600" :
-                                machine.status === "busy" ? "bg-yellow-600" :
-                                machine.status === "partial" ? "bg-blue-600" : "bg-green-600"
-                              }`}
-                              style={{ width: `${Math.min(machine.occupancyPercentage, 100)}%` }}
-                            />
-                          </div>
-                        </div>
+                {/* <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-700">
+                    <strong>Matching Logic:</strong> processStage + type + testName + equipment
+                    <br />
+                    <strong>Left Side (Occupied):</strong> Status = "Received" or "In Progress"
+                    <br />
+                    <strong>Right Side (Available):</strong> Status = "Completed" or no matching records
+                  </p>
+                </div> */}
 
-                        {/* Show tests using this machine */}
-                        {machine.occupiedBy.length > 0 && (
-                          <div className="mt-3 pt-3 border-t">
-                            <p className="text-gray-600 font-medium mb-1">Currently Scheduled:</p>
-                            {machine.occupiedBy.map((test, idx) => (
-                              <div key={idx} className="text-xs text-gray-700 ml-2">
-                                • {test.testName} ({test.sampleQty} samples)
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Side - Occupied Machines */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-4 p-3 bg-red-50 rounded-lg">
+                      <AlertCircle className="h-5 w-5 text-red-600" />
+                      <h3 className="text-lg font-semibold text-red-700">Occupied Machines</h3>
+                      {/* <Badge className="bg-red-600 text-white ml-2">
+                        {occupiedMachines.length}
+                      </Badge> */}
                     </div>
-                  ))}
+                    <div className="grid grid-cols-1 gap-4">
+                      {occupiedMachines.length > 0 ? (
+                        occupiedMachines.map(machine => renderMachineCard(machine, true))
+                      ) : (
+                        <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
+                          <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-2" />
+                          <p>No occupied machines</p>
+                          <p className="text-sm">All machines are available</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right Side - Available Machines */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-4 p-3 bg-green-50 rounded-lg">
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      <h3 className="text-lg font-semibold text-green-700">Available Machines</h3>
+                      {/* <Badge className="bg-green-600 text-white ml-2">
+                        {availableMachines.length}
+                      </Badge> */}
+                    </div>
+                    <div className="grid grid-cols-1 gap-4">
+                      {availableMachines.length > 0 ? (
+                        availableMachines.map(machine => renderMachineCard(machine, false))
+                      ) : (
+                        <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
+                          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-2" />
+                          <p>No available machines</p>
+                          <p className="text-sm">All machines are occupied</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             )}
           </Card>
         )}
 
+        {/* Rest of your components remain the same */}
         {/* Filters */}
         <Card className="shadow-sm rounded-xl">
           <CardContent className="pt-6 space-y-4">
@@ -463,12 +624,12 @@ const PlanningModule = () => {
                   </SelectContent>
                 </Select>
                 {(searchQuery || priorityFilter !== "all" || dateFilter !== "all") && (
-                  <Button 
-                    variant="outline" 
-                    className="hover:bg-gray-100" 
-                    onClick={() => { 
-                      setSearchQuery(""); 
-                      setPriorityFilter("all"); 
+                  <Button
+                    variant="outline"
+                    className="hover:bg-gray-100"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setPriorityFilter("all");
                       setDateFilter("all");
                     }}
                   >
@@ -480,7 +641,7 @@ const PlanningModule = () => {
 
             {userMode === "admin" && (
               <div className="flex justify-end">
-                <Button 
+                <Button
                   onClick={() => setShowCreateModal(true)}
                   className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
                 >
@@ -507,7 +668,7 @@ const PlanningModule = () => {
                   <label className="text-sm font-medium text-gray-700">Project Name *</label>
                   <Input
                     value={formData.project}
-                    onChange={(e) => setFormData({...formData, project: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, project: e.target.value })}
                     placeholder="Enter project name"
                     className="mt-1"
                   />
@@ -516,46 +677,53 @@ const PlanningModule = () => {
                   <label className="text-sm font-medium text-gray-700">Document Number</label>
                   <Input
                     value={formData.documentNumber}
-                    onChange={(e) => setFormData({...formData, documentNumber: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, documentNumber: e.target.value })}
                     placeholder="DOC-XXXX-XXX"
                     className="mt-1"
                   />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">Test Name *</label>
-                  <Input
-                    value={formData.testName}
-                    onChange={(e) => setFormData({...formData, testName: e.target.value})}
-                    placeholder="Enter test name"
-                    className="mt-1"
-                  />
+                  <Select value={formData.testName} onValueChange={(value) => setFormData({ ...formData, testName: value })}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select test" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {flaskData.map((test) => (
+                        <SelectItem key={test.testName} value={test.testName}>
+                          {test.testName} ({test.equipment})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">Equipment *</label>
-                  <Select value={formData.equipment} onValueChange={(value) => setFormData({...formData, equipment: value})}>
+                  <Select value={formData.equipment} onValueChange={(value) => setFormData({ ...formData, equipment: value })}>
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Select equipment" />
                     </SelectTrigger>
                     <SelectContent>
-                      {getAvailableMachines().map((machine) => (
+                      {getAvailableMachinesForDropdown().map((machine) => (
                         <SelectItem key={machine.id} value={machine.name}>
-                          {machine.name} - Available: {machine.availableCapacity}/{machine.capacity}
+                          {machine.name} - Available
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   {formData.equipment && (
-                    <p className="text-xs text-blue-600 mt-1">
-                      {machineStatus.find(m => m.name === formData.equipment)?.availableCapacity} samples available
+                    <p className="text-xs text-green-600 mt-1">
+                      ✓ This machine is available for scheduling
                     </p>
                   )}
                 </div>
+                {/* Rest of form fields */}
                 <div>
                   <label className="text-sm font-medium text-gray-700">Scheduled Date *</label>
                   <Input
                     type="date"
                     value={formData.scheduledDate}
-                    onChange={(e) => setFormData({...formData, scheduledDate: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
                     className="mt-1"
                   />
                 </div>
@@ -564,7 +732,7 @@ const PlanningModule = () => {
                   <Input
                     type="time"
                     value={formData.scheduledTime}
-                    onChange={(e) => setFormData({...formData, scheduledTime: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, scheduledTime: e.target.value })}
                     className="mt-1"
                   />
                 </div>
@@ -572,14 +740,14 @@ const PlanningModule = () => {
                   <label className="text-sm font-medium text-gray-700">Duration</label>
                   <Input
                     value={formData.duration}
-                    onChange={(e) => setFormData({...formData, duration: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
                     placeholder="e.g., 24 hours"
                     className="mt-1"
                   />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">Priority</label>
-                  <Select value={formData.priority} onValueChange={(value) => setFormData({...formData, priority: value})}>
+                  <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
                     <SelectTrigger className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
@@ -592,7 +760,7 @@ const PlanningModule = () => {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">Status</label>
-                  <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
+                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
                     <SelectTrigger className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
@@ -608,7 +776,7 @@ const PlanningModule = () => {
                   <Input
                     type="number"
                     value={formData.sampleQty}
-                    onChange={(e) => setFormData({...formData, sampleQty: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, sampleQty: e.target.value })}
                     placeholder="Enter quantity"
                     className="mt-1"
                   />
@@ -617,7 +785,7 @@ const PlanningModule = () => {
                   <label className="text-sm font-medium text-gray-700">Test Location</label>
                   <Input
                     value={formData.testLocation}
-                    onChange={(e) => setFormData({...formData, testLocation: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, testLocation: e.target.value })}
                     placeholder="Lab A, Lab B, etc."
                     className="mt-1"
                   />
@@ -626,7 +794,7 @@ const PlanningModule = () => {
                   <label className="text-sm font-medium text-gray-700">Test Condition</label>
                   <Input
                     value={formData.testCondition}
-                    onChange={(e) => setFormData({...formData, testCondition: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, testCondition: e.target.value })}
                     placeholder="Enter test conditions"
                     className="mt-1"
                   />
@@ -637,7 +805,7 @@ const PlanningModule = () => {
                 <Button variant="outline" onClick={resetForm}>
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   onClick={editingTest ? handleUpdateTest : handleCreateTest}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
@@ -699,17 +867,17 @@ const PlanningModule = () => {
                           <div className="flex items-center gap-2">
                             {userMode === "admin" ? (
                               <>
-                                <Button 
-                                  size="sm" 
-                                  variant="ghost" 
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
                                   className="hover:bg-blue-50 text-blue-600"
                                   onClick={() => handleEditClick(test)}
                                 >
                                   <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="ghost" 
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
                                   className="hover:bg-red-50 text-red-600"
                                   onClick={() => handleDeleteTest(test.id)}
                                 >
@@ -717,9 +885,9 @@ const PlanningModule = () => {
                                 </Button>
                               </>
                             ) : (
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
+                              <Button
+                                size="sm"
+                                variant="ghost"
                                 className="hover:bg-blue-50 text-blue-600"
                                 onClick={() => handleViewDetails(test)}
                               >
@@ -749,28 +917,28 @@ const PlanningModule = () => {
             <CardTitle className="text-base">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-3">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="border-gray-300 hover:bg-gray-50"
             >
               Export Schedule
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="border-gray-300 hover:bg-gray-50"
             >
               Print Calendar
             </Button>
             {userMode === "admin" && (
               <>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="border-gray-300 hover:bg-gray-50"
                 >
                   Send Reminders
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="border-gray-300 hover:bg-gray-50"
                   onClick={() => setShowMachineStatus(!showMachineStatus)}
                 >
@@ -786,3 +954,4 @@ const PlanningModule = () => {
 };
 
 export default PlanningModule;
+
