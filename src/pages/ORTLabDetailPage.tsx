@@ -40,6 +40,7 @@ interface ORTLabRecord {
   status: string;
   id: number;
   createdAt: string;
+  ortLabId: number;
   ortLab: {
     date: string;
     serialNumber: string;
@@ -84,12 +85,26 @@ const ORTLabDetailsPage: React.FC = () => {
     setIsViewModalOpen(true);
   };
 
+  // const handleDelete = (record: ORTLabRecord) => {
+  //   if (window.confirm("Are you sure you want to delete this ORT Lab record?")) {
+  //     const updatedRecords = ortRecords.filter((r) => r.ortLabId !== record.ortLabId);
+  //     setOrtRecords(updatedRecords);
+  //     localStorage.setItem("ortLabRecords", JSON.stringify(updatedRecords));
+
+  //     toast({
+  //       title: "✅ Record Deleted",
+  //       description: "ORT Lab record has been deleted successfully",
+  //       duration: 3000,
+  //     });
+  //   }
+  // };
+
   const handleDelete = (record: ORTLabRecord) => {
     if (window.confirm("Are you sure you want to delete this ORT Lab record?")) {
-      const updatedRecords = ortRecords.filter((r) => r.id !== record.id);
+      const updatedRecords = ortRecords.filter((r) => r.ortLabId !== record.ortLabId);
       setOrtRecords(updatedRecords);
       localStorage.setItem("ortLabRecords", JSON.stringify(updatedRecords));
-      
+
       toast({
         title: "✅ Record Deleted",
         description: "ORT Lab record has been deleted successfully",
@@ -97,6 +112,7 @@ const ORTLabDetailsPage: React.FC = () => {
       });
     }
   };
+
 
   if (loading) {
     return (
@@ -161,11 +177,21 @@ const ORTLabDetailsPage: React.FC = () => {
                       <TableCell className="text-sm">
                         {new Date(record.ortLab.date).toLocaleDateString()}
                       </TableCell>
-                      <TableCell className="text-sm">
+                      {/* <TableCell className="text-sm">
                         <span className="bg-green-100 text-green-800 px-2 py-1 rounded font-medium">
                           {record.ortLab.partNumbers.length} parts
                         </span>
+                      </TableCell> */}
+
+                      <TableCell className="text-sm">
+                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded font-medium">
+                          {
+                            record.ortLab?.splitRows
+                              ?.reduce((total, row) => total + (row.assignedParts?.length || 0), 0)
+                          } parts
+                        </span>
                       </TableCell>
+
                       <TableCell className="text-sm">
                         <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded font-medium">
                           {record.ortLab.splitRows.length} split(s)
@@ -254,7 +280,7 @@ const ORTLabDetailsPage: React.FC = () => {
                           {row.assignedParts.length} parts
                         </span>
                       </div>
-                      
+
                       <div className="grid grid-cols-4 gap-4 mb-3 text-sm">
                         <div>
                           <span className="font-medium text-gray-600">Quantity:</span>
@@ -302,20 +328,28 @@ const ORTLabDetailsPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* All Parts Summary */}
-              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                <h3 className="font-semibold text-lg mb-3 text-green-800">
-                  All Parts ({selectedRecord.ortLab.partNumbers.length})
+              {/* Assigned Parts Summary */}
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="font-semibold text-lg mb-3 text-blue-800">
+                  Assigned Parts (
+                  {
+                    selectedRecord?.ortLab?.splitRows
+                      ?.reduce((total, row) => total + (row.assignedParts?.length || 0), 0)
+                  }
+                  )
                 </h3>
+
                 <div className="flex flex-wrap gap-1">
-                  {selectedRecord.ortLab.partNumbers.map((part, idx) => (
-                    <span
-                      key={idx}
-                      className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-mono"
-                    >
-                      {part}
-                    </span>
-                  ))}
+                  {selectedRecord?.ortLab?.splitRows?.flatMap(row => row.assignedParts || [])
+                    .map((part, idx) => (
+                      <span
+                        key={idx}
+                        className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-mono"
+                      >
+                        {part}
+                      </span>
+                    ))
+                  }
                 </div>
               </div>
 
