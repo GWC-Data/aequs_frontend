@@ -109,15 +109,11 @@ const PlanningModule = () => {
     const occupied: any[] = [];
     const available: any[] = [];
 
-    console.log('=== Processing Flask Data ===');
-    console.log('Total stage2Records:', stage2Record);
-
     flaskData.forEach((item: FlaskItem, index: number) => {
       // Find matching records in localStorage for this specific test
       const matchingRecords = stage2Record.filter(record => {
         const stage2 = record.stage2;
         if (!stage2) {
-          console.log(`Record ${record.projectName} has no stage2 data`);
           return false;
         }
 
@@ -168,17 +164,11 @@ const PlanningModule = () => {
       };
 
       if (isOccupied) {
-        console.log(`→ Machine ${item.equipment} is OCCUPIED (${receivedRecords.length} received, ${inProgressRecords.length} in progress)`);
         occupied.push(machineData);
       } else {
-        console.log(`→ Machine ${item.equipment} is AVAILABLE (${completedRecords.length} completed, ${matchingRecords.length} total matches)`);
         available.push(machineData);
       }
     });
-
-    console.log('=== Summary ===');
-    console.log('Occupied machines:', occupied.length);
-    console.log('Available machines:', available.length);
 
     return { occupiedMachines: occupied, availableMachines: available };
   }, [stage2Record]);
@@ -217,17 +207,45 @@ const PlanningModule = () => {
     return matchesSearch && matchesPriority && matchesDate;
   });
 
-  const stats = {
-    totalScheduled: upcomingTests.filter(t => t.status === "Scheduled").length,
-    highPriority: upcomingTests.filter(t => t.priority === "High").length,
-    today: upcomingTests.filter(t => t.scheduledDate === "2024-11-25").length,
-    thisWeek: upcomingTests.filter(t => new Date(t.scheduledDate) <= new Date("2024-12-01")).length,
-    machinesOccupied: occupiedMachines.length,
-    machinesAvailable: availableMachines.length,
-    totalTests: flaskData.length,
-    receivedTests: stage2Record.filter(r => r.status === "Received").length,
-    completedTests: stage2Record.filter(r => r.status === "Completed").length
-  };
+  const stats = useMemo(() => {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+
+    // Get start of current week (Sunday)
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    // Get end of current week (Saturday)
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    // Count submissions today
+    const submittedToday = stage2Record.filter(r => {
+      if (!r.submissionDate) return false;
+      return r.submissionDate === todayStr;
+    }).length;
+
+    // Count submissions this week
+    const submittedThisWeek = stage2Record.filter(r => {
+      if (!r.submissionDate) return false;
+      const subDate = new Date(r.submissionDate);
+      return subDate >= startOfWeek && subDate <= endOfWeek;
+    }).length;
+
+    return {
+      totalScheduled: upcomingTests.filter(t => t.status === "Scheduled").length,
+      highPriority: upcomingTests.filter(t => t.priority === "High").length,
+      today: submittedToday,
+      thisWeek: submittedThisWeek,
+      machinesOccupied: occupiedMachines.length,
+      machinesAvailable: availableMachines.length,
+      totalTests: flaskData.length,
+      receivedTests: stage2Record.filter(r => r.status === "Received").length,
+      completedTests: stage2Record.filter(r => r.status === "Completed").length
+    };
+  }, [upcomingTests, occupiedMachines, availableMachines, stage2Record]);
 
   const getPriorityColor = (priority) => {
     switch (priority.toLowerCase()) {
@@ -352,27 +370,27 @@ const PlanningModule = () => {
   };
 
   // Refresh stage2 records
-  const refreshStage2Records = () => {
-    const keys = Object.keys(localStorage);
-    const records: LocalStorageResponse[] = [];
+  // const refreshStage2Records = () => {
+  //   const keys = Object.keys(localStorage);
+  //   const records: LocalStorageResponse[] = [];
 
-    keys.forEach(key => {
-      try {
-        const item = localStorage.getItem(key);
-        if (item) {
-          const parsed = JSON.parse(item);
-          if (parsed.projectName && parsed.status !== undefined) {
-            records.push(parsed);
-          }
-        }
-      } catch (error) {
-        console.warn(`Error parsing localStorage item ${key}:`, error);
-      }
-    });
+  //   keys.forEach(key => {
+  //     try {
+  //       const item = localStorage.getItem(key);
+  //       if (item) {
+  //         const parsed = JSON.parse(item);
+  //         if (parsed.projectName && parsed.status !== undefined) {
+  //           records.push(parsed);
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.warn(`Error parsing localStorage item ${key}:`, error);
+  //     }
+  //   });
 
-    setStage2Records(records);
-    alert(`Refreshed! Loaded ${records.length} records from localStorage`);
-  };
+  //   setStage2Records(records);
+  //   alert(`Refreshed! Loaded ${records.length} records from localStorage`);
+  // };
 
   const renderMachineCard = (machine, isOccupied) => (
     <div key={machine.id} className="border rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
@@ -526,61 +544,32 @@ const PlanningModule = () => {
             </CardHeader>
             {showMachineStatus && (
               <CardContent>
-                {/* <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-700">
-                    <strong>Matching Logic:</strong> processStage + type + testName + equipment
-                    <br />
-                    <strong>Left Side (Occupied):</strong> Status = "Received" or "In Progress"
-                    <br />
-                    <strong>Right Side (Available):</strong> Status = "Completed" or no matching records
-                  </p>
-                </div> */}
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Left Side - Occupied Machines */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-4 p-3 bg-red-50 rounded-lg">
-                      <AlertCircle className="h-5 w-5 text-red-600" />
-                      <h3 className="text-lg font-semibold text-red-700">Occupied Machines</h3>
-                      {/* <Badge className="bg-red-600 text-white ml-2">
-                        {occupiedMachines.length}
-                      </Badge> */}
-                    </div>
-                    <div className="grid grid-cols-1 gap-4">
-                      {occupiedMachines.length > 0 ? (
-                        occupiedMachines.map(machine => renderMachineCard(machine, true))
-                      ) : (
-                        <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
-                          <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-2" />
-                          <p>No occupied machines</p>
-                          <p className="text-sm">All machines are available</p>
-                        </div>
-                      )}
-                    </div>
+                <div className="max-h-[400px] overflow-y-auto pr-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                    {occupiedMachines.length > 0 ? (
+                      occupiedMachines.map(machine => renderMachineCard(machine, true))
+                    ) : (
+                      <div className="col-span-3 text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
+                        <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-2" />
+                        <p>No occupied machines</p>
+                        <p className="text-sm">All machines are available</p>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Right Side - Available Machines */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-4 p-3 bg-green-50 rounded-lg">
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      <h3 className="text-lg font-semibold text-green-700">Available Machines</h3>
-                      {/* <Badge className="bg-green-600 text-white ml-2">
-                        {availableMachines.length}
-                      </Badge> */}
-                    </div>
-                    <div className="grid grid-cols-1 gap-4">
-                      {availableMachines.length > 0 ? (
-                        availableMachines.map(machine => renderMachineCard(machine, false))
-                      ) : (
-                        <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
-                          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-2" />
-                          <p>No available machines</p>
-                          <p className="text-sm">All machines are occupied</p>
-                        </div>
-                      )}
-                    </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {availableMachines.length > 0 ? (
+                      availableMachines.map(machine => renderMachineCard(machine, false))
+                    ) : (
+                      <div className="col-span-3 text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
+                        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-2" />
+                        <p>No available machines</p>
+                        <p className="text-sm">All machines are occupied</p>
+                      </div>
+                    )}
                   </div>
                 </div>
+
               </CardContent>
             )}
           </Card>
