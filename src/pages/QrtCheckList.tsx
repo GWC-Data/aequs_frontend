@@ -36,8 +36,7 @@ interface TestRecord {
   projectName: string;
   color: string;
   testLocation: string;
-  testStartDate: string;
-  testCompletionDate: string;
+  submissionPartDate: string;
   sampleConfig: string;
   status: string;
   id: number;
@@ -261,10 +260,10 @@ const LiveTestProgress: React.FC = () => {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handleStage2Click(record)}
-                                  className="bg-[#e0413a] text-white hover:bg-[#c53730] hover:text-white"
+                                  onClick={() => handleORTLabClick(record)}
+                                  className="bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
                                 >
-                                  Stage 2
+                                  ORT Lab
                                 </Button>
                               )}
                             </TableCell>
@@ -273,10 +272,10 @@ const LiveTestProgress: React.FC = () => {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handleORTLabClick(record)}
-                                  className="bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
+                                  onClick={() => handleStage2Click(record)}
+                                  className="bg-[#e0413a] text-white hover:bg-[#c53730] hover:text-white"
                                 >
-                                  ORT Lab
+                                  Stage 2
                                 </Button>
                               )}
                             </TableCell>
@@ -347,22 +346,12 @@ const LiveTestProgress: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="testStartDate">Test Start Date</Label>
+                <Label htmlFor="submissionPartDate">Submission Part Date</Label>
                 <Input
-                  id="testStartDate"
+                  id="submissionPartDate"
                   type="date"
-                  value={editingRecord.testStartDate}
-                  onChange={(e) => handleInputChange('testStartDate', e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="testCompletionDate">Test Completion Date</Label>
-                <Input
-                  id="testCompletionDate"
-                  type="date"
-                  value={editingRecord.testCompletionDate}
-                  onChange={(e) => handleInputChange('testCompletionDate', e.target.value)}
+                  value={editingRecord.submissionPartDate}
+                  onChange={(e) => handleInputChange('submissionPartDate', e.target.value)}
                 />
               </div>
 

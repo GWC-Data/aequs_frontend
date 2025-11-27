@@ -180,9 +180,11 @@ function DefaultForm({
     const handleAddColumn = () => {
         if (!newColumn.label.trim()) return;
 
-        const columnId = `col_${Date.now()}`;
+        // Use the label (converted to a valid ID) instead of auto-generating one
+        const columnId = newColumn.label.trim().toLowerCase().replace(/\s+/g, '_');
+
         const customColumn: CustomColumn = {
-            id: columnId,
+            id: columnId, // Use the label-based ID
             label: newColumn.label.trim(),
             type: newColumn.type,
             options: newColumn.type === 'select' ? newColumn.options : undefined
@@ -192,7 +194,7 @@ function DefaultForm({
         const updatedCustomColumns = [...(formData.customColumns || []), customColumn];
         updateFormField('customColumns', updatedCustomColumns);
 
-        // Add the new column to all existing rows
+        // Add the new column to ALL existing rows with empty value
         formData.rows.forEach(row => {
             updateRowField(row.id, columnId, '');
         });
@@ -233,37 +235,13 @@ function DefaultForm({
         const value = row[column.id] || '';
 
         switch (column.type) {
-            case 'select':
+            case 'text':
                 return (
-                    <select
+                    <input
+                        type="text"
                         value={value}
                         onChange={(e) => updateRowField(row.id, column.id, e.target.value)}
                         className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                        <option value="">Select</option>
-                        {column.options?.map(option => (
-                            <option key={option} value={option}>{option}</option>
-                        ))}
-                    </select>
-                );
-
-            case 'date':
-                return (
-                    <input
-                        type="date"
-                        value={value}
-                        onChange={(e) => updateRowField(row.id, column.id, e.target.value)}
-                        className="w-full min-w-[140px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                );
-
-            case 'textarea':
-                return (
-                    <textarea
-                        value={value}
-                        onChange={(e) => updateRowField(row.id, column.id, e.target.value)}
-                        rows={2}
-                        className="w-full min-w-[150px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical"
                     />
                 );
 
@@ -277,51 +255,114 @@ function DefaultForm({
                     />
                 );
 
+            case 'date':
+                return (
+                    <input
+                        type="date"
+                        value={value}
+                        onChange={(e) => updateRowField(row.id, column.id, e.target.value)}
+                        className="w-full min-w-[140px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                );
+
+            case 'select':
+                return (
+                    <select
+                        value={value}
+                        onChange={(e) => updateRowField(row.id, column.id, e.target.value)}
+                        className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                        <option value="">Select</option>
+                        {column.options?.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                        ))}
+                    </select>
+                );
+
+            case 'textarea':
+                return (
+                    <textarea
+                        value={value}
+                        onChange={(e) => updateRowField(row.id, column.id, e.target.value)}
+                        rows={3}
+                        className="w-full min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y"
+                    />
+                );
+
             case 'image':
+                console.log(`Image column ${column.id} for row ${row.srNo}:`, value ? `Image data length: ${value.length}` : 'No image');
                 return (
                     <div className="space-y-2">
-                        <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                    const reader = new FileReader();
-                                    reader.onload = (event) => {
-                                        updateRowField(row.id, column.id, event.target?.result as string);
-                                    };
-                                    reader.readAsDataURL(file);
-                                }
-                            }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        {value && (
+                        {!value ? (
+                            // Show upload option when no image is present
+                            <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors bg-gray-50">
+                                <Upload size={20} className="text-gray-400 mb-2" />
+                                <span className="text-sm font-medium text-gray-600">Upload Image</span>
+                                <span className="text-xs text-gray-500 mt-1">Click to browse</span>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            const reader = new FileReader();
+                                            reader.onload = (event) => {
+                                                updateRowField(row.id, column.id, event.target?.result as string);
+                                            };
+                                            reader.readAsDataURL(file);
+                                        }
+                                    }}
+                                    className="hidden"
+                                />
+                            </label>
+                        ) : (
+                            // Show image preview when image is present
                             <div className="relative">
                                 <img
                                     src={value}
                                     alt={`${column.label} preview`}
                                     className="w-20 h-20 object-cover border rounded-lg"
+                                    onError={(e) => {
+                                        console.error('Image failed to load for row', row.id);
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                    onLoad={() => console.log('Image loaded successfully for row', row.id)}
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => updateRowField(row.id, column.id, '')}
-                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                                >
-                                    <X size={12} />
-                                </button>
+                                <div className="flex gap-1 mt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            // Replace image
+                                            const input = document.createElement('input');
+                                            input.type = 'file';
+                                            input.accept = 'image/*';
+                                            input.onchange = (e) => {
+                                                const file = (e.target as HTMLInputElement).files?.[0];
+                                                if (file) {
+                                                    const reader = new FileReader();
+                                                    reader.onload = (event) => {
+                                                        updateRowField(row.id, column.id, event.target?.result as string);
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                }
+                                            };
+                                            input.click();
+                                        }}
+                                        className="flex-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                                    >
+                                        Replace
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => updateRowField(row.id, column.id, '')}
+                                        className="flex-1 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
-                );
-
-            default:
-                return (
-                    <input
-                        type="text"
-                        value={value}
-                        onChange={(e) => updateRowField(row.id, column.id, e.target.value)}
-                        className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
                 );
         }
     };
@@ -665,6 +706,8 @@ export default function MultiStageTestForm() {
     const [forms, setForms] = useState<FormsState>({});
 
     // Load stage2Records from localStorage and initialize forms
+
+    // Load stage2Records from localStorage and initialize forms
     useEffect(() => {
         const storedRecords = localStorage.getItem("stage2Records");
         if (storedRecords) {
@@ -721,7 +764,7 @@ export default function MultiStageTestForm() {
                             testType: 'default'
                         });
 
-                        // Initialize form data for default form
+                        // Initialize form data with single row initially and default Image column
                         newForms[formKey] = {
                             testName: testName,
                             ers: latestRecord.stage2.processStage || "",
@@ -731,9 +774,16 @@ export default function MultiStageTestForm() {
                             testStage: latestRecord.stage2.processStage || "After Assy",
                             project: latestRecord.projectName || "Light_Blue",
                             sampleQty: latestRecord.stage2.requiredQty?.split(',')[index]?.trim() || "32",
+                            customColumns: [
+                                {
+                                    id: 'image_column',
+                                    label: 'Image',
+                                    type: 'image'
+                                }
+                            ],
                             rows: [
                                 {
-                                    id: 1, srNo: 1, testDate: "", config: "", sampleId: "", status: "Pass"
+                                    id: 1, srNo: 1, testDate: "", config: "", sampleId: "", status: "Pass", image_column: ""
                                 }
                             ]
                         };
@@ -748,6 +798,48 @@ export default function MultiStageTestForm() {
             }
         }
     }, []);
+
+    // Auto-generate rows based on cropped regions count
+    useEffect(() => {
+        if (croppedRegions.length > 0) {
+            setForms(prev => {
+                const updatedForms = { ...prev };
+
+                Object.keys(updatedForms).forEach(formKey => {
+                    const currentForm = updatedForms[formKey];
+                    const rowCount = croppedRegions.length;
+
+                    // Generate rows based on cropped regions count
+                    const newRows = Array.from({ length: rowCount }, (_, index) => {
+                        const region = croppedRegions[index];
+                        return {
+                            id: index + 1,
+                            srNo: index + 1,
+                            testDate: "",
+                            config: "",
+                            sampleId: region?.label || `Sample-${index + 1}`,
+                            status: "Pass",
+                            image_column: region?.data || "", // Auto-populate with cropped image
+                            ...(currentForm.customColumns?.reduce((acc, col) => {
+                                if (col.id !== 'image_column') {
+                                    acc[col.id] = '';
+                                }
+                                return acc;
+                            }, {} as any) || {})
+                        };
+                    });
+
+                    updatedForms[formKey] = {
+                        ...currentForm,
+                        rows: newRows
+                    };
+                });
+
+                return updatedForms;
+            });
+        }
+    }, [croppedRegions]);
+
 
     // Handle test resume selection
     const handleTestResume = (testInfo: string) => {
@@ -1047,20 +1139,111 @@ export default function MultiStageTestForm() {
         }));
     };
 
+    // const addRow = (formKey: string) => {
+    //     setForms(prev => {
+    //         const currentForm = prev[formKey];
+    //         const newId = Math.max(...currentForm.rows.map((r: any) => r.id)) + 1;
+    //         const newRow = {
+    //             id: newId,
+    //             srNo: currentForm.rows.length + 1,
+    //             ...Object.keys(currentForm.rows[0]).reduce((acc, key) => {
+    //                 if (!['id', 'srNo'].includes(key)) {
+    //                     (acc as any)[key] = "";
+    //                 }
+    //                 return acc;
+    //             }, {} as any)
+    //         };
+
+    //         return {
+    //             ...prev,
+    //             [formKey]: {
+    //                 ...currentForm,
+    //                 rows: [...currentForm.rows, newRow]
+    //             }
+    //         };
+    //     });
+    // };
+
+    // const handleSubmit = () => {
+    //     try {
+    //         const storedData = localStorage.getItem("stage2Records");
+    //         const records: Stage2Record[] = storedData ? JSON.parse(storedData) : [];
+
+    //         if (records.length > 0 && currentRecord) {
+    //             const currentRecordIndex = records.findIndex((r: Stage2Record) => r.id === currentRecord.id);
+
+    //             if (currentRecordIndex !== -1) {
+    //                 // Mark all tests as completed
+    //                 const completedTests = Object.keys(forms);
+
+    //                 const updatedRecord = {
+    //                     ...records[currentRecordIndex], // Use the existing record as base
+    //                     forms: {
+    //                         ...records[currentRecordIndex].forms, // Keep existing forms
+    //                         ...forms // Update with new form data
+    //                     },
+    //                     status: "Completed",
+    //                     completedAt: new Date().toISOString(),
+    //                     sharedImages: sharedImages,
+    //                     sampleQty: calculateTotalSampleQty(),
+    //                     testCompletionDate: new Date().toISOString().split('T')[0],
+    //                     completedTests: [
+    //                         ...(records[currentRecordIndex].completedTests || []), // Keep existing completed tests
+    //                         ...completedTests.filter(test => !records[currentRecordIndex].completedTests?.includes(test)) // Add new ones
+    //                     ]
+    //                 };
+
+    //                 // Update the record in the array
+    //                 records[currentRecordIndex] = updatedRecord;
+
+    //                 // Save back to localStorage with the same key
+    //                 localStorage.setItem("stage2Records", JSON.stringify(records));
+
+    //                 console.log("Final Form Data:", updatedRecord);
+
+    //                 // Show success message
+    //                 alert("✅ All Forms Completed! Record has been saved successfully");
+
+    //                 // Optional: Navigate away or reset state
+    //                 // setCurrentStage(0);
+    //                 // setForms({});
+    //                 // setSharedImages({ cosmetic: null, nonCosmetic: null });
+
+    //             } else {
+    //                 alert("Record Not Found - Current record not found in storage");
+    //             }
+    //         } else {
+    //             alert("No Test Record Found - Please start a new test before submitting forms");
+    //         }
+    //     } catch (error) {
+    //         alert("Submission Failed - There was an error saving the test data. Please try again.");
+    //         console.error("Error submitting forms:", error);
+    //     }
+    // };
+
+    // Helper function to calculate total sample quantity
+
     const addRow = (formKey: string) => {
         setForms(prev => {
             const currentForm = prev[formKey];
             const newId = Math.max(...currentForm.rows.map((r: any) => r.id)) + 1;
-            const newRow = {
+
+            // Create base row object
+            const newRow: any = {
                 id: newId,
                 srNo: currentForm.rows.length + 1,
-                ...Object.keys(currentForm.rows[0]).reduce((acc, key) => {
-                    if (!['id', 'srNo'].includes(key)) {
-                        (acc as any)[key] = "";
-                    }
-                    return acc;
-                }, {} as any)
+                testDate: "",
+                config: "",
+                sampleId: "",
+                status: "Pass"
             };
+
+            // Add all custom column fields with empty values
+            if (currentForm.customColumns) {
+                currentForm.customColumns.forEach(col => {
+                    newRow[col.id] = '';
+                });
+            }
 
             return {
                 ...prev,
@@ -1072,6 +1255,102 @@ export default function MultiStageTestForm() {
         });
     };
 
+    // const handleSubmit = () => {
+    //     try {
+    //         const storedData = localStorage.getItem("stage2Records");
+    //         const records: Stage2Record[] = storedData ? JSON.parse(storedData) : [];
+
+    //         if (records.length > 0 && currentRecord) {
+    //             const currentRecordIndex = records.findIndex((r: Stage2Record) => r.id === currentRecord.id);
+
+    //             if (currentRecordIndex !== -1) {
+    //                 const completedTests = Object.keys(forms);
+
+    //                 // Prepare complete form data with all columns
+    //                 const formsWithCompleteData: any = {};
+    //                 Object.keys(forms).forEach(formKey => {
+    //                     const formData = forms[formKey];
+
+    //                     // Get ALL custom columns for this form
+    //                     const allCustomColumns = formData.customColumns || [];
+
+    //                     formsWithCompleteData[formKey] = {
+    //                         testName: formData.testName,
+    //                         ers: formData.ers,
+    //                         testCondition: formData.testCondition,
+    //                         date: formData.date,
+    //                         failureCriteria: formData.failureCriteria,
+    //                         testStage: formData.testStage,
+    //                         project: formData.project,
+    //                         sampleQty: formData.sampleQty,
+    //                         customColumns: allCustomColumns, // Save ALL column definitions
+    //                         rows: formData.rows.map(row => {
+    //                             // Create complete row object
+    //                             const completeRow: any = {
+    //                                 id: row.id,
+    //                                 srNo: row.srNo,
+    //                                 testDate: row.testDate,
+    //                                 config: row.config,
+    //                                 sampleId: row.sampleId,
+    //                                 status: row.status
+    //                             };
+
+    //                             // Add ALL custom column values (including newly added ones)
+    //                             allCustomColumns.forEach(col => {
+    //                                 completeRow[col.id] = row[col.id] || '';
+    //                             });
+
+    //                             return completeRow;
+    //                         })
+    //                     };
+    //                 });
+
+    //                 const updatedRecord = {
+    //                     ...records[currentRecordIndex],
+    //                     forms: {
+    //                         ...records[currentRecordIndex].forms,
+    //                         ...formsWithCompleteData
+    //                     },
+    //                     status: "Completed",
+    //                     completedAt: new Date().toISOString(),
+    //                     sharedImages: sharedImages,
+    //                     croppedRegions: croppedRegions,
+    //                     sampleQty: calculateTotalSampleQty(),
+    //                     testCompletionDate: new Date().toISOString().split('T')[0],
+    //                     completedTests: [
+    //                         ...(records[currentRecordIndex].completedTests || []),
+    //                         ...completedTests.filter(test => !records[currentRecordIndex].completedTests?.includes(test))
+    //                     ]
+    //                 };
+
+    //                 records[currentRecordIndex] = updatedRecord;
+    //                 localStorage.setItem("stage2Records", JSON.stringify(records));
+
+    //                 console.log("✅ Complete data saved with all columns:", {
+    //                     recordId: updatedRecord.id,
+    //                     formsCount: Object.keys(formsWithCompleteData).length,
+    //                     tableData: formsWithCompleteData,
+    //                     customColumnsPerForm: Object.entries(formsWithCompleteData).map(([key, value]: [string, any]) => ({
+    //                         formKey: key,
+    //                         columnsCount: value.customColumns?.length || 0,
+    //                         columnNames: value.customColumns?.map((c: CustomColumn) => c.label) || []
+    //                     }))
+    //                 });
+
+    //                 alert("✅ All Forms Completed! Record with all columns has been saved successfully");
+
+    //             } else {
+    //                 alert("❌ Record Not Found - Current record not found in storage");
+    //             }
+    //         } else {
+    //             alert("❌ No Test Record Found - Please start a new test before submitting forms");
+    //         }
+    //     } catch (error) {
+    //         alert("❌ Submission Failed - There was an error saving the test data. Please try again.");
+    //         console.error("Error submitting forms:", error);
+    //     }
+    // };
+
     const handleSubmit = () => {
         try {
             const storedData = localStorage.getItem("stage2Records");
@@ -1081,55 +1360,96 @@ export default function MultiStageTestForm() {
                 const currentRecordIndex = records.findIndex((r: Stage2Record) => r.id === currentRecord.id);
 
                 if (currentRecordIndex !== -1) {
-                    // Mark all tests as completed
                     const completedTests = Object.keys(forms);
 
+                    // Prepare complete form data with ALL columns including newly added text columns
+                    const formsWithCompleteData: any = {};
+
+                    Object.keys(forms).forEach(formKey => {
+                        const formData = forms[formKey];
+
+                        // Get ALL custom columns for this form (including newly added ones)
+                        const allCustomColumns = formData.customColumns || [];
+
+                        formsWithCompleteData[formKey] = {
+                            testName: formData.testName,
+                            ers: formData.ers,
+                            testCondition: formData.testCondition,
+                            date: formData.date,
+                            failureCriteria: formData.failureCriteria,
+                            testStage: formData.testStage,
+                            project: formData.project,
+                            sampleQty: formData.sampleQty,
+                            customColumns: allCustomColumns, // Save ALL column definitions
+                            rows: formData.rows.map(row => {
+                                // Create complete row object with ALL fields
+                                const completeRow: any = {
+                                    id: row.id,
+                                    srNo: row.srNo,
+                                    testDate: row.testDate || "",
+                                    config: row.config || "",
+                                    sampleId: row.sampleId || "",
+                                    status: row.status || "Pass"
+                                };
+
+                                // Add ALL custom column values (including newly added text columns)
+                                allCustomColumns.forEach(col => {
+                                    // Ensure the column value exists in the row, if not set to empty string
+                                    completeRow[col.id] = row[col.id] !== undefined ? row[col.id] : '';
+                                });
+
+                                return completeRow;
+                            })
+                        };
+                    });
+
                     const updatedRecord = {
-                        ...records[currentRecordIndex], // Use the existing record as base
+                        ...records[currentRecordIndex],
                         forms: {
-                            ...records[currentRecordIndex].forms, // Keep existing forms
-                            ...forms // Update with new form data
+                            ...records[currentRecordIndex].forms,
+                            ...formsWithCompleteData
                         },
                         status: "Completed",
                         completedAt: new Date().toISOString(),
                         sharedImages: sharedImages,
+                        croppedRegions: croppedRegions,
                         sampleQty: calculateTotalSampleQty(),
                         testCompletionDate: new Date().toISOString().split('T')[0],
                         completedTests: [
-                            ...(records[currentRecordIndex].completedTests || []), // Keep existing completed tests
-                            ...completedTests.filter(test => !records[currentRecordIndex].completedTests?.includes(test)) // Add new ones
+                            ...(records[currentRecordIndex].completedTests || []),
+                            ...completedTests.filter(test => !records[currentRecordIndex].completedTests?.includes(test))
                         ]
                     };
 
-                    // Update the record in the array
                     records[currentRecordIndex] = updatedRecord;
-
-                    // Save back to localStorage with the same key
                     localStorage.setItem("stage2Records", JSON.stringify(records));
 
-                    console.log("Final Form Data:", updatedRecord);
+                    console.log("✅ Complete data saved with ALL columns including text columns:", {
+                        recordId: updatedRecord.id,
+                        formsCount: Object.keys(formsWithCompleteData).length,
+                        tableData: formsWithCompleteData,
+                        customColumnsPerForm: Object.entries(formsWithCompleteData).map(([key, value]: [string, any]) => ({
+                            formKey: key,
+                            columnsCount: value.customColumns?.length || 0,
+                            columnNames: value.customColumns?.map((c: CustomColumn) => `${c.label} (${c.type})`) || [],
+                            sampleRowData: value.rows[0] ? Object.keys(value.rows[0]).filter(k => !['id', 'srNo'].includes(k)) : []
+                        }))
+                    });
 
-                    // Show success message
-                    alert("✅ All Forms Completed! Record has been saved successfully");
-
-                    // Optional: Navigate away or reset state
-                    // setCurrentStage(0);
-                    // setForms({});
-                    // setSharedImages({ cosmetic: null, nonCosmetic: null });
+                    alert("✅ All Forms Completed! Record with all columns has been saved successfully");
 
                 } else {
-                    alert("Record Not Found - Current record not found in storage");
+                    alert("❌ Record Not Found - Current record not found in storage");
                 }
             } else {
-                alert("No Test Record Found - Please start a new test before submitting forms");
+                alert("❌ No Test Record Found - Please start a new test before submitting forms");
             }
         } catch (error) {
-            alert("Submission Failed - There was an error saving the test data. Please try again.");
+            alert("❌ Submission Failed - There was an error saving the test data. Please try again.");
             console.error("Error submitting forms:", error);
         }
     };
 
-    // Helper function to calculate total sample quantity
     const calculateTotalSampleQty = (): string => {
         let total = 0;
         Object.keys(forms).forEach(formKey => {
