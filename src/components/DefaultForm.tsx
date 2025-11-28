@@ -77,17 +77,13 @@ const getLabelCategory = (label: string) => {
 
 // Types
 interface Stage2Record {
-    testName: string[];
     documentNumber: string;
     documentTitle: string;
     projectName: string;
     color: string;
     testLocation: string;
-    sampleQty: string;
-    testStartDate: string;
-    testCompletionDate: string;
+    submissionDate: string;
     sampleConfig: string;
-    testCondition: string;
     status: string;
     id: number;
     createdAt: string;
@@ -98,11 +94,38 @@ interface Stage2Record {
         testCondition: string;
         requiredQty: string;
         equipment: string;
+        checkpoint?: number;  // ADD THIS LINE
+        projects: string[];
+        lines: string[];
+        selectedParts: string[];
+        startTime: string;
+        endTime: string;
+        remark: string;
         submittedAt: string;
     };
     forms?: any;
     completedTests?: string[];
+    timerData?: {  // ADD THIS ENTIRE BLOCK
+        [formKey: string]: {
+            remainingSeconds: number;
+            isRunning: boolean;
+            startedAt?: string;
+        };
+    };
 }
+
+// interface FormRow {
+//     id: number;
+//     srNo: number;
+//     testDate: string;
+//     config: string;
+//     sampleId: string;
+//     status: string;
+//     partId: string; // New field to track which part this row belongs to
+//     cosmeticImage?: string;
+//     nonCosmeticImage?: string;
+//     [key: string]: any;
+// }
 
 interface FormRow {
     id: number;
@@ -111,9 +134,14 @@ interface FormRow {
     config: string;
     sampleId: string;
     status: string;
+    partId: string;
+    part?: string; // ADD THIS
+    cosmeticImage?: string;
+    nonCosmeticImage?: string;
+    croppedImage?: string; // ADD THIS
+    regionLabel?: string; // ADD THIS
     [key: string]: any;
 }
-
 interface CustomColumn {
     id: string;
     label: string;
@@ -145,6 +173,7 @@ interface CroppedRegion {
     label: string;
     category: any;
     rect: any;
+    partId?: string;
 }
 
 interface Stage {
@@ -160,46 +189,67 @@ interface DefaultFormProps {
     formData: FormData;
     updateFormField: (field: string, value: any) => void;
     updateRowField: (rowId: number, field: string, value: string) => void;
-    addRow: () => void;
+    addRow: (partId?: string) => void;
+    selectedParts: string[];
+    checkpointHours: number;  // ADD THIS LINE
+    formKey: string;  // ADD THIS LINE
+    timerState: {  // ADD THIS BLOCK
+        remainingSeconds: number;
+        isRunning: boolean;
+    };
+    onTimerToggle: () => void;  // ADD THIS LINE
+    croppedRegions: CroppedRegion[];  // ADD THIS LINE
 }
 
 function DefaultForm({
     formData,
     updateFormField,
     updateRowField,
-    addRow
+    addRow,
+    selectedParts,
+    checkpointHours,  // ADD THIS LINE
+    formKey,  // ADD THIS LINE
+    timerState,  // ADD THIS LINE
+    onTimerToggle,  // ADD THIS LINE
+    croppedRegions
 }: DefaultFormProps) {
     const [showAddColumnModal, setShowAddColumnModal] = useState(false);
+    // Timer states for each form
     const [newColumn, setNewColumn] = useState({
         label: '',
         type: 'text' as 'text' | 'number' | 'date' | 'select' | 'textarea' | 'image',
         options: [] as string[]
     });
+
+    // Format time display
+    const formatTime = (seconds: number) => {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
     const [newOption, setNewOption] = useState('');
 
     const handleAddColumn = () => {
         if (!newColumn.label.trim()) return;
 
-        // Use the label (converted to a valid ID) instead of auto-generating one
         const columnId = newColumn.label.trim().toLowerCase().replace(/\s+/g, '_');
 
         const customColumn: CustomColumn = {
-            id: columnId, // Use the label-based ID
+            id: columnId,
             label: newColumn.label.trim(),
             type: newColumn.type,
             options: newColumn.type === 'select' ? newColumn.options : undefined
         };
 
-        // Update custom columns
         const updatedCustomColumns = [...(formData.customColumns || []), customColumn];
         updateFormField('customColumns', updatedCustomColumns);
 
-        // Add the new column to ALL existing rows with empty value
         formData.rows.forEach(row => {
             updateRowField(row.id, columnId, '');
         });
 
-        // Reset modal state
         setShowAddColumnModal(false);
         setNewColumn({ label: '', type: 'text', options: [] });
         setNewOption('');
@@ -223,12 +273,16 @@ function DefaultForm({
     };
 
     const removeCustomColumn = (columnId: string) => {
-        // Remove column from customColumns
         const updatedColumns = formData.customColumns?.filter(col => col.id !== columnId) || [];
         updateFormField('customColumns', updatedColumns);
+    };
 
-        // Note: We keep the column data in rows to avoid breaking the table structure
-        // The data will persist but won't be displayed
+    const handleImageUpload = (rowId: number, imageType: 'cosmetic' | 'nonCosmetic', file: File) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            updateRowField(rowId, imageType === 'cosmetic' ? 'cosmeticImage' : 'nonCosmeticImage', e.target?.result as string);
+        };
+        reader.readAsDataURL(file);
     };
 
     const renderField = (row: FormRow, column: CustomColumn) => {
@@ -290,11 +344,9 @@ function DefaultForm({
                 );
 
             case 'image':
-                console.log(`Image column ${column.id} for row ${row.srNo}:`, value ? `Image data length: ${value.length}` : 'No image');
                 return (
                     <div className="space-y-2">
                         {!value ? (
-                            // Show upload option when no image is present
                             <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors bg-gray-50">
                                 <Upload size={20} className="text-gray-400 mb-2" />
                                 <span className="text-sm font-medium text-gray-600">Upload Image</span>
@@ -316,23 +368,16 @@ function DefaultForm({
                                 />
                             </label>
                         ) : (
-                            // Show image preview when image is present
                             <div className="relative">
                                 <img
                                     src={value}
                                     alt={`${column.label} preview`}
                                     className="w-20 h-20 object-cover border rounded-lg"
-                                    onError={(e) => {
-                                        console.error('Image failed to load for row', row.id);
-                                        (e.target as HTMLImageElement).style.display = 'none';
-                                    }}
-                                    onLoad={() => console.log('Image loaded successfully for row', row.id)}
                                 />
                                 <div className="flex gap-1 mt-2">
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            // Replace image
                                             const input = document.createElement('input');
                                             input.type = 'file';
                                             input.accept = 'image/*';
@@ -367,24 +412,41 @@ function DefaultForm({
         }
     };
 
+    // Group rows by partId
+    const rowsByPart = formData.rows.reduce((acc, row) => {
+        if (!acc[row.partId]) {
+            acc[row.partId] = [];
+        }
+        acc[row.partId].push(row);
+        return acc;
+    }, {} as Record<string, FormRow[]>);
+
     return (
         <div className="p-8 bg-gray-50 min-h-screen">
             <div className="max-w-full mx-auto">
                 <div className="flex justify-between items-center mb-8">
                     <h2 className="text-3xl font-bold text-gray-900">{formData.testName}</h2>
                     <div className="flex items-center gap-4">
-                        <label className="text-sm font-semibold text-gray-700">Hours</label>
+                        <label className="text-sm font-semibold text-gray-700">Checkpoint Hours</label>
                         <input
                             type="text"
-                            className="border h-10 w-16 border-gray-300 outline-blue-500 rounded-md px-2"
-
+                            value={checkpointHours}
+                            readOnly
+                            className="border h-10 w-20 border-gray-300 bg-gray-100 rounded-md px-2 text-center font-semibold"
                         />
-                        <div className="flex gap-2">
+                        <div className="flex flex-col items-center gap-2">
+                            <div className={`text-2xl font-mono font-bold ${timerState.isRunning ? 'text-green-600' : 'text-gray-700'}`}>
+                                {formatTime(timerState.remainingSeconds)}
+                            </div>
                             <button
                                 type="button"
-                                className="flex items-center w-fit border rounded-md bg-[#f35b62] text-white p-2 hover:bg-[#EE161F] hover:text-white transition-colors"
+                                onClick={onTimerToggle}
+                                className={`flex items-center w-fit border rounded-md px-4 py-2 font-semibold transition-colors ${timerState.isRunning
+                                    ? 'bg-red-500 text-white hover:bg-red-600'
+                                    : 'bg-green-600 text-white hover:bg-green-700'
+                                    }`}
                             >
-                                <span>Option to start</span>
+                                <span>{timerState.isRunning ? 'Stop Timer' : 'Start Timer'}</span>
                             </button>
                         </div>
                     </div>
@@ -449,8 +511,29 @@ function DefaultForm({
                     </div>
                 </div>
 
+                {/* Parts Section */}
+                <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Parts ({selectedParts.length})</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {selectedParts.map((part, index) => (
+                            <div key={part} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                                <div className="flex items-center justify-between">
+                                    <span className="font-medium text-gray-700">{part}</span>
+                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                        Part {index + 1}
+                                    </span>
+                                </div>
+                                <div className="mt-2 text-xs text-gray-500">
+                                    Rows: {rowsByPart[part]?.length || 0}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
                 {/* Table Section */}
-                <div className="flex items-center justify-end mb-3">
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-semibold text-gray-800">Test Data by Part</h3>
                     <button
                         onClick={() => setShowAddColumnModal(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -459,110 +542,297 @@ function DefaultForm({
                         Add Column
                     </button>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-300">
-                                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-                                        SR.No
-                                    </th>
-                                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-                                        Test Date
-                                    </th>
-                                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-                                        Config
-                                    </th>
-                                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-                                        Sample ID
-                                    </th>
 
-                                    {/* Custom Columns */}
-                                    {formData.customColumns?.map((column) => (
-                                        <th key={column.id} className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200 relative group">
-                                            <div className="flex items-center justify-between">
-                                                <span>{column.label}</span>
-                                                <button
-                                                    onClick={() => removeCustomColumn(column.id)}
-                                                    className="opacity-0 group-hover:opacity-100 ml-2 text-red-500 hover:text-red-700 transition-opacity"
-                                                    title="Remove column"
-                                                >
-                                                    <X size={14} />
-                                                </button>
-                                            </div>
-                                        </th>
-                                    ))}
+                {/* Render table for each part */}
+                {selectedParts.map((part) => (
+                    <div key={part} className="mb-8">
+                        <div className="bg-gray-100 border border-gray-300 rounded-t-lg p-3">
+                            <h4 className="font-semibold text-gray-800 flex items-center">
+                                <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-2">
+                                    {selectedParts.indexOf(part) + 1}
+                                </span>
+                                Part: {part}
+                            </h4>
+                        </div>
+                        <div className="bg-white rounded-b-xl shadow-sm border border-gray-200 border-t-0 overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-300">
+                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                SR.No
+                                            </th>
+                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                Test Date
+                                            </th>
+                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                Config
+                                            </th>
+                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                Sample ID
+                                            </th>
 
-                                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                                        Status
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {formData.rows.map((row, index) => (
-                                    <tr key={row.id} className={index % 2 === 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50 hover:bg-gray-100"}>
-                                        <td className="px-4 py-4 text-center font-semibold text-gray-900 border-r border-gray-200">
-                                            {row.srNo}
-                                        </td>
-                                        <td className="px-4 py-4 border-r border-gray-200">
-                                            <input
-                                                type="date"
-                                                value={row.testDate}
-                                                onChange={(e) => updateRowField(row.id, 'testDate', e.target.value)}
-                                                className="w-full min-w-[140px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            />
-                                        </td>
-                                        <td className="px-4 py-4 border-r border-gray-200">
-                                            <input
-                                                value={row.config}
-                                                onChange={(e) => updateRowField(row.id, 'config', e.target.value)}
-                                                className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            />
-                                        </td>
-                                        <td className="px-4 py-4 border-r border-gray-200">
-                                            <input
-                                                value={row.sampleId}
-                                                onChange={(e) => updateRowField(row.id, 'sampleId', e.target.value)}
-                                                className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            />
-                                        </td>
+                                            {/* <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                Part
+                                            </th> */}
 
-                                        {/* Custom Column Fields */}
-                                        {formData.customColumns?.map((column) => (
-                                            <td key={column.id} className={`px-4 py-4 border-r border-gray-200 ${column.type === 'image' ? 'min-w-[200px]' : ''}`}>
-                                                {renderField(row, column)}
-                                            </td>
+
+                                            {/* Cosmetic Image Column */}
+                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                Cosmetic Image
+                                            </th>
+
+                                            {/* Non-Cosmetic Image Column */}
+                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                Non-Cosmetic Image
+                                            </th>
+
+                                            {/* Cropped Image Column - existing */}
+                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                Cropped Image
+                                            </th>
+
+                                            {/* Custom Columns */}
+                                            {formData.customColumns?.map((column) => (
+                                                <th key={column.id} className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200 relative group">
+                                                    <div className="flex items-center justify-between">
+                                                        <span>{column.label}</span>
+                                                        <button
+                                                            onClick={() => removeCustomColumn(column.id)}
+                                                            className="opacity-0 group-hover:opacity-100 ml-2 text-red-500 hover:text-red-700 transition-opacity"
+                                                            title="Remove column"
+                                                        >
+                                                            <X size={14} />
+                                                        </button>
+                                                    </div>
+                                                </th>
+                                            ))}
+
+                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                                                Status
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                        {rowsByPart[part]?.map((row, index) => (
+                                            <tr key={row.id} className={index % 2 === 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50 hover:bg-gray-100"}>
+                                                <td className="px-4 py-4 text-center font-semibold text-gray-900 border-r border-gray-200">
+                                                    {row.srNo}
+                                                </td>
+                                                <td className="px-4 py-4 border-r border-gray-200">
+                                                    <input
+                                                        type="date"
+                                                        value={row.testDate}
+                                                        onChange={(e) => updateRowField(row.id, 'testDate', e.target.value)}
+                                                        className="w-full min-w-[140px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-4 border-r border-gray-200">
+                                                    <input
+                                                        value={row.config}
+                                                        onChange={(e) => updateRowField(row.id, 'config', e.target.value)}
+                                                        className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-4 border-r border-gray-200">
+                                                    <input
+                                                        value={row.sampleId}
+                                                        onChange={(e) => updateRowField(row.id, 'sampleId', e.target.value)}
+                                                        className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    />
+                                                </td>
+                                                {/* Part Column */}
+                                                {/* <td className="px-4 py-4 border-r border-gray-200">
+                                                    <div className="px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg text-center">
+                                                        <span className="font-semibold text-purple-700">{row.partId}</span>
+                                                    </div>
+                                                </td> */}
+
+                                                {/* Cosmetic Image Upload */}
+                                                <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
+                                                    <div className="space-y-2">
+                                                        {!row.cosmeticImage ? (
+                                                            <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors bg-blue-50">
+                                                                <Upload size={20} className="text-blue-400 mb-2" />
+                                                                <span className="text-sm font-medium text-blue-600">Upload Cosmetic</span>
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    onChange={(e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (file) {
+                                                                            handleImageUpload(row.id, 'cosmetic', file);
+                                                                        }
+                                                                    }}
+                                                                    className="hidden"
+                                                                />
+                                                            </label>
+                                                        ) : (
+                                                            <div className="relative">
+                                                                <img
+                                                                    src={row.cosmeticImage}
+                                                                    alt="Cosmetic"
+                                                                    className="w-20 h-20 object-cover border rounded-lg"
+                                                                />
+                                                                <div className="flex gap-1 mt-2">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const input = document.createElement('input');
+                                                                            input.type = 'file';
+                                                                            input.accept = 'image/*';
+                                                                            input.onchange = (e) => {
+                                                                                const file = (e.target as HTMLInputElement).files?.[0];
+                                                                                if (file) {
+                                                                                    handleImageUpload(row.id, 'cosmetic', file);
+                                                                                }
+                                                                            };
+                                                                            input.click();
+                                                                        }}
+                                                                        className="flex-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                                                                    >
+                                                                        Replace
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => updateRowField(row.id, 'cosmeticImage', '')}
+                                                                        className="flex-1 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
+                                                                    >
+                                                                        Remove
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+
+                                                {/* Non-Cosmetic Image Upload */}
+                                                <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
+                                                    <div className="space-y-2">
+                                                        {!row.nonCosmeticImage ? (
+                                                            <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-green-300 rounded-lg cursor-pointer hover:border-green-400 transition-colors bg-green-50">
+                                                                <Upload size={20} className="text-green-400 mb-2" />
+                                                                <span className="text-sm font-medium text-green-600">Upload Non-Cosmetic</span>
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    onChange={(e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (file) {
+                                                                            handleImageUpload(row.id, 'nonCosmetic', file);
+                                                                        }
+                                                                    }}
+                                                                    className="hidden"
+                                                                />
+                                                            </label>
+                                                        ) : (
+                                                            <div className="relative">
+                                                                <img
+                                                                    src={row.nonCosmeticImage}
+                                                                    alt="Non-Cosmetic"
+                                                                    className="w-20 h-20 object-cover border rounded-lg"
+                                                                />
+                                                                <div className="flex gap-1 mt-2">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const input = document.createElement('input');
+                                                                            input.type = 'file';
+                                                                            input.accept = 'image/*';
+                                                                            input.onchange = (e) => {
+                                                                                const file = (e.target as HTMLInputElement).files?.[0];
+                                                                                if (file) {
+                                                                                    handleImageUpload(row.id, 'nonCosmetic', file);
+                                                                                }
+                                                                            };
+                                                                            input.click();
+                                                                        }}
+                                                                        className="flex-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                                                                    >
+                                                                        Replace
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => updateRowField(row.id, 'nonCosmeticImage', '')}
+                                                                        className="flex-1 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
+                                                                    >
+                                                                        Remove
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+
+                                                {/* Cropped Image Column */}
+                                                <td className="px-4 py-4 border-r border-gray-200 min-w-[150px]">
+                                                    {row.croppedImage ? (
+                                                        <div className="space-y-2">
+                                                            <img
+                                                                src={row.croppedImage}
+                                                                alt="Cropped"
+                                                                className="w-20 h-20 object-contain border rounded-lg mx-auto"
+                                                            />
+                                                            {row.regionLabel && (
+                                                                <div className="text-xs text-center font-semibold text-gray-700">
+                                                                    {row.regionLabel}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-xs text-gray-400 text-center">No crop</div>
+                                                    )}
+                                                </td>
+
+                                                {/* Custom Column Fields */}
+                                                {formData.customColumns?.map((column) => (
+                                                    <td key={column.id} className={`px-4 py-4 border-r border-gray-200 ${column.type === 'image' ? 'min-w-[200px]' : ''}`}>
+                                                        {renderField(row, column)}
+                                                    </td>
+                                                ))}
+
+                                                <td className="px-4 py-4">
+                                                    <select
+                                                        value={row.status}
+                                                        onChange={(e) => updateRowField(row.id, 'status', e.target.value)}
+                                                        className={`w-full min-w-[110px] px-3 py-2 border rounded-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${row.status === "Pass" ? "bg-green-50 text-green-700 border-green-200" :
+                                                            row.status === "Fail" ? "bg-red-50 text-red-700 border-red-200" :
+                                                                "bg-white border-gray-300 text-gray-700"
+                                                            }`}
+                                                    >
+                                                        <option value="">Select</option>
+                                                        <option value="Pass">Pass</option>
+                                                        <option value="Fail">Fail</option>
+                                                    </select>
+                                                </td>
+                                            </tr>
                                         ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
 
-                                        <td className="px-4 py-4">
-                                            <select
-                                                value={row.status}
-                                                onChange={(e) => updateRowField(row.id, 'status', e.target.value)}
-                                                className={`w-full min-w-[110px] px-3 py-2 border rounded-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${row.status === "Pass" ? "bg-green-50 text-green-700 border-green-200" :
-                                                    row.status === "Fail" ? "bg-red-50 text-red-700 border-red-200" :
-                                                        "bg-white border-gray-300 text-gray-700"
-                                                    }`}
-                                            >
-                                                <option value="">Select</option>
-                                                <option value="Pass">Pass</option>
-                                                <option value="Fail">Fail</option>
-                                            </select>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+
+
+                        <div className="flex justify-end mt-3">
+                            <button
+                                onClick={() => addRow(part)}
+                                className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+                            >
+                                + Add Row for {part}
+                            </button>
+                        </div>
                     </div>
-                </div>
-
+                ))}
+                {/* 
                 <div className="flex gap-4 mt-6">
                     <button
-                        onClick={addRow}
-                        className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 transition-colors shadow-sm"
+                        onClick={() => addRow()}
+                        className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
                     >
-                        + Add Row
+                        + Add Row to All Parts
                     </button>
-                </div>
+                </div> */}
             </div>
 
             {/* Add Column Modal */}
@@ -692,12 +962,10 @@ export default function MultiStageTestForm() {
     const [dynamicStages, setDynamicStages] = useState<Stage[]>([]);
     const [selectedTestToResume, setSelectedTestToResume] = useState<string>("");
     const [availableTestsToResume, setAvailableTestsToResume] = useState<{ recordId: number, testName: string, formKey: string, completed: boolean }[]>([]);
+    const [timerStates, setTimerStates] = useState<Record<string, { remainingSeconds: number; isRunning: boolean }>>({});
 
-    // Shared images across all forms
-    const [sharedImages, setSharedImages] = useState({
-        cosmetic: null as string | null,
-        nonCosmetic: null as string | null
-    });
+    // Shared images by part
+    const [sharedImagesByPart, setSharedImagesByPart] = useState<Record<string, { cosmetic: string | null, nonCosmetic: string | null }>>({});
 
     // Cropped regions with detected labels
     const [croppedRegions, setCroppedRegions] = useState<CroppedRegion[]>([]);
@@ -705,7 +973,22 @@ export default function MultiStageTestForm() {
     // Form data for all forms
     const [forms, setForms] = useState<FormsState>({});
 
-    // Load stage2Records from localStorage and initialize forms
+    // Get selected parts from current record
+    const selectedParts = currentRecord?.stage2?.selectedParts || [];
+
+    // Filter stages based on selected tests
+    const filteredStages = React.useMemo(() => {
+        const imageUploadStage = ALL_STAGES[0];
+        const formStages = dynamicStages.filter(stage =>
+            stage.formKey && selectedTests.includes(stage.formKey)
+        );
+        return [imageUploadStage, ...formStages];
+    }, [selectedTests, dynamicStages]);
+
+    // Get current stage data
+    const currentStageData = filteredStages[currentStage];
+
+    const isLastStage = currentStage === filteredStages.length - 1;
 
     // Load stage2Records from localStorage and initialize forms
     useEffect(() => {
@@ -745,10 +1028,14 @@ export default function MultiStageTestForm() {
                         .map(name => name.trim())
                         .filter(name => name.length > 0);
 
+                    // Get checkpoint hours (default to 0 if not available)
+                    const checkpointHours = latestRecord.stage2.checkpoint || 0;
+
                     // Create dynamic stages based on test names
                     const newStages: Stage[] = [];
                     const newForms: FormsState = {};
                     const testSelections: string[] = [];
+                    const initialTimerStates: Record<string, { remainingSeconds: number; isRunning: boolean }> = {};
 
                     testNames.forEach((testName, index) => {
                         const formKey = `test_${index}`;
@@ -764,7 +1051,42 @@ export default function MultiStageTestForm() {
                             testType: 'default'
                         });
 
-                        // Initialize form data with single row initially and default Image column
+                        // Initialize timer state for this form
+                        const savedTimerData = latestRecord.timerData?.[formKey];
+                        if (savedTimerData) {
+                            initialTimerStates[formKey] = {
+                                remainingSeconds: savedTimerData.remainingSeconds,
+                                isRunning: savedTimerData.isRunning
+                            };
+                        } else {
+                            initialTimerStates[formKey] = {
+                                remainingSeconds: checkpointHours * 3600, // Convert hours to seconds
+                                isRunning: false
+                            };
+                        }
+
+                        // Initialize form data with rows for each part
+                        const initialRows: FormRow[] = [];
+                        let srNo = 1;
+
+                        // ... rest of your existing code for creating rows ...
+
+                        // Create one row per part initially
+                        latestRecord.stage2.selectedParts.forEach((part, partIndex) => {
+                            initialRows.push({
+                                id: srNo,
+                                srNo: srNo,
+                                testDate: "",
+                                config: "",
+                                sampleId: `${part}-${srNo}`,
+                                status: "Pass",
+                                partId: part,
+                                cosmeticImage: "",
+                                nonCosmeticImage: ""
+                            });
+                            srNo++;
+                        });
+
                         newForms[formKey] = {
                             testName: testName,
                             ers: latestRecord.stage2.processStage || "",
@@ -776,22 +1098,26 @@ export default function MultiStageTestForm() {
                             sampleQty: latestRecord.stage2.requiredQty?.split(',')[index]?.trim() || "32",
                             customColumns: [
                                 {
-                                    id: 'image_column',
-                                    label: 'Image',
+                                    id: 'additional_image_column',
+                                    label: 'Additional Image',
                                     type: 'image'
                                 }
                             ],
-                            rows: [
-                                {
-                                    id: 1, srNo: 1, testDate: "", config: "", sampleId: "", status: "Pass", image_column: ""
-                                }
-                            ]
+                            rows: initialRows
                         };
                     });
 
                     setSelectedTests(testSelections);
+                    setTimerStates(initialTimerStates);
                     setDynamicStages(newStages);
                     setForms(newForms);
+
+                    // Initialize shared images by part
+                    const initialImages: Record<string, { cosmetic: string | null, nonCosmetic: string | null }> = {};
+                    latestRecord.stage2.selectedParts.forEach(part => {
+                        initialImages[part] = { cosmetic: null, nonCosmetic: null };
+                    });
+                    setSharedImagesByPart(initialImages);
                 }
             } catch (error) {
                 console.error("Error parsing stage2 records:", error);
@@ -799,113 +1125,513 @@ export default function MultiStageTestForm() {
         }
     }, []);
 
-    // Auto-generate rows based on cropped regions count
+    // Timer countdown effect
     useEffect(() => {
-        if (croppedRegions.length > 0) {
-            setForms(prev => {
-                const updatedForms = { ...prev };
+        const interval = setInterval(() => {
+            setTimerStates(prev => {
+                const updated = { ...prev };
+                let hasChanges = false;
 
-                Object.keys(updatedForms).forEach(formKey => {
-                    const currentForm = updatedForms[formKey];
-                    const rowCount = croppedRegions.length;
-
-                    // Generate rows based on cropped regions count
-                    const newRows = Array.from({ length: rowCount }, (_, index) => {
-                        const region = croppedRegions[index];
-                        return {
-                            id: index + 1,
-                            srNo: index + 1,
-                            testDate: "",
-                            config: "",
-                            sampleId: region?.label || `Sample-${index + 1}`,
-                            status: "Pass",
-                            image_column: region?.data || "", // Auto-populate with cropped image
-                            ...(currentForm.customColumns?.reduce((acc, col) => {
-                                if (col.id !== 'image_column') {
-                                    acc[col.id] = '';
-                                }
-                                return acc;
-                            }, {} as any) || {})
+                Object.keys(updated).forEach(formKey => {
+                    if (updated[formKey].isRunning && updated[formKey].remainingSeconds > 0) {
+                        updated[formKey] = {
+                            ...updated[formKey],
+                            remainingSeconds: updated[formKey].remainingSeconds - 1
                         };
-                    });
+                        hasChanges = true;
+                    } else if (updated[formKey].isRunning && updated[formKey].remainingSeconds === 0) {
+                        // Timer completed
+                        updated[formKey] = {
+                            ...updated[formKey],
+                            isRunning: false
+                        };
+                        hasChanges = true;
 
-                    updatedForms[formKey] = {
-                        ...currentForm,
-                        rows: newRows
-                    };
+                        // Show alert when timer completes
+                        const stage = dynamicStages.find(s => s.formKey === formKey);
+                        if (stage) {
+                            alert(`⏰ Timer completed for ${stage.name}!`);
+                        }
+                    }
                 });
 
-                return updatedForms;
+                return hasChanges ? updated : prev;
             });
-        }
-    }, [croppedRegions]);
+        }, 1000);
 
+        return () => clearInterval(interval);
+    }, [dynamicStages]);
 
-    // Handle test resume selection
-    const handleTestResume = (testInfo: string) => {
-        setSelectedTestToResume(testInfo);
+    // Save timer states to localStorage whenever they change
+    useEffect(() => {
+        if (currentRecord && Object.keys(timerStates).length > 0) {
+            const storedRecords = localStorage.getItem("stage2Records");
+            if (storedRecords) {
+                try {
+                    const records: Stage2Record[] = JSON.parse(storedRecords);
+                    const currentRecordIndex = records.findIndex((r: Stage2Record) => r.id === currentRecord.id);
 
-        if (!testInfo) return;
+                    if (currentRecordIndex !== -1) {
+                        const timerData: Record<string, any> = {};
+                        Object.keys(timerStates).forEach(formKey => {
+                            timerData[formKey] = {
+                                remainingSeconds: timerStates[formKey].remainingSeconds,
+                                isRunning: timerStates[formKey].isRunning,
+                                startedAt: timerStates[formKey].isRunning ? new Date().toISOString() : undefined
+                            };
+                        });
 
-        const [recordId, formKey] = testInfo.split('|');
-        const record = stage2Records.find(r => r.id === parseInt(recordId));
+                        records[currentRecordIndex] = {
+                            ...records[currentRecordIndex],
+                            timerData: timerData
+                        };
 
-        if (record && record.forms && record.forms[formKey]) {
-            // Find the stage index for this form
-            const stageIndex = dynamicStages.findIndex(stage => stage.formKey === formKey);
-
-            if (stageIndex !== -1) {
-                // Set current stage to the selected test
-                setCurrentStage(stageIndex + 1); // +1 because stage 0 is image upload
+                        localStorage.setItem("stage2Records", JSON.stringify(records));
+                    }
+                } catch (error) {
+                    console.error("Error saving timer states:", error);
+                }
             }
+        }
+    }, [timerStates, currentRecord]);
+
+
+    // Handle image upload for specific part
+    // const handleImageUpload = (partId: string, type: 'cosmetic' | 'nonCosmetic', file: File) => {
+    //     const imageUrl = URL.createObjectURL(file);
+    //     setSharedImagesByPart(prev => ({
+    //         ...prev,
+    //         [partId]: {
+    //             ...prev[partId],
+    //             [type]: imageUrl
+    //         }
+    //     }));
+
+    //     if (type === "nonCosmetic") {
+    //         processNonCosmeticImage(file, partId);
+    //     }
+    // };
+
+    // Handle image upload for specific part
+    const handleImageUpload = (partId: string, type: 'cosmetic' | 'nonCosmetic', file: File) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const imageUrl = e.target?.result as string;
+
+            setSharedImagesByPart(prev => ({
+                ...prev,
+                [partId]: {
+                    ...prev[partId],
+                    [type]: imageUrl
+                }
+            }));
+
+            // If cosmetic image, update all rows for this part
+            if (type === "cosmetic") {
+                Object.keys(forms).forEach(formKey => {
+                    const formData = forms[formKey];
+                    const rowsForPart = formData.rows.filter(row => row.partId === partId);
+
+                    rowsForPart.forEach(row => {
+                        updateRowField(formKey, row.id, 'cosmeticImage', imageUrl);
+                    });
+                });
+            }
+
+            if (type === "nonCosmetic") {
+                processNonCosmeticImage(file, partId, imageUrl);
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const clearImage = (partId: string, type: 'cosmetic' | 'nonCosmetic') => {
+        setSharedImagesByPart(prev => ({
+            ...prev,
+            [partId]: {
+                ...prev[partId],
+                [type]: null
+            }
+        }));
+
+        if (type === "nonCosmetic") {
+            // Clear cropped regions for this part if needed
+            setCroppedRegions(prev => prev.filter(region => !region.data.includes(partId)));
         }
     };
 
-    // Filter stages based on selected tests
-    const filteredStages = React.useMemo(() => {
-        const imageUploadStage = ALL_STAGES[0];
-        const formStages = dynamicStages.filter(stage =>
-            stage.formKey && selectedTests.includes(stage.formKey)
-        );
-        return [imageUploadStage, ...formStages];
-    }, [selectedTests, dynamicStages]);
+    // Modified processNonCosmeticImage to accept partId
+    // const processNonCosmeticImage = (file: File, partId: string) => {
+    //     if (!cvLoaded) {
+    //         alert("OpenCV not loaded yet. Please wait...");
+    //         return;
+    //     }
 
-    // Get current stage data
-    const currentStageData = filteredStages[currentStage];
+    //     setProcessing(true);
+    //     const reader = new FileReader();
+    //     reader.onload = (e) => {
+    //         const img = new Image();
+    //         img.onload = async () => {
+    //             try {
+    //                 const cv = window.cv;
+    //                 const canvas = document.createElement("canvas");
+    //                 canvas.width = img.width;
+    //                 canvas.height = img.height;
+    //                 const ctx = canvas.getContext("2d");
+    //                 if (!ctx) {
+    //                     setProcessing(false);
+    //                     return;
+    //                 }
 
-    // Load OpenCV
-    useEffect(() => {
-        if (window.cv && window.cv.Mat) {
-            setCvLoaded(true);
+    //                 ctx.drawImage(img, 0, 0);
+    //                 const src = cv.imread(canvas);
+
+    //                 const srcForDetection = cv.imread(canvas);
+    //                 const hasMarks = detectYellowMarks(srcForDetection);
+    //                 srcForDetection.delete();
+    //                 setHasYellowMarks(hasMarks);
+
+    //                 console.log(`Image for part ${partId} has yellow marks: ${hasMarks}`);
+
+    //                 let detectedRegions: any[] = [];
+
+    //                 if (hasMarks) {
+    //                     detectedRegions = processImageWithYellowMarks(src, img);
+    //                 } else {
+    //                     detectedRegions = processImageWithoutYellowMarks(src, img);
+    //                 }
+
+    //                 console.log(`Detected regions for part ${partId}:`, detectedRegions);
+
+    //                 const croppedImages: CroppedRegion[] = [];
+    //                 detectedRegions.forEach((rect, i) => {
+    //                     try {
+    //                         const x = Math.max(0, Math.min(rect.x, src.cols - 1));
+    //                         const y = Math.max(0, Math.min(rect.y, src.rows - 1));
+    //                         const width = Math.min(rect.width, src.cols - x);
+    //                         const height = Math.min(rect.height, src.rows - y);
+
+    //                         if (width <= 0 || height <= 0) {
+    //                             console.warn(`Invalid dimensions for region ${i}: ${width}x${height}`);
+    //                             return;
+    //                         }
+
+    //                         const validRect = new cv.Rect(x, y, width, height);
+    //                         const roi = src.roi(validRect);
+
+    //                         const cropCanvas = document.createElement("canvas");
+    //                         cropCanvas.width = width;
+    //                         cropCanvas.height = height;
+    //                         cv.imshow(cropCanvas, roi);
+
+    //                         const croppedData = cropCanvas.toDataURL("image/png", 1.0);
+
+    //                         const detectedLabel = hasMarks
+    //                             ? detectLabelText(croppedData, i, detectedRegions, true)
+    //                             : rect.label;
+
+    //                         const category = getLabelCategory(detectedLabel);
+
+    //                         croppedImages.push({
+    //                             id: i,
+    //                             data: croppedData,
+    //                             label: `${partId}-${detectedLabel}`,
+    //                             category: category,
+    //                             rect: { x, y, width, height }
+    //                         });
+
+    //                         console.log(`Part ${partId} - Region ${i}: ${detectedLabel} → ${category?.form} (${x},${y} ${width}x${height})`);
+
+    //                         roi.delete();
+    //                     } catch (err) {
+    //                         console.error(`Error cropping region ${i}:`, err);
+    //                     }
+    //                 });
+
+    //                 setCroppedRegions(prev => [...prev, ...croppedImages]);
+    //                 setRegions(detectedRegions);
+
+    //                 src.delete();
+    //             } catch (err) {
+    //                 console.error("Error processing image:", err);
+    //                 alert("Failed to process image. Please try again.");
+    //             } finally {
+    //                 setProcessing(false);
+    //             }
+    //         };
+    //         img.src = e.target?.result as string;
+    //     };
+    //     reader.readAsDataURL(file);
+    // };
+
+    // const processNonCosmeticImage = (file: File, partId: string) => {
+    //     if (!cvLoaded) {
+    //         alert("OpenCV not loaded yet. Please wait...");
+    //         return;
+    //     }
+
+    //     setProcessing(true);
+    //     const reader = new FileReader();
+    //     reader.onload = (e) => {
+    //         const img = new Image();
+    //         img.onload = async () => {
+    //             try {
+    //                 const cv = window.cv;
+    //                 const canvas = document.createElement("canvas");
+    //                 canvas.width = img.width;
+    //                 canvas.height = img.height;
+    //                 const ctx = canvas.getContext("2d");
+    //                 if (!ctx) {
+    //                     setProcessing(false);
+    //                     return;
+    //                 }
+
+    //                 ctx.drawImage(img, 0, 0);
+    //                 const src = cv.imread(canvas);
+
+    //                 const srcForDetection = cv.imread(canvas);
+    //                 const hasMarks = detectYellowMarks(srcForDetection);
+    //                 srcForDetection.delete();
+    //                 setHasYellowMarks(hasMarks);
+
+    //                 console.log(`Image for part ${partId} has yellow marks: ${hasMarks}`);
+
+    //                 let detectedRegions: any[] = [];
+
+    //                 if (hasMarks) {
+    //                     detectedRegions = processImageWithYellowMarks(src, img);
+    //                 } else {
+    //                     detectedRegions = processImageWithoutYellowMarks(src, img);
+    //                 }
+
+    //                 console.log(`Detected regions for part ${partId}:`, detectedRegions);
+
+    //                 const croppedImages: CroppedRegion[] = [];
+    //                 detectedRegions.forEach((rect, i) => {
+    //                     try {
+    //                         const x = Math.max(0, Math.min(rect.x, src.cols - 1));
+    //                         const y = Math.max(0, Math.min(rect.y, src.rows - 1));
+    //                         const width = Math.min(rect.width, src.cols - x);
+    //                         const height = Math.min(rect.height, src.rows - y);
+
+    //                         if (width <= 0 || height <= 0) {
+    //                             console.warn(`Invalid dimensions for region ${i}: ${width}x${height}`);
+    //                             return;
+    //                         }
+
+    //                         const validRect = new cv.Rect(x, y, width, height);
+    //                         const roi = src.roi(validRect);
+
+    //                         const cropCanvas = document.createElement("canvas");
+    //                         cropCanvas.width = width;
+    //                         cropCanvas.height = height;
+    //                         cv.imshow(cropCanvas, roi);
+
+    //                         const croppedData = cropCanvas.toDataURL("image/png", 1.0);
+
+    //                         const detectedLabel = hasMarks
+    //                             ? detectLabelText(croppedData, i, detectedRegions, true)
+    //                             : rect.label;
+
+    //                         const category = getLabelCategory(detectedLabel);
+
+    //                         croppedImages.push({
+    //                             id: i,
+    //                             data: croppedData,
+    //                             label: `${partId}-${detectedLabel}`,
+    //                             category: category,
+    //                             rect: { x, y, width, height },
+    //                             partId: partId  // ADD THIS LINE - Associate with part
+    //                         });
+
+    //                         console.log(`Part ${partId} - Region ${i}: ${detectedLabel} → ${category?.form} (${x},${y} ${width}x${height})`);
+
+    //                         roi.delete();
+    //                     } catch (err) {
+    //                         console.error(`Error cropping region ${i}:`, err);
+    //                     }
+    //                 });
+
+    //                 // Replace existing cropped regions for this part
+    //                 setCroppedRegions(prev => {
+    //                     const filtered = prev.filter(region => !(region as any).partId || (region as any).partId !== partId);
+    //                     return [...filtered, ...croppedImages];
+    //                 });
+    //                 setRegions(detectedRegions);
+
+    //                 src.delete();
+    //             } catch (err) {
+    //                 console.error("Error processing image:", err);
+    //                 alert("Failed to process image. Please try again.");
+    //             } finally {
+    //                 setProcessing(false);
+    //             }
+    //         };
+    //         img.src = e.target?.result as string;
+    //     };
+    //     reader.readAsDataURL(file);
+    // };
+
+    const processNonCosmeticImage = (file: File, partId: string, nonCosmeticImageUrl: string) => {
+        if (!cvLoaded) {
+            alert("OpenCV not loaded yet. Please wait...");
             return;
         }
 
-        const existingScript = document.querySelector('script[src*="opencv.js"]');
-        if (existingScript) {
-            existingScript.onload = () => {
-                if (window.cv && window.cv.onRuntimeInitialized) {
-                    window.cv.onRuntimeInitialized = () => {
-                        setCvLoaded(true);
-                    };
+        setProcessing(true);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = async () => {
+                try {
+                    const cv = window.cv;
+                    const canvas = document.createElement("canvas");
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext("2d");
+                    if (!ctx) {
+                        setProcessing(false);
+                        return;
+                    }
+
+                    ctx.drawImage(img, 0, 0);
+                    const src = cv.imread(canvas);
+
+                    const srcForDetection = cv.imread(canvas);
+                    const hasMarks = detectYellowMarks(srcForDetection);
+                    srcForDetection.delete();
+                    setHasYellowMarks(hasMarks);
+
+                    console.log(`Image for part ${partId} has yellow marks: ${hasMarks}`);
+
+                    let detectedRegions: any[] = [];
+
+                    if (hasMarks) {
+                        detectedRegions = processImageWithYellowMarks(src, img);
+                    } else {
+                        detectedRegions = processImageWithoutYellowMarks(src, img);
+                    }
+
+                    console.log(`Detected regions for part ${partId}:`, detectedRegions);
+
+                    const croppedImages: CroppedRegion[] = [];
+                    detectedRegions.forEach((rect, i) => {
+                        try {
+                            const x = Math.max(0, Math.min(rect.x, src.cols - 1));
+                            const y = Math.max(0, Math.min(rect.y, src.rows - 1));
+                            const width = Math.min(rect.width, src.cols - x);
+                            const height = Math.min(rect.height, src.rows - y);
+
+                            if (width <= 0 || height <= 0) {
+                                console.warn(`Invalid dimensions for region ${i}: ${width}x${height}`);
+                                return;
+                            }
+
+                            const validRect = new cv.Rect(x, y, width, height);
+                            const roi = src.roi(validRect);
+
+                            const cropCanvas = document.createElement("canvas");
+                            cropCanvas.width = width;
+                            cropCanvas.height = height;
+                            cv.imshow(cropCanvas, roi);
+
+                            const croppedData = cropCanvas.toDataURL("image/png", 1.0);
+
+                            const detectedLabel = hasMarks
+                                ? detectLabelText(croppedData, i, detectedRegions, true)
+                                : rect.label;
+
+                            const category = getLabelCategory(detectedLabel);
+
+                            croppedImages.push({
+                                id: i,
+                                data: croppedData,
+                                label: detectedLabel,
+                                category: category,
+                                rect: { x, y, width, height },
+                                partId: partId
+                            });
+
+                            console.log(`Part ${partId} - Region ${i}: ${detectedLabel} → ${category?.form} (${x},${y} ${width}x${height})`);
+
+                            roi.delete();
+                        } catch (err) {
+                            console.error(`Error cropping region ${i}:`, err);
+                        }
+                    });
+
+                    // Replace existing cropped regions for this part
+                    setCroppedRegions(prev => {
+                        const filtered = prev.filter(region => region.partId !== partId);
+                        return [...filtered, ...croppedImages];
+                    });
+
+                    // Auto-populate rows based on cropped images
+                    Object.keys(forms).forEach(formKey => {
+                        const formData = forms[formKey];
+
+                        // Remove existing rows for this part
+                        const otherRows = formData.rows.filter(row => row.partId !== partId);
+
+                        // Get cosmetic image for this part
+                        const cosmeticImage = sharedImagesByPart[partId]?.cosmetic || '';
+
+                        // Create new rows based on cropped images
+                        const newRows = croppedImages.map((croppedImage, index) => {
+                            const srNo = otherRows.length + index + 1;
+                            const baseRow: any = {
+                                id: Date.now() + index,
+                                srNo: srNo,
+                                testDate: "",
+                                config: "",
+                                sampleId: `${partId}-${index + 1}`,
+                                status: "Pass",
+                                partId: partId,
+                                part: partId, // Add part column
+                                cosmeticImage: cosmeticImage,
+                                nonCosmeticImage: nonCosmeticImageUrl,
+                                croppedImage: croppedImage.data,
+                                regionLabel: croppedImage.label
+                            };
+
+                            // Add all custom column fields with empty values
+                            if (formData.customColumns) {
+                                formData.customColumns.forEach(col => {
+                                    baseRow[col.id] = '';
+                                });
+                            }
+
+                            return baseRow;
+                        });
+
+                        // Update forms with new rows
+                        setForms(prev => ({
+                            ...prev,
+                            [formKey]: {
+                                ...prev[formKey],
+                                rows: [...otherRows, ...newRows].map((row, idx) => ({
+                                    ...row,
+                                    srNo: idx + 1
+                                }))
+                            }
+                        }));
+                    });
+
+                    setRegions(detectedRegions);
+                    src.delete();
+                } catch (err) {
+                    console.error("Error processing image:", err);
+                    alert("Failed to process image. Please try again.");
+                } finally {
+                    setProcessing(false);
                 }
             };
-            return;
-        }
-
-        const script = document.createElement("script");
-        script.src = "https://docs.opencv.org/4.x/opencv.js";
-        script.async = true;
-        script.onload = () => {
-            if (window.cv) {
-                window.cv.onRuntimeInitialized = () => {
-                    setCvLoaded(true);
-                };
-            }
+            img.src = e.target?.result as string;
         };
-        document.body.appendChild(script);
-    }, []);
+        reader.readAsDataURL(file);
+    };
 
-    // Image processing functions
+    // Rest of the OpenCV functions
     const detectYellowMarks = (src: any): boolean => {
         try {
             const cv = window.cv;
@@ -999,127 +1725,6 @@ export default function MultiStageTestForm() {
         return scaledRegions;
     };
 
-    const processNonCosmeticImage = (file: File) => {
-        if (!cvLoaded) {
-            alert("OpenCV not loaded yet. Please wait...");
-            return;
-        }
-
-        setProcessing(true);
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const img = new Image();
-            img.onload = async () => {
-                try {
-                    const cv = window.cv;
-                    const canvas = document.createElement("canvas");
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext("2d");
-                    if (!ctx) {
-                        setProcessing(false);
-                        return;
-                    }
-
-                    ctx.drawImage(img, 0, 0);
-                    const src = cv.imread(canvas);
-
-                    const srcForDetection = cv.imread(canvas);
-                    const hasMarks = detectYellowMarks(srcForDetection);
-                    srcForDetection.delete();
-                    setHasYellowMarks(hasMarks);
-
-                    console.log(`Image has yellow marks: ${hasMarks}`);
-
-                    let detectedRegions: any[] = [];
-
-                    if (hasMarks) {
-                        detectedRegions = processImageWithYellowMarks(src, img);
-                    } else {
-                        detectedRegions = processImageWithoutYellowMarks(src, img);
-                    }
-
-                    console.log("Detected regions:", detectedRegions);
-
-                    const croppedImages: CroppedRegion[] = [];
-                    detectedRegions.forEach((rect, i) => {
-                        try {
-                            const x = Math.max(0, Math.min(rect.x, src.cols - 1));
-                            const y = Math.max(0, Math.min(rect.y, src.rows - 1));
-                            const width = Math.min(rect.width, src.cols - x);
-                            const height = Math.min(rect.height, src.rows - y);
-
-                            if (width <= 0 || height <= 0) {
-                                console.warn(`Invalid dimensions for region ${i}: ${width}x${height}`);
-                                return;
-                            }
-
-                            const validRect = new cv.Rect(x, y, width, height);
-                            const roi = src.roi(validRect);
-
-                            const cropCanvas = document.createElement("canvas");
-                            cropCanvas.width = width;
-                            cropCanvas.height = height;
-                            cv.imshow(cropCanvas, roi);
-
-                            const croppedData = cropCanvas.toDataURL("image/png", 1.0);
-
-                            const detectedLabel = hasMarks
-                                ? detectLabelText(croppedData, i, detectedRegions, true)
-                                : rect.label;
-
-                            const category = getLabelCategory(detectedLabel);
-
-                            croppedImages.push({
-                                id: i,
-                                data: croppedData,
-                                label: detectedLabel,
-                                category: category,
-                                rect: { x, y, width, height }
-                            });
-
-                            console.log(`Region ${i}: ${detectedLabel} → ${category?.form} (${x},${y} ${width}x${height})`);
-
-                            roi.delete();
-                        } catch (err) {
-                            console.error(`Error cropping region ${i}:`, err);
-                        }
-                    });
-
-                    setCroppedRegions(croppedImages);
-                    setRegions(detectedRegions);
-
-                    src.delete();
-                } catch (err) {
-                    console.error("Error processing image:", err);
-                    alert("Failed to process image. Please try again.");
-                } finally {
-                    setProcessing(false);
-                }
-            };
-            img.src = e.target?.result as string;
-        };
-        reader.readAsDataURL(file);
-    };
-
-    const handleImageUpload = (type: 'cosmetic' | 'nonCosmetic', file: File) => {
-        const imageUrl = URL.createObjectURL(file);
-        setSharedImages(prev => ({ ...prev, [type]: imageUrl }));
-
-        if (type === "nonCosmetic") {
-            processNonCosmeticImage(file);
-        }
-    };
-
-    const clearImage = (type: 'cosmetic' | 'nonCosmetic') => {
-        setSharedImages(prev => ({ ...prev, [type]: null }));
-
-        if (type === "nonCosmetic") {
-            setCroppedRegions([]);
-            setHasYellowMarks(null);
-        }
-    };
-
     const updateFormField = (formKey: string, field: string, value: string) => {
         setForms(prev => ({
             ...prev,
@@ -1139,91 +1744,7 @@ export default function MultiStageTestForm() {
         }));
     };
 
-    // const addRow = (formKey: string) => {
-    //     setForms(prev => {
-    //         const currentForm = prev[formKey];
-    //         const newId = Math.max(...currentForm.rows.map((r: any) => r.id)) + 1;
-    //         const newRow = {
-    //             id: newId,
-    //             srNo: currentForm.rows.length + 1,
-    //             ...Object.keys(currentForm.rows[0]).reduce((acc, key) => {
-    //                 if (!['id', 'srNo'].includes(key)) {
-    //                     (acc as any)[key] = "";
-    //                 }
-    //                 return acc;
-    //             }, {} as any)
-    //         };
-
-    //         return {
-    //             ...prev,
-    //             [formKey]: {
-    //                 ...currentForm,
-    //                 rows: [...currentForm.rows, newRow]
-    //             }
-    //         };
-    //     });
-    // };
-
-    // const handleSubmit = () => {
-    //     try {
-    //         const storedData = localStorage.getItem("stage2Records");
-    //         const records: Stage2Record[] = storedData ? JSON.parse(storedData) : [];
-
-    //         if (records.length > 0 && currentRecord) {
-    //             const currentRecordIndex = records.findIndex((r: Stage2Record) => r.id === currentRecord.id);
-
-    //             if (currentRecordIndex !== -1) {
-    //                 // Mark all tests as completed
-    //                 const completedTests = Object.keys(forms);
-
-    //                 const updatedRecord = {
-    //                     ...records[currentRecordIndex], // Use the existing record as base
-    //                     forms: {
-    //                         ...records[currentRecordIndex].forms, // Keep existing forms
-    //                         ...forms // Update with new form data
-    //                     },
-    //                     status: "Completed",
-    //                     completedAt: new Date().toISOString(),
-    //                     sharedImages: sharedImages,
-    //                     sampleQty: calculateTotalSampleQty(),
-    //                     testCompletionDate: new Date().toISOString().split('T')[0],
-    //                     completedTests: [
-    //                         ...(records[currentRecordIndex].completedTests || []), // Keep existing completed tests
-    //                         ...completedTests.filter(test => !records[currentRecordIndex].completedTests?.includes(test)) // Add new ones
-    //                     ]
-    //                 };
-
-    //                 // Update the record in the array
-    //                 records[currentRecordIndex] = updatedRecord;
-
-    //                 // Save back to localStorage with the same key
-    //                 localStorage.setItem("stage2Records", JSON.stringify(records));
-
-    //                 console.log("Final Form Data:", updatedRecord);
-
-    //                 // Show success message
-    //                 alert("✅ All Forms Completed! Record has been saved successfully");
-
-    //                 // Optional: Navigate away or reset state
-    //                 // setCurrentStage(0);
-    //                 // setForms({});
-    //                 // setSharedImages({ cosmetic: null, nonCosmetic: null });
-
-    //             } else {
-    //                 alert("Record Not Found - Current record not found in storage");
-    //             }
-    //         } else {
-    //             alert("No Test Record Found - Please start a new test before submitting forms");
-    //         }
-    //     } catch (error) {
-    //         alert("Submission Failed - There was an error saving the test data. Please try again.");
-    //         console.error("Error submitting forms:", error);
-    //     }
-    // };
-
-    // Helper function to calculate total sample quantity
-
-    const addRow = (formKey: string) => {
+    const addRow = (formKey: string, partId?: string) => {
         setForms(prev => {
             const currentForm = prev[formKey];
             const newId = Math.max(...currentForm.rows.map((r: any) => r.id)) + 1;
@@ -1235,7 +1756,10 @@ export default function MultiStageTestForm() {
                 testDate: "",
                 config: "",
                 sampleId: "",
-                status: "Pass"
+                status: "Pass",
+                partId: partId || currentForm.rows[0]?.partId || selectedParts[0],
+                cosmeticImage: "",
+                nonCosmeticImage: ""
             };
 
             // Add all custom column fields with empty values
@@ -1255,101 +1779,16 @@ export default function MultiStageTestForm() {
         });
     };
 
-    // const handleSubmit = () => {
-    //     try {
-    //         const storedData = localStorage.getItem("stage2Records");
-    //         const records: Stage2Record[] = storedData ? JSON.parse(storedData) : [];
-
-    //         if (records.length > 0 && currentRecord) {
-    //             const currentRecordIndex = records.findIndex((r: Stage2Record) => r.id === currentRecord.id);
-
-    //             if (currentRecordIndex !== -1) {
-    //                 const completedTests = Object.keys(forms);
-
-    //                 // Prepare complete form data with all columns
-    //                 const formsWithCompleteData: any = {};
-    //                 Object.keys(forms).forEach(formKey => {
-    //                     const formData = forms[formKey];
-
-    //                     // Get ALL custom columns for this form
-    //                     const allCustomColumns = formData.customColumns || [];
-
-    //                     formsWithCompleteData[formKey] = {
-    //                         testName: formData.testName,
-    //                         ers: formData.ers,
-    //                         testCondition: formData.testCondition,
-    //                         date: formData.date,
-    //                         failureCriteria: formData.failureCriteria,
-    //                         testStage: formData.testStage,
-    //                         project: formData.project,
-    //                         sampleQty: formData.sampleQty,
-    //                         customColumns: allCustomColumns, // Save ALL column definitions
-    //                         rows: formData.rows.map(row => {
-    //                             // Create complete row object
-    //                             const completeRow: any = {
-    //                                 id: row.id,
-    //                                 srNo: row.srNo,
-    //                                 testDate: row.testDate,
-    //                                 config: row.config,
-    //                                 sampleId: row.sampleId,
-    //                                 status: row.status
-    //                             };
-
-    //                             // Add ALL custom column values (including newly added ones)
-    //                             allCustomColumns.forEach(col => {
-    //                                 completeRow[col.id] = row[col.id] || '';
-    //                             });
-
-    //                             return completeRow;
-    //                         })
-    //                     };
-    //                 });
-
-    //                 const updatedRecord = {
-    //                     ...records[currentRecordIndex],
-    //                     forms: {
-    //                         ...records[currentRecordIndex].forms,
-    //                         ...formsWithCompleteData
-    //                     },
-    //                     status: "Completed",
-    //                     completedAt: new Date().toISOString(),
-    //                     sharedImages: sharedImages,
-    //                     croppedRegions: croppedRegions,
-    //                     sampleQty: calculateTotalSampleQty(),
-    //                     testCompletionDate: new Date().toISOString().split('T')[0],
-    //                     completedTests: [
-    //                         ...(records[currentRecordIndex].completedTests || []),
-    //                         ...completedTests.filter(test => !records[currentRecordIndex].completedTests?.includes(test))
-    //                     ]
-    //                 };
-
-    //                 records[currentRecordIndex] = updatedRecord;
-    //                 localStorage.setItem("stage2Records", JSON.stringify(records));
-
-    //                 console.log("✅ Complete data saved with all columns:", {
-    //                     recordId: updatedRecord.id,
-    //                     formsCount: Object.keys(formsWithCompleteData).length,
-    //                     tableData: formsWithCompleteData,
-    //                     customColumnsPerForm: Object.entries(formsWithCompleteData).map(([key, value]: [string, any]) => ({
-    //                         formKey: key,
-    //                         columnsCount: value.customColumns?.length || 0,
-    //                         columnNames: value.customColumns?.map((c: CustomColumn) => c.label) || []
-    //                     }))
-    //                 });
-
-    //                 alert("✅ All Forms Completed! Record with all columns has been saved successfully");
-
-    //             } else {
-    //                 alert("❌ Record Not Found - Current record not found in storage");
-    //             }
-    //         } else {
-    //             alert("❌ No Test Record Found - Please start a new test before submitting forms");
-    //         }
-    //     } catch (error) {
-    //         alert("❌ Submission Failed - There was an error saving the test data. Please try again.");
-    //         console.error("Error submitting forms:", error);
-    //     }
-    // };
+    // Handle timer toggle
+    const handleTimerToggle = (formKey: string) => {
+        setTimerStates(prev => ({
+            ...prev,
+            [formKey]: {
+                ...prev[formKey],
+                isRunning: !prev[formKey].isRunning
+            }
+        }));
+    };
 
     const handleSubmit = () => {
         try {
@@ -1380,7 +1819,7 @@ export default function MultiStageTestForm() {
                             testStage: formData.testStage,
                             project: formData.project,
                             sampleQty: formData.sampleQty,
-                            customColumns: allCustomColumns, // Save ALL column definitions
+                            customColumns: allCustomColumns,
                             rows: formData.rows.map(row => {
                                 // Create complete row object with ALL fields
                                 const completeRow: any = {
@@ -1389,12 +1828,14 @@ export default function MultiStageTestForm() {
                                     testDate: row.testDate || "",
                                     config: row.config || "",
                                     sampleId: row.sampleId || "",
-                                    status: row.status || "Pass"
+                                    status: row.status || "Pass",
+                                    partId: row.partId || "",
+                                    cosmeticImage: row.cosmeticImage || "",
+                                    nonCosmeticImage: row.nonCosmeticImage || ""
                                 };
 
                                 // Add ALL custom column values (including newly added text columns)
                                 allCustomColumns.forEach(col => {
-                                    // Ensure the column value exists in the row, if not set to empty string
                                     completeRow[col.id] = row[col.id] !== undefined ? row[col.id] : '';
                                 });
 
@@ -1411,7 +1852,7 @@ export default function MultiStageTestForm() {
                         },
                         status: "Completed",
                         completedAt: new Date().toISOString(),
-                        sharedImages: sharedImages,
+                        sharedImagesByPart: sharedImagesByPart,
                         croppedRegions: croppedRegions,
                         sampleQty: calculateTotalSampleQty(),
                         testCompletionDate: new Date().toISOString().split('T')[0],
@@ -1424,19 +1865,14 @@ export default function MultiStageTestForm() {
                     records[currentRecordIndex] = updatedRecord;
                     localStorage.setItem("stage2Records", JSON.stringify(records));
 
-                    console.log("✅ Complete data saved with ALL columns including text columns:", {
+                    console.log("✅ Complete data saved with part-based structure:", {
                         recordId: updatedRecord.id,
                         formsCount: Object.keys(formsWithCompleteData).length,
-                        tableData: formsWithCompleteData,
-                        customColumnsPerForm: Object.entries(formsWithCompleteData).map(([key, value]: [string, any]) => ({
-                            formKey: key,
-                            columnsCount: value.customColumns?.length || 0,
-                            columnNames: value.customColumns?.map((c: CustomColumn) => `${c.label} (${c.type})`) || [],
-                            sampleRowData: value.rows[0] ? Object.keys(value.rows[0]).filter(k => !['id', 'srNo'].includes(k)) : []
-                        }))
+                        parts: selectedParts,
+                        sharedImagesByPart: sharedImagesByPart
                     });
 
-                    alert("✅ All Forms Completed! Record with all columns has been saved successfully");
+                    alert("✅ All Forms Completed! Record with part-based structure has been saved successfully");
 
                 } else {
                     alert("❌ Record Not Found - Current record not found in storage");
@@ -1461,10 +1897,54 @@ export default function MultiStageTestForm() {
         return total.toString();
     };
 
+    // Auto-start timer when moving to a form stage
+    useEffect(() => {
+        if (currentStage > 0 && currentStageData?.formKey) {
+            const formKey = currentStageData.formKey;
+            const timerState = timerStates[formKey];
+
+            if (timerState && !timerState.isRunning && timerState.remainingSeconds > 0) {
+                // Auto-start timer with a small delay to ensure state is ready
+                const timer = setTimeout(() => {
+                    handleTimerToggle(formKey);
+                }, 100);
+
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [currentStage, currentStageData?.formKey]);
+
+    const renderCurrentForm = () => {
+        if (!currentStageData?.formKey) return null;
+
+        const formKey = currentStageData.formKey;
+        const formData = forms[formKey];
+
+        if (!formData) return null;
+
+        const checkpointHours = currentRecord?.stage2?.checkpoint || 0;
+        const timerState = timerStates[formKey] || { remainingSeconds: 0, isRunning: false };
+
+        return (
+            <DefaultForm
+                formData={formData}
+                updateFormField={(field, value) => updateFormField(formKey, field, value)}
+                updateRowField={(rowId, field, value) => updateRowField(formKey, rowId, field, value)}
+                addRow={(partId) => addRow(formKey, partId)}
+                selectedParts={selectedParts}
+                checkpointHours={checkpointHours}
+                formKey={formKey}
+                timerState={timerState}
+                onTimerToggle={() => handleTimerToggle(formKey)}
+                croppedRegions={croppedRegions}
+            />
+        );
+    };
+
+
     const renderImageUploadStage = () => (
         <div className="p-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Step 1: Upload Images</h2>
-
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Step 1: Upload Images by Part</h2>
 
             {/* Current Record Info */}
             {currentRecord && (
@@ -1484,196 +1964,126 @@ export default function MultiStageTestForm() {
                             <div className="font-semibold">{currentRecord.stage2.processStage}</div>
                         </div>
                         <div>
-                            <span className="text-gray-600">Total Tests:</span>
-                            <div className="font-semibold">{dynamicStages.length}</div>
+                            <span className="text-gray-600">Parts:</span>
+                            <div className="font-semibold">{selectedParts.length}</div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {dynamicStages.length > 0 && (
-                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <h3 className="font-semibold text-green-800 mb-2">Tests to Complete:</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                        {dynamicStages.map((stage, index) => (
-                            <div key={stage.id} className="flex items-center p-2 bg-white rounded border">
-                                <div className="w-3 h-3 rounded-full mr-2 bg-blue-500"></div>
-                                <span className="text-sm font-medium text-gray-700">
-                                    {stage.name}
-                                    <span className="text-xs ml-2 text-blue-500">
-                                        (Default)
-                                    </span>
-                                </span>
+            {/* Parts Image Upload Section */}
+            <div className="space-y-6">
+                {selectedParts.map((part, partIndex) => (
+                    <div key={part} className="bg-white rounded-lg border-2 border-gray-200 p-6 shadow-sm">
+                        <div className="flex items-center mb-4">
+                            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mr-3">
+                                <span className="font-semibold text-purple-600">{partIndex + 1}</span>
                             </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* Image Upload UI */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                {/* Cosmetic Image */}
-                <div className="bg-white rounded-lg border-2 border-gray-200 p-6 shadow-sm">
-                    <div className="flex items-center mb-4">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                            <Upload className="text-blue-600" size={20} />
+                            <div>
+                                <h3 className="font-semibold text-gray-800">Part: {part}</h3>
+                                <p className="text-xs text-gray-500">Upload separate images for this part</p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 className="font-semibold text-gray-800">Cosmetic Image</h3>
-                            <p className="text-xs text-gray-500">Pre-Photo for all forms</p>
-                        </div>
-                    </div>
 
-                    <label className="flex flex-col items-center justify-center h-48 cursor-pointer border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-400 transition-colors bg-blue-50">
-                        {sharedImages.cosmetic ? (
-                            <div className="relative w-full h-full">
-                                <img src={sharedImages.cosmetic} alt="Cosmetic" className="w-full h-full object-contain p-2" />
-                                <button
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        clearImage('cosmetic');
-                                    }}
-                                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
-                                >
-                                    <X size={16} />
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="text-center p-4">
-                                <Upload className="mx-auto mb-3 text-blue-400" size={40} />
-                                <span className="text-sm font-medium text-gray-700">Upload Cosmetic Image</span>
-                                <span className="text-xs text-gray-500 block mt-2">JPG, PNG supported</span>
-                            </div>
-                        )}
-                        <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => e.target.files?.[0] && handleImageUpload("cosmetic", e.target.files[0])}
-                        />
-                    </label>
-                </div>
-
-                {/* Non-Cosmetic Image */}
-                <div className="bg-white rounded-lg border-2 border-gray-200 p-6 shadow-sm">
-                    <div className="flex items-center mb-4">
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                            <Upload className="text-green-600" size={20} />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-gray-800">Non-Cosmetic Image</h3>
-                            <p className="text-xs text-gray-500">
-                                {hasYellowMarks
-                                    ? "Post-Photo + Auto-crop yellow regions"
-                                    : "Post-Photo + Crop using reference coordinates"
-                                }
-                            </p>
-                        </div>
-                    </div>
-
-                    <label className="flex flex-col items-center justify-center h-48 cursor-pointer border-2 border-dashed border-green-300 rounded-lg hover:border-green-400 transition-colors bg-green-50 relative">
-                        {processing && (
-                            <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center rounded-lg z-10">
-                                <div className="text-white text-center">
-                                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white mx-auto mb-3"></div>
-                                    <span className="font-semibold">
-                                        {hasYellowMarks !== null
-                                            ? (hasYellowMarks ? "Detecting yellow regions..." : "Applying reference coordinates...")
-                                            : "Analyzing image..."
-                                        }
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-
-                        {sharedImages.nonCosmetic ? (
-                            <div className="relative w-full h-full">
-                                <img src={sharedImages.nonCosmetic} alt="Non-Cosmetic" className="w-full h-full object-contain p-2" />
-                                <button
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        clearImage('nonCosmetic');
-                                    }}
-                                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
-                                >
-                                    <X size={16} />
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="text-center p-4">
-                                <Upload className="mx-auto mb-3 text-green-400" size={40} />
-                                <span className="text-sm font-medium text-gray-700">Upload Non-Cosmetic Image</span>
-                                <span className="text-xs text-gray-500 block mt-2">
-                                    {hasYellowMarks === null
-                                        ? "Supports images with or without yellow labels"
-                                        : hasYellowMarks
-                                            ? "Yellow marks detected"
-                                            : "Using reference coordinates"
-                                    }
-                                </span>
-                            </div>
-                        )}
-                        <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => e.target.files?.[0] && handleImageUpload("nonCosmetic", e.target.files[0])}
-                            disabled={processing || !cvLoaded}
-                        />
-                    </label>
-
-                    <div className="mt-3 text-xs">
-                        {!cvLoaded ? (
-                            <div className="text-amber-600 flex items-center">
-                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-amber-600 mr-2"></div>
-                                Loading OpenCV...
-                            </div>
-                        ) : (
-                            <div className="text-green-600 flex items-center">
-                                <CheckCircle size={14} className="mr-1" />
-                                Ready to process
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* Cropped Regions Preview */}
-            {croppedRegions.length > 0 && (
-                <div className="bg-gray-50 rounded-lg border border-gray-200 p-6">
-                    <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
-                        <CheckCircle className="text-green-600 mr-2" size={20} />
-                        Detected Regions ({croppedRegions.length})
-                        <span className="text-sm font-normal text-gray-600 ml-2">
-                            {hasYellowMarks ? '(Auto-detected from yellow marks)' : '(Using reference image coordinates)'}
-                        </span>
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        {croppedRegions.map((region) => (
-                            <div key={region.id} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow">
-                                <img
-                                    src={region.data}
-                                    alt={region.label}
-                                    className="w-full h-20 object-contain border rounded bg-gray-50 mb-2"
-                                />
-                                <div className="text-xs text-center">
-                                    <div className="font-semibold text-gray-700">{region.label}</div>
-                                    <div className="text-gray-500 mt-1">
-                                        {region.category ? `→ ${region.category.form}` : "Unknown"}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Cosmetic Image for Part */}
+                            <div className="bg-gray-50 rounded-lg p-4">
+                                <div className="flex items-center mb-3">
+                                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-2">
+                                        <Upload className="text-blue-600" size={16} />
                                     </div>
+                                    <h4 className="font-medium text-gray-700">Cosmetic Image</h4>
                                 </div>
+
+                                <label className="flex flex-col items-center justify-center h-40 cursor-pointer border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-400 transition-colors bg-blue-50">
+                                    {sharedImagesByPart[part]?.cosmetic ? (
+                                        <div className="relative w-full h-full">
+                                            <img src={sharedImagesByPart[part].cosmetic!} alt={`Cosmetic ${part}`} className="w-full h-full object-contain p-2" />
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    clearImage(part, 'cosmetic');
+                                                }}
+                                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center p-4">
+                                            <Upload className="mx-auto mb-2 text-blue-400" size={30} />
+                                            <span className="text-sm font-medium text-gray-700">Upload Cosmetic</span>
+                                            <span className="text-xs text-gray-500 block mt-1">For {part}</span>
+                                        </div>
+                                    )}
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => e.target.files?.[0] && handleImageUpload(part, "cosmetic", e.target.files[0])}
+                                    />
+                                </label>
                             </div>
-                        ))}
+
+                            {/* Non-Cosmetic Image for Part */}
+                            <div className="bg-gray-50 rounded-lg p-4">
+                                <div className="flex items-center mb-3">
+                                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-2">
+                                        <Upload className="text-green-600" size={16} />
+                                    </div>
+                                    <h4 className="font-medium text-gray-700">Non-Cosmetic Image</h4>
+                                </div>
+
+                                <label className="flex flex-col items-center justify-center h-40 cursor-pointer border-2 border-dashed border-green-300 rounded-lg hover:border-green-400 transition-colors bg-green-50 relative">
+                                    {processing && (
+                                        <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center rounded-lg z-10">
+                                            <div className="text-white text-center">
+                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                                                <span className="font-semibold text-xs">Processing...</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {sharedImagesByPart[part]?.nonCosmetic ? (
+                                        <div className="relative w-full h-full">
+                                            <img src={sharedImagesByPart[part].nonCosmetic!} alt={`Non-Cosmetic ${part}`} className="w-full h-full object-contain p-2" />
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    clearImage(part, 'nonCosmetic');
+                                                }}
+                                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center p-4">
+                                            <Upload className="mx-auto mb-2 text-green-400" size={30} />
+                                            <span className="text-sm font-medium text-gray-700">Upload Non-Cosmetic</span>
+                                            <span className="text-xs text-gray-500 block mt-1">For {part}</span>
+                                        </div>
+                                    )}
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => e.target.files?.[0] && handleImageUpload(part, "nonCosmetic", e.target.files[0])}
+                                        disabled={processing || !cvLoaded}
+                                    />
+                                </label>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            )}
+                ))}
+            </div>
 
             <div className="flex justify-end mt-8">
                 <button
                     onClick={() => setCurrentStage(1)}
-                    disabled={!sharedImages.cosmetic || !sharedImages.nonCosmetic || dynamicStages.length === 0}
+                    disabled={selectedParts.length === 0 || dynamicStages.length === 0}
                     className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center font-semibold transition-colors"
                 >
                     Continue to Forms
@@ -1683,25 +2093,37 @@ export default function MultiStageTestForm() {
         </div>
     );
 
-    const renderCurrentForm = () => {
-        if (!currentStageData?.formKey) return null;
+    // Load OpenCV
+    useEffect(() => {
+        if (window.cv && window.cv.Mat) {
+            setCvLoaded(true);
+            return;
+        }
 
-        const formKey = currentStageData.formKey;
-        const formData = forms[formKey];
+        const existingScript = document.querySelector('script[src*="opencv.js"]');
+        if (existingScript) {
+            existingScript.onload = () => {
+                if (window.cv && window.cv.onRuntimeInitialized) {
+                    window.cv.onRuntimeInitialized = () => {
+                        setCvLoaded(true);
+                    };
+                }
+            };
+            return;
+        }
 
-        if (!formData) return null;
-
-        return (
-            <DefaultForm
-                formData={formData}
-                updateFormField={(field, value) => updateFormField(formKey, field, value)}
-                updateRowField={(rowId, field, value) => updateRowField(formKey, rowId, field, value)}
-                addRow={() => addRow(formKey)}
-            />
-        );
-    };
-
-    const isLastStage = currentStage === filteredStages.length - 1;
+        const script = document.createElement("script");
+        script.src = "https://docs.opencv.org/4.x/opencv.js";
+        script.async = true;
+        script.onload = () => {
+            if (window.cv) {
+                window.cv.onRuntimeInitialized = () => {
+                    setCvLoaded(true);
+                };
+            }
+        };
+        document.body.appendChild(script);
+    }, []);
 
     return (
         <div className="min-h-screen bg-gray-50">
