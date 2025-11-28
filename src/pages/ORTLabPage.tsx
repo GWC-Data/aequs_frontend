@@ -178,17 +178,17 @@ const ORTLabPage: React.FC = () => {
   useEffect(() => {
     if (reloadMode && existingRecord) {
       setIsReloadMode(true);
-      
+
       // Pre-fill the form with existing record data
       setSerialNumber(existingRecord.ortLab.serialNumber);
       setSelectedPartNumbers(existingRecord.ortLab.partNumbers);
       setScannedPartNumbers(existingRecord.ortLab.scannedPartNumbers);
-      
+
       // Filter out parts that are already in the existing record
       const existingPartsSet = new Set(existingRecord.ortLab.partNumbers);
       const filteredSampleParts = SAMPLE_PARTS.filter(part => !existingPartsSet.has(part));
       setAvailableSampleParts(filteredSampleParts);
-      
+
       toast({
         title: "Reload Mode Activated",
         description: `Adding parts to existing document: ${existingRecord.documentNumber}`,
@@ -205,30 +205,60 @@ const ORTLabPage: React.FC = () => {
         if (existingORTData) {
           const ortRecords = JSON.parse(existingORTData);
           const usedPartsMap: UsedParts = {};
-          const summary: PartsSummary[] = [];
+
+          // ⭐ NEW: Group records by serial number for proper aggregation
+          const serialGroupMap = new Map<string, any[]>();
 
           ortRecords.forEach((record: any) => {
             if (record.ortLab && record.ortLab.serialNumber && record.ortLab.partNumbers) {
               const serial = record.ortLab.serialNumber;
-              const parts = record.ortLab.partNumbers;
 
-              if (!usedPartsMap[serial]) {
-                usedPartsMap[serial] = [];
+              // Group records by serial
+              if (!serialGroupMap.has(serial)) {
+                serialGroupMap.set(serial, []);
               }
-              usedPartsMap[serial] = [...new Set([...usedPartsMap[serial], ...parts])];
-
-              // Calculate assigned and unassigned parts for summary
-              const assignedParts = record.ortLab.splitRows?.flatMap((row: any) => row.assignedParts) || [];
-              const unassignedParts = parts.filter((part: string) => !assignedParts.includes(part));
-
-              summary.push({
-                serialNumber: serial,
-                availableParts: parts,
-                assignedParts: assignedParts,
-                unassignedParts: unassignedParts,
-                recordId: record.id
-              });
+              serialGroupMap.get(serial)!.push(record);
             }
+          });
+
+          // ⭐ NEW: Process each serial group to aggregate all parts
+          const summary: PartsSummary[] = [];
+
+          serialGroupMap.forEach((records, serial) => {
+            // Aggregate all parts across all records for this serial
+            const allPartsSet = new Set<string>();
+            const allAssignedPartsSet = new Set<string>();
+            let recordId = 0;
+
+            records.forEach((record: any) => {
+              // Collect all part numbers
+              record.ortLab.partNumbers.forEach((part: string) => allPartsSet.add(part));
+
+              // Collect all assigned parts from all split rows
+              const assignedInRecord = record.ortLab.splitRows?.flatMap((row: any) => row.assignedParts) || [];
+              assignedInRecord.forEach((part: string) => allAssignedPartsSet.add(part));
+
+              recordId = record.ortLabId || record.id; // Use the latest record ID
+            });
+
+            const allParts = Array.from(allPartsSet);
+            const allAssignedParts = Array.from(allAssignedPartsSet);
+            const unassignedParts = allParts.filter(part => !allAssignedPartsSet.has(part));
+
+            // Add to used parts map
+            if (!usedPartsMap[serial]) {
+              usedPartsMap[serial] = [];
+            }
+            usedPartsMap[serial] = allParts;
+
+            // Add aggregated summary for this serial
+            summary.push({
+              serialNumber: serial,
+              availableParts: allParts,
+              assignedParts: allAssignedParts,
+              unassignedParts: unassignedParts,
+              recordId: recordId
+            });
           });
 
           setUsedParts(usedPartsMap);
@@ -244,8 +274,16 @@ const ORTLabPage: React.FC = () => {
 
   // Get available (unused) part numbers for current serial
   const getAvailablePartNumbers = (allParts: string[], serial: string) => {
-    const usedPartsForSerial = usedParts[serial] || [];
-    return allParts.filter(part => !usedPartsForSerial.includes(part));
+    // Get the summary for this serial (which now aggregates all records)
+    const summary = partsSummary.find(s => s.serialNumber === serial);
+
+    if (summary) {
+      // Filter out parts that are already assigned in ANY record for this serial
+      return allParts.filter(part => !summary.assignedParts.includes(part));
+    }
+
+    // If no summary exists yet, all parts are available
+    return allParts;
   };
 
   // Get unassigned part numbers (parts not assigned to any row yet)
@@ -257,9 +295,11 @@ const ORTLabPage: React.FC = () => {
   // Check if a serial number has all parts assigned
   const isSerialComplete = (serial: string): boolean => {
     const summary = partsSummary.find(s => s.serialNumber === serial);
-    return summary ? summary.unassignedParts.length === 0 : false;
-  };
+    if (!summary) return false;
 
+    // ⭐ A serial is complete when there are no unassigned parts
+    return summary.unassignedParts.length === 0 && summary.availableParts.length > 0;
+  };
   // Get completion status for a serial number
   const getSerialCompletionStatus = (serial: string): { complete: boolean; assigned: number; total: number } => {
     const summary = partsSummary.find(s => s.serialNumber === serial);
@@ -273,6 +313,25 @@ const ORTLabPage: React.FC = () => {
   };
 
   // Handle physical barcode scanner input
+  // const handleBarcodeInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  //   if (e.key === 'Enter') {
+  //     e.preventDefault();
+
+  //     const barcodeData = barcodeInput.trim();
+  //     if (barcodeData) {
+  //       processBarcodeData(barcodeData);
+  //       setBarcodeInput("");
+
+  //       // Auto-refocus for next scan
+  //       setTimeout(() => {
+  //         if (barcodeInputRef.current) {
+  //           barcodeInputRef.current.focus();
+  //         }
+  //       }, 100);
+  //     }
+  //   }
+  // };
+
   const handleBarcodeInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -280,7 +339,7 @@ const ORTLabPage: React.FC = () => {
       const barcodeData = barcodeInput.trim();
       if (barcodeData) {
         processBarcodeData(barcodeData);
-        setBarcodeInput("");
+        setBarcodeInput(""); // Clear input after processing
 
         // Auto-refocus for next scan
         setTimeout(() => {
@@ -291,6 +350,7 @@ const ORTLabPage: React.FC = () => {
       }
     }
   };
+
 
   // NEW: Handle manual part input for reload mode
   const handleManualPartInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -357,7 +417,7 @@ const ORTLabPage: React.FC = () => {
   // NEW: Add multiple sample parts at once
   const addMultipleSampleParts = (count: number) => {
     const partsToAdd = availableSampleParts.slice(0, count);
-    
+
     if (partsToAdd.length === 0) {
       toast({
         variant: "destructive",
@@ -383,6 +443,169 @@ const ORTLabPage: React.FC = () => {
   };
 
   // Process barcode data from physical scanner
+  // const processBarcodeData = (data: string) => {
+  //   if (!data.trim()) {
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Invalid Barcode",
+  //       description: "Scanned data is empty",
+  //       duration: 2000,
+  //     });
+  //     return;
+  //   }
+
+  //   try {
+  //     let serial = "";
+  //     let partNumbers: string[] = [];
+
+  //     // Check if input is a static barcode from our test data
+  //     const staticBarcode = STATIC_BARCODE_DATA.find(barcode =>
+  //       barcode.split(':')[0] === data.toUpperCase()
+  //     );
+
+  //     if (staticBarcode) {
+  //       const parts = staticBarcode.split(':');
+  //       serial = parts[0].trim();
+  //       if (parts.length > 1) {
+  //         partNumbers = parts[1].split(',')
+  //           .map(p => p.trim())
+  //           .filter(p => p.length > 0);
+  //       }
+  //     }
+  //     // Format 1: SERIAL:PART1,PART2,PART3
+  //     else if (data.includes(':') && data.includes(',')) {
+  //       const parts = data.split(':');
+  //       serial = parts[0].trim();
+
+  //       if (parts.length > 1) {
+  //         partNumbers = parts[1].split(',')
+  //           .map(p => p.trim())
+  //           .filter(p => p.length > 0);
+  //       }
+  //     }
+  //     // Format 2: SERIAL:PART1 (single part)
+  //     else if (data.includes(':') && !data.includes(',')) {
+  //       const parts = data.split(':');
+  //       serial = parts[0].trim();
+  //       if (parts.length > 1) {
+  //         partNumbers = [parts[1].trim()];
+  //       }
+  //     }
+  //     // Format 3: JSON format from smart scanners
+  //     else if (data.startsWith('{') && data.endsWith('}')) {
+  //       try {
+  //         const parsedData = JSON.parse(data);
+  //         serial = parsedData.serial || parsedData.Serial || parsedData.SN || "";
+  //         partNumbers = Array.isArray(parsedData.parts) ? parsedData.parts
+  //           : Array.isArray(parsedData.partNumbers) ? parsedData.partNumbers
+  //             : parsedData.part ? [parsedData.part]
+  //               : [];
+  //       } catch (jsonError) {
+  //         console.error("JSON parse error:", jsonError);
+  //         serial = data.trim();
+  //       }
+  //     }
+  //     // Format 4: Simple serial number only
+  //     else {
+  //       serial = data.trim();
+  //     }
+
+  //     // Validate serial number
+  //     if (!serial) {
+  //       toast({
+  //         variant: "destructive",
+  //         title: "Invalid Barcode Format",
+  //         description: "No serial number found in scanned data",
+  //         duration: 3000,
+  //       });
+  //       return;
+  //     }
+
+  //     // Check if this serial is already complete
+  //     if (isSerialComplete(serial)) {
+  //       const status = getSerialCompletionStatus(serial);
+  //       toast({
+  //         variant: "default",
+  //         title: "✅ All Parts Already Scanned",
+  //         description: `Serial ${serial} is complete! ${status.assigned}/${status.total} parts assigned.`,
+  //         duration: 4000,
+  //       });
+  //       return;
+  //     }
+
+  //     // Set serial number
+  //     setSerialNumber(serial);
+
+  //     // Check if this serial already exists in our records
+  //     const existingSummary = partsSummary.find(summary => summary.serialNumber === serial);
+
+  //     if (existingSummary) {
+  //       // Serial exists - show remaining unassigned parts
+  //       const remainingParts = existingSummary.unassignedParts;
+  //       const status = getSerialCompletionStatus(serial);
+
+  //       if (remainingParts.length > 0) {
+  //         setScannedPartNumbers(remainingParts);
+  //         setSelectedPartNumbers(remainingParts);
+  //         toast({
+  //           title: "🔄 Continuing with Existing Serial",
+  //           description: `Serial: ${serial} - ${remainingParts.length} unassigned parts remaining (${status.assigned}/${status.total} already assigned)`,
+  //           duration: 4000,
+  //         });
+  //       } else {
+  //         // This should not happen due to earlier check, but just in case
+  //         setScannedPartNumbers([]);
+  //         setSelectedPartNumbers([]);
+  //         toast({
+  //           title: "✅ All Parts Already Assigned",
+  //           description: `Serial: ${serial} - All ${status.total} parts have been assigned`,
+  //           duration: 3000,
+  //         });
+  //       }
+  //     } else if (partNumbers.length > 0) {
+  //       // New serial number - get available (unused) parts
+  //       const availableParts = getAvailablePartNumbers(partNumbers, serial);
+
+  //       setScannedPartNumbers(availableParts);
+
+  //       if (availableParts.length > 0) {
+  //         // Auto-select all available parts
+  //         setSelectedPartNumbers(availableParts);
+  //         toast({
+  //           title: "✅ New Serial Scanned",
+  //           description: `Serial: ${serial}, ${availableParts.length} available part(s) loaded`,
+  //           duration: 3000,
+  //         });
+  //       } else {
+  //         setSelectedPartNumbers([]);
+  //         toast({
+  //           title: "⚠️ All Parts Already Used",
+  //           description: `Serial: ${serial} - All parts from this barcode are already used in previous records`,
+  //           duration: 3000,
+  //         });
+  //       }
+  //     } else {
+  //       // Serial only, no parts
+  //       setScannedPartNumbers([]);
+  //       setSelectedPartNumbers([]);
+  //       toast({
+  //         title: "✅ Serial Number Scanned",
+  //         description: `Serial: ${serial} - No parts found in barcode`,
+  //         duration: 3000,
+  //       });
+  //     }
+
+  //   } catch (error) {
+  //     console.error("Barcode processing error:", error);
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Scan Error",
+  //       description: "Failed to process barcode data. Please check the format.",
+  //       duration: 3000,
+  //     });
+  //   }
+  // };
+
   const processBarcodeData = (data: string) => {
     if (!data.trim()) {
       toast({
@@ -398,7 +621,7 @@ const ORTLabPage: React.FC = () => {
       let serial = "";
       let partNumbers: string[] = [];
 
-      // Check if input is a static barcode from our test data
+      // [Keep existing parsing logic - same as before]
       const staticBarcode = STATIC_BARCODE_DATA.find(barcode =>
         barcode.split(':')[0] === data.toUpperCase()
       );
@@ -412,18 +635,15 @@ const ORTLabPage: React.FC = () => {
             .filter(p => p.length > 0);
         }
       }
-      // Format 1: SERIAL:PART1,PART2,PART3
       else if (data.includes(':') && data.includes(',')) {
         const parts = data.split(':');
         serial = parts[0].trim();
-
         if (parts.length > 1) {
           partNumbers = parts[1].split(',')
             .map(p => p.trim())
             .filter(p => p.length > 0);
         }
       }
-      // Format 2: SERIAL:PART1 (single part)
       else if (data.includes(':') && !data.includes(',')) {
         const parts = data.split(':');
         serial = parts[0].trim();
@@ -431,7 +651,6 @@ const ORTLabPage: React.FC = () => {
           partNumbers = [parts[1].trim()];
         }
       }
-      // Format 3: JSON format from smart scanners
       else if (data.startsWith('{') && data.endsWith('}')) {
         try {
           const parsedData = JSON.parse(data);
@@ -445,12 +664,10 @@ const ORTLabPage: React.FC = () => {
           serial = data.trim();
         }
       }
-      // Format 4: Simple serial number only
       else {
         serial = data.trim();
       }
 
-      // Validate serial number
       if (!serial) {
         toast({
           variant: "destructive",
@@ -461,26 +678,26 @@ const ORTLabPage: React.FC = () => {
         return;
       }
 
-      // Check if this serial is already complete
+      // ⭐ CRITICAL: Check completion using aggregated data
       if (isSerialComplete(serial)) {
         const status = getSerialCompletionStatus(serial);
         toast({
           variant: "default",
-          title: "✅ All Parts Already Scanned",
-          description: `Serial ${serial} is complete! ${status.assigned}/${status.total} parts assigned.`,
+          title: "✅ Serial Already Complete",
+          description: `Serial ${serial} has all parts assigned (${status.assigned}/${status.total}). No further scanning needed.`,
           duration: 4000,
         });
+        setBarcodeInput("");
         return;
       }
 
-      // Set serial number
       setSerialNumber(serial);
 
-      // Check if this serial already exists in our records
+      // ⭐ Get aggregated summary for this serial
       const existingSummary = partsSummary.find(summary => summary.serialNumber === serial);
 
       if (existingSummary) {
-        // Serial exists - show remaining unassigned parts
+        // Serial exists - show remaining unassigned parts from aggregated data
         const remainingParts = existingSummary.unassignedParts;
         const status = getSerialCompletionStatus(serial);
 
@@ -493,7 +710,6 @@ const ORTLabPage: React.FC = () => {
             duration: 4000,
           });
         } else {
-          // This should not happen due to earlier check, but just in case
           setScannedPartNumbers([]);
           setSelectedPartNumbers([]);
           toast({
@@ -503,29 +719,15 @@ const ORTLabPage: React.FC = () => {
           });
         }
       } else if (partNumbers.length > 0) {
-        // New serial number - get available (unused) parts
-        const availableParts = getAvailablePartNumbers(partNumbers, serial);
-
-        setScannedPartNumbers(availableParts);
-
-        if (availableParts.length > 0) {
-          // Auto-select all available parts
-          setSelectedPartNumbers(availableParts);
-          toast({
-            title: "✅ New Serial Scanned",
-            description: `Serial: ${serial}, ${availableParts.length} available part(s) loaded`,
-            duration: 3000,
-          });
-        } else {
-          setSelectedPartNumbers([]);
-          toast({
-            title: "⚠️ All Parts Already Used",
-            description: `Serial: ${serial} - All parts from this barcode are already used in previous records`,
-            duration: 3000,
-          });
-        }
+        // New serial number - all parts are available
+        setScannedPartNumbers(partNumbers);
+        setSelectedPartNumbers(partNumbers);
+        toast({
+          title: "✅ New Serial Scanned",
+          description: `Serial: ${serial}, ${partNumbers.length} available part(s) loaded`,
+          duration: 3000,
+        });
       } else {
-        // Serial only, no parts
         setScannedPartNumbers([]);
         setSelectedPartNumbers([]);
         toast({
@@ -545,19 +747,62 @@ const ORTLabPage: React.FC = () => {
       });
     }
   };
-
   // Manual serial number input fallback
+  // const handleManualSerialInput = (value: string) => {
+  //   // Check if this serial is already complete
+  //   if (isSerialComplete(value)) {
+  //     const status = getSerialCompletionStatus(value);
+  //     toast({
+  //       variant: "default",
+  //       title: "✅ All Parts Already Scanned",
+  //       description: `Serial ${value} is complete! ${status.assigned}/${status.total} parts assigned.`,
+  //       duration: 4000,
+  //     });
+  //     return;
+  //   }
+
+  //   setSerialNumber(value);
+
+  //   // Check if this serial exists in records
+  //   const existingSummary = partsSummary.find(summary => summary.serialNumber === value);
+  //   if (existingSummary && existingSummary.unassignedParts.length > 0) {
+  //     setScannedPartNumbers(existingSummary.unassignedParts);
+  //     setSelectedPartNumbers(existingSummary.unassignedParts);
+  //     const status = getSerialCompletionStatus(value);
+  //     toast({
+  //       title: "Existing Serial Loaded",
+  //       description: `Loaded ${existingSummary.unassignedParts.length} unassigned parts (${status.assigned}/${status.total} already assigned)`,
+  //       duration: 2000,
+  //     });
+  //   } else {
+  //     setScannedPartNumbers([]);
+  //     setSelectedPartNumbers([]);
+  //   }
+
+  //   setSplitRows([{
+  //     id: '1',
+  //     quantity: '',
+  //     buildProject: '',
+  //     line: '',
+  //     color: '',
+  //     remark: '',
+  //     assignedParts: []
+  //   }]);
+  // };
+
   const handleManualSerialInput = (value: string) => {
-    // Check if this serial is already complete
+    // ⭐ CRITICAL FIX: Check if serial is complete FIRST
     if (isSerialComplete(value)) {
       const status = getSerialCompletionStatus(value);
       toast({
         variant: "default",
-        title: "✅ All Parts Already Scanned",
-        description: `Serial ${value} is complete! ${status.assigned}/${status.total} parts assigned.`,
+        title: "✅ Serial Already Complete",
+        description: `Serial ${value} has all parts assigned (${status.assigned}/${status.total}). No further action needed.`,
         duration: 4000,
       });
-      return;
+
+      // ⭐ IMPORTANT: Don't set the serial number - block the action
+      return; // Exit function completely
     }
 
     setSerialNumber(value);
@@ -627,7 +872,28 @@ const ORTLabPage: React.FC = () => {
   };
 
   // Test with static barcode data
+  // const testWithStaticBarcode = (barcode: string) => {
+  //   setBarcodeInput(barcode);
+  //   processBarcodeData(barcode);
+  //   setBarcodeInput("");
+  // };
+
   const testWithStaticBarcode = (barcode: string) => {
+    // Extract serial from barcode
+    const serial = barcode.split(':')[0];
+
+    // ⭐ Check if serial is complete before processing
+    if (isSerialComplete(serial)) {
+      const status = getSerialCompletionStatus(serial);
+      toast({
+        variant: "default",
+        title: "✅ Serial Already Complete",
+        description: `Serial ${serial} has all parts assigned (${status.assigned}/${status.total}). Cannot scan again.`,
+        duration: 4000,
+      });
+      return; // Exit without processing
+    }
+
     setBarcodeInput(barcode);
     processBarcodeData(barcode);
     setBarcodeInput("");
@@ -733,10 +999,203 @@ const ORTLabPage: React.FC = () => {
   };
 
   // Handle ORT Submit with reload mode support
+  // const handleORTSubmit = () => {
+  //   if (!selectedRecord && !isReloadMode) return;
+
+  //   // Validate basic fields
+  //   if (!ortForm.date) {
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Incomplete Form",
+  //       description: "Please fill in the date field.",
+  //       duration: 2000,
+  //     });
+  //     return;
+  //   }
+
+  //   if (!serialNumber) {
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Missing Serial Number",
+  //       description: "Please scan or enter a serial number.",
+  //       duration: 2000,
+  //     });
+  //     return;
+  //   }
+
+  //   if (selectedPartNumbers.length === 0) {
+  //     toast({
+  //       variant: "destructive",
+  //       title: "No Part Numbers",
+  //       description: "Please scan and select parts.",
+  //       duration: 2000,
+  //     });
+  //     return;
+  //   }
+
+  //   // Validate split rows
+  //   const invalidRows = splitRows.filter(row =>
+  //     !row.quantity || !row.buildProject || !row.line || !row.color || row.assignedParts.length === 0
+  //   );
+
+  //   if (invalidRows.length > 0) {
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Incomplete Split Rows",
+  //       description: "Please complete all rows (Quantity, Build/Project, Line, Color) and assign parts.",
+  //       duration: 3000,
+  //     });
+  //     return;
+  //   }
+
+  //   // Check if all selected parts are assigned
+  //   const totalAssigned = splitRows.reduce((sum, row) => sum + row.assignedParts.length, 0);
+  //   const unassignedParts = selectedPartNumbers.filter(part =>
+  //     !splitRows.flatMap(row => row.assignedParts).includes(part)
+  //   );
+
+  //   try {
+  //     const ortLabId = Date.now();
+
+  //     let ortLabData;
+
+  //     if (isReloadMode && existingRecord) {
+  //       // Reload mode: Merge with existing record
+  //       const mergedPartNumbers = [...new Set([...existingRecord.ortLab.partNumbers, ...selectedPartNumbers])];
+  //       const mergedScannedParts = [...new Set([...existingRecord.ortLab.scannedPartNumbers, ...scannedPartNumbers])];
+  //       const mergedSplitRows = [...existingRecord.ortLab.splitRows, ...splitRows.map(row => ({
+  //         quantity: row.quantity,
+  //         buildProject: row.buildProject,
+  //         line: row.line,
+  //         color: row.color,
+  //         remark: row.remark,
+  //         assignedParts: row.assignedParts
+  //       }))];
+
+  //       ortLabData = {
+  //         ...existingRecord,
+  //         ortLabId: ortLabId,
+  //         ortLab: {
+  //           submissionId: ortLabId,
+  //           date: new Date().toISOString().split('T')[0], // Current date for reload
+  //           serialNumber: serialNumber,
+  //           partNumbers: mergedPartNumbers,
+  //           scannedPartNumbers: mergedScannedParts,
+  //           splitRows: mergedSplitRows,
+  //           remark: ortForm.remark || existingRecord.ortLab.remark,
+  //           submittedAt: new Date().toISOString() // Current timestamp
+  //         }
+  //       };
+
+  //       // Remove the old record and add the merged record
+  //       const existingORTData = localStorage.getItem("ortLabRecords");
+  //       const ortRecords = existingORTData ? JSON.parse(existingORTData) : [];
+  //       const updatedRecords = ortRecords.filter((record: any) =>
+  //         record.ortLabId !== existingRecord.ortLabId
+  //       );
+
+  //       // Add the merged record
+  //       updatedRecords.push(ortLabData);
+  //       localStorage.setItem("ortLabRecords", JSON.stringify(updatedRecords));
+
+  //     } else {
+  //       // Normal mode: Create new record
+  //       ortLabData = {
+  //         ...selectedRecord!,
+  //         ortLabId: ortLabId,
+  //         ortLab: {
+  //           submissionId: ortLabId,
+  //           date: ortForm.date,
+  //           serialNumber: serialNumber,
+  //           partNumbers: selectedPartNumbers,
+  //           scannedPartNumbers: scannedPartNumbers,
+  //           splitRows: splitRows.map(row => ({
+  //             quantity: row.quantity,
+  //             buildProject: row.buildProject,
+  //             line: row.line,
+  //             color: row.color,
+  //             remark: row.remark,
+  //             assignedParts: row.assignedParts
+  //           })),
+  //           remark: ortForm.remark,
+  //           submittedAt: new Date().toISOString()
+  //         }
+  //       };
+
+  //       const existingORTData = localStorage.getItem("ortLabRecords");
+  //       const ortRecords = existingORTData ? JSON.parse(existingORTData) : [];
+  //       ortRecords.push(ortLabData);
+  //       localStorage.setItem("ortLabRecords", JSON.stringify(ortRecords));
+  //     }
+
+  //     // Update used parts in state
+  //     setUsedParts(prev => {
+  //       const newUsedParts = { ...prev };
+  //       if (!newUsedParts[serialNumber]) {
+  //         newUsedParts[serialNumber] = [];
+  //       }
+  //       newUsedParts[serialNumber] = [...new Set([...newUsedParts[serialNumber], ...selectedPartNumbers])];
+  //       return newUsedParts;
+  //     });
+
+  //     // Update parts summary - Store only current session data
+  //     const assignedParts = splitRows.flatMap(row => row.assignedParts);
+
+  //     setPartsSummary(prev => {
+  //       const filtered = prev.filter(summary => summary.recordId !== ortLabId);
+  //       return [...filtered, {
+  //         serialNumber: serialNumber,
+  //         availableParts: selectedPartNumbers,
+  //         assignedParts: assignedParts,
+  //         unassignedParts: unassignedParts,
+  //         recordId: ortLabId
+  //       }];
+  //     });
+
+  //     // Success message
+  //     toast({
+  //       title: isReloadMode ? "✅ Parts Reloaded Successfully" : "✅ ORT Lab Submitted",
+  //       description: isReloadMode
+  //         ? `Added ${selectedPartNumbers.length} new parts to document ${existingRecord?.documentNumber}`
+  //         : `ORT Lab data with ${splitRows.length} split(s) has been saved successfully!`,
+  //       duration: 4000,
+  //     });
+
+  //     // Clear form for next entry
+  //     setSerialNumber("");
+  //     setScannedPartNumbers([]);
+  //     setSelectedPartNumbers([]);
+  //     setSplitRows([{
+  //       id: '1',
+  //       quantity: '',
+  //       buildProject: '',
+  //       line: '',
+  //       color: '',
+  //       remark: '',
+  //       assignedParts: []
+  //     }]);
+  //     setBarcodeInput("");
+  //     setManualPartInput("");
+  //     setIsReloadMode(false);
+
+  //     // Show summary table
+  //     setShowSummaryTable(true);
+
+  //   } catch (error) {
+  //     toast({
+  //       variant: "destructive",
+  //       title: isReloadMode ? "Reload Failed" : "Submission Failed",
+  //       description: "There was an error processing the request. Please try again.",
+  //       duration: 3000,
+  //     });
+  //     console.error("Error:", error);
+  //   }
+  // };
+
   const handleORTSubmit = () => {
     if (!selectedRecord && !isReloadMode) return;
 
-    // Validate basic fields
+    // [Keep all existing validation logic]
     if (!ortForm.date) {
       toast({
         variant: "destructive",
@@ -767,7 +1226,6 @@ const ORTLabPage: React.FC = () => {
       return;
     }
 
-    // Validate split rows
     const invalidRows = splitRows.filter(row =>
       !row.quantity || !row.buildProject || !row.line || !row.color || row.assignedParts.length === 0
     );
@@ -776,25 +1234,18 @@ const ORTLabPage: React.FC = () => {
       toast({
         variant: "destructive",
         title: "Incomplete Split Rows",
-        description: "Please complete all rows (Quantity, Build/Project, Line, Color) and assign parts.",
+        description: "Please complete all rows and assign parts.",
         duration: 3000,
       });
       return;
     }
 
-    // Check if all selected parts are assigned
-    const totalAssigned = splitRows.reduce((sum, row) => sum + row.assignedParts.length, 0);
-    const unassignedParts = selectedPartNumbers.filter(part =>
-      !splitRows.flatMap(row => row.assignedParts).includes(part)
-    );
-
     try {
       const ortLabId = Date.now();
-      
       let ortLabData;
 
       if (isReloadMode && existingRecord) {
-        // Reload mode: Merge with existing record
+        // [Keep existing reload mode logic]
         const mergedPartNumbers = [...new Set([...existingRecord.ortLab.partNumbers, ...selectedPartNumbers])];
         const mergedScannedParts = [...new Set([...existingRecord.ortLab.scannedPartNumbers, ...scannedPartNumbers])];
         const mergedSplitRows = [...existingRecord.ortLab.splitRows, ...splitRows.map(row => ({
@@ -811,29 +1262,26 @@ const ORTLabPage: React.FC = () => {
           ortLabId: ortLabId,
           ortLab: {
             submissionId: ortLabId,
-            date: new Date().toISOString().split('T')[0], // Current date for reload
+            date: new Date().toISOString().split('T')[0],
             serialNumber: serialNumber,
             partNumbers: mergedPartNumbers,
             scannedPartNumbers: mergedScannedParts,
             splitRows: mergedSplitRows,
             remark: ortForm.remark || existingRecord.ortLab.remark,
-            submittedAt: new Date().toISOString() // Current timestamp
+            submittedAt: new Date().toISOString()
           }
         };
 
-        // Remove the old record and add the merged record
         const existingORTData = localStorage.getItem("ortLabRecords");
         const ortRecords = existingORTData ? JSON.parse(existingORTData) : [];
-        const updatedRecords = ortRecords.filter((record: any) => 
+        const updatedRecords = ortRecords.filter((record: any) =>
           record.ortLabId !== existingRecord.ortLabId
         );
-        
-        // Add the merged record
         updatedRecords.push(ortLabData);
         localStorage.setItem("ortLabRecords", JSON.stringify(updatedRecords));
 
       } else {
-        // Normal mode: Create new record
+        // [Keep existing normal mode logic]
         ortLabData = {
           ...selectedRecord!,
           ortLabId: ortLabId,
@@ -862,40 +1310,73 @@ const ORTLabPage: React.FC = () => {
         localStorage.setItem("ortLabRecords", JSON.stringify(ortRecords));
       }
 
-      // Update used parts in state
-      setUsedParts(prev => {
-        const newUsedParts = { ...prev };
-        if (!newUsedParts[serialNumber]) {
-          newUsedParts[serialNumber] = [];
+      // ⭐ CRITICAL FIX: Reload data from localStorage to recalculate aggregated summary
+      const reloadData = () => {
+        const existingORTData = localStorage.getItem("ortLabRecords");
+        if (existingORTData) {
+          const ortRecords = JSON.parse(existingORTData);
+          const usedPartsMap: UsedParts = {};
+          const serialGroupMap = new Map<string, any[]>();
+
+          ortRecords.forEach((record: any) => {
+            if (record.ortLab && record.ortLab.serialNumber && record.ortLab.partNumbers) {
+              const serial = record.ortLab.serialNumber;
+              if (!serialGroupMap.has(serial)) {
+                serialGroupMap.set(serial, []);
+              }
+              serialGroupMap.get(serial)!.push(record);
+            }
+          });
+
+          const summary: PartsSummary[] = [];
+
+          serialGroupMap.forEach((records, serial) => {
+            const allPartsSet = new Set<string>();
+            const allAssignedPartsSet = new Set<string>();
+            let recordId = 0;
+
+            records.forEach((record: any) => {
+              record.ortLab.partNumbers.forEach((part: string) => allPartsSet.add(part));
+              const assignedInRecord = record.ortLab.splitRows?.flatMap((row: any) => row.assignedParts) || [];
+              assignedInRecord.forEach((part: string) => allAssignedPartsSet.add(part));
+              recordId = record.ortLabId || record.id;
+            });
+
+            const allParts = Array.from(allPartsSet);
+            const allAssignedParts = Array.from(allAssignedPartsSet);
+            const unassignedParts = allParts.filter(part => !allAssignedPartsSet.has(part));
+
+            if (!usedPartsMap[serial]) {
+              usedPartsMap[serial] = [];
+            }
+            usedPartsMap[serial] = allParts;
+
+            summary.push({
+              serialNumber: serial,
+              availableParts: allParts,
+              assignedParts: allAssignedParts,
+              unassignedParts: unassignedParts,
+              recordId: recordId
+            });
+          });
+
+          setUsedParts(usedPartsMap);
+          setPartsSummary(summary);
         }
-        newUsedParts[serialNumber] = [...new Set([...newUsedParts[serialNumber], ...selectedPartNumbers])];
-        return newUsedParts;
-      });
+      };
 
-      // Update parts summary - Store only current session data
-      const assignedParts = splitRows.flatMap(row => row.assignedParts);
+      // ⭐ Reload and recalculate summary
+      reloadData();
 
-      setPartsSummary(prev => {
-        const filtered = prev.filter(summary => summary.recordId !== ortLabId);
-        return [...filtered, {
-          serialNumber: serialNumber,
-          availableParts: selectedPartNumbers,
-          assignedParts: assignedParts,
-          unassignedParts: unassignedParts,
-          recordId: ortLabId
-        }];
-      });
-
-      // Success message
       toast({
         title: isReloadMode ? "✅ Parts Reloaded Successfully" : "✅ ORT Lab Submitted",
-        description: isReloadMode 
+        description: isReloadMode
           ? `Added ${selectedPartNumbers.length} new parts to document ${existingRecord?.documentNumber}`
           : `ORT Lab data with ${splitRows.length} split(s) has been saved successfully!`,
         duration: 4000,
       });
 
-      // Clear form for next entry
+      // Clear form
       setSerialNumber("");
       setScannedPartNumbers([]);
       setSelectedPartNumbers([]);
@@ -912,7 +1393,6 @@ const ORTLabPage: React.FC = () => {
       setManualPartInput("");
       setIsReloadMode(false);
 
-      // Show summary table
       setShowSummaryTable(true);
 
     } catch (error) {
@@ -1236,7 +1716,13 @@ const ORTLabPage: React.FC = () => {
                       placeholder="Enter barcode manually or click test buttons below (Press Enter to scan)"
                       className="h-12 font-mono text-lg border-2 border-blue-300 focus:border-blue-500"
                       autoFocus
+                      disabled={serialNumber && isSerialComplete(serialNumber)} // ⭐ Disable when complete
                     />
+                    {serialNumber && isSerialComplete(serialNumber) && (
+                      <p className="text-sm text-green-600 font-medium">
+                        ✅ This serial is complete. Clear the form to scan a new serial.
+                      </p>
+                    )}
                     <p className="text-sm text-blue-700">
                       💡 <strong>Smart Scanning:</strong> Only shows unused parts for each serial number across all records.
                     </p>
@@ -1283,7 +1769,7 @@ const ORTLabPage: React.FC = () => {
                           </Button>
                         ))}
                       </div>
-                      
+
                       {/* Bulk Add Buttons */}
                       <div className="flex flex-wrap gap-2">
                         <Button

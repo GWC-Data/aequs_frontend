@@ -105,10 +105,10 @@ const ORTLabDetailsPage: React.FC = () => {
   const handleReloadParts = (record: ORTLabRecord) => {
     // Store the selected record for reloading and navigate to ORT Lab page
     setSelectedRecordForReload(record);
-    
+
     // Navigate to ORT Lab page with the record data for reloading
-    navigate("/ort-lab-form", { 
-      state: { 
+    navigate("/ort-lab-form", {
+      state: {
         record: {
           documentNumber: record.documentNumber,
           documentTitle: record.documentTitle,
@@ -201,20 +201,23 @@ const ORTLabDetailsPage: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-sm">
                         <span className="bg-green-100 text-green-800 px-2 py-1 rounded font-medium">
-                          {record.ortLab.partNumbers.length} parts
+                          {
+                            record.ortLab?.splitRows
+                              ?.reduce((total, row) => total + (row.assignedParts?.length || 0), 0)
+                          } parts
                         </span>
                       </TableCell>
+
                       <TableCell className="text-sm">
                         <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded font-medium">
                           {record.ortLab.splitRows.length} split(s)
                         </span>
                       </TableCell>
                       <TableCell className="text-sm">
-                        <span className={`px-2 py-1 rounded font-medium ${
-                          record.status === "Completed" 
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}>
+                        <span className={`px-2 py-1 rounded font-medium ${record.status === "Completed"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-yellow-100 text-yellow-800"
+                          }`}>
                           {record.status}
                         </span>
                       </TableCell>
@@ -228,11 +231,10 @@ const ORTLabDetailsPage: React.FC = () => {
                           />
                           <RotateCcw
                             size={18}
-                            className={`cursor-pointer ${
-                              canReloadParts(record)
-                                ? "text-green-600 hover:text-green-800"
-                                : "text-gray-400 cursor-not-allowed"
-                            }`}
+                            className={`cursor-pointer ${canReloadParts(record)
+                              ? "text-green-600 hover:text-green-800"
+                              : "text-gray-400 cursor-not-allowed"
+                              }`}
                             onClick={() => canReloadParts(record) && handleReloadParts(record)}
                             title={canReloadParts(record) ? "Reload Parts" : "Cannot reload parts"}
                           />
@@ -364,21 +366,25 @@ const ORTLabDetailsPage: React.FC = () => {
               </div>
 
               {/* All Parts Summary */}
-              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                <h3 className="font-semibold text-lg mb-3 text-green-800">
-                  All Parts ({selectedRecord.ortLab.partNumbers.length})
+              {/* Scanned Parts Summary */}
+              {/* <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="font-semibold text-lg mb-3 text-blue-800">
+                  Scanned Parts (
+                  {selectedRecord?.ortLab?.scannedPartNumbers?.length || 0}
+                  )
                 </h3>
+
                 <div className="flex flex-wrap gap-1">
-                  {selectedRecord.ortLab.partNumbers.map((part, idx) => (
+                  {selectedRecord?.ortLab?.scannedPartNumbers?.map((part, idx) => (
                     <span
                       key={idx}
-                      className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-mono"
+                      className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-mono"
                     >
                       {part}
                     </span>
                   ))}
                 </div>
-              </div>
+              </div> */}
 
               {/* Overall Remarks */}
               {selectedRecord.ortLab.remark && (
