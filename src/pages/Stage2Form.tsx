@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/use-toast";
+import { X } from "lucide-react";
 
 interface Stage2Record {
   documentNumber: string;
@@ -82,11 +83,40 @@ const Stage2Records: React.FC = () => {
     endTime: "",
     remark: ""
   });
+  
+  // ORT Lab data for edit modal
+  const [ortLabRecords, setOrtLabRecords] = React.useState<any[]>([]);
+  const [availableProjects, setAvailableProjects] = React.useState<string[]>([]);
+  const [availableLines, setAvailableLines] = React.useState<string[]>([]);
+  const [availableParts, setAvailableParts] = React.useState<string[]>([]);
+  
   const navigate = useNavigate();
 
   React.useEffect(() => {
     loadStage2Records();
+    loadORTLabRecords();
   }, []);
+
+  const loadORTLabRecords = () => {
+    try {
+      const storedRecords = localStorage.getItem("ortLabRecords");
+      if (storedRecords) {
+        const records = JSON.parse(storedRecords);
+        setOrtLabRecords(records);
+        
+        // Extract all unique projects
+        const projects = new Set<string>();
+        records.forEach((record: any) => {
+          record.ortLab.splitRows.forEach((row: any) => {
+            projects.add(row.buildProject);
+          });
+        });
+        setAvailableProjects(Array.from(projects));
+      }
+    } catch (error) {
+      console.error("Error loading ORT Lab records:", error);
+    }
+  };
 
   const loadStage2Records = () => {
     try {
@@ -110,7 +140,6 @@ const Stage2Records: React.FC = () => {
     setIsDetailModalOpen(true);
   };
 
-  // Add the edit handler functions
   const handleEdit = (record: Stage2Record) => {
     setEditingRecord(record);
     setEditForm({
@@ -140,7 +169,45 @@ const Stage2Records: React.FC = () => {
       endTime: record.stage2.endTime || "",
       remark: record.stage2.remark || ""
     });
+    
+    // Update available lines and parts based on selected projects
+    updateAvailableLinesAndParts(
+      Array.isArray(record.stage2.projects) ? record.stage2.projects : [],
+      Array.isArray(record.stage2.lines) ? record.stage2.lines : []
+    );
+    
     setIsEditModalOpen(true);
+  };
+
+  const updateAvailableLinesAndParts = (selectedProjects: string[], selectedLines: string[]) => {
+    if (selectedProjects.length > 0) {
+      const lines = new Set<string>();
+      const parts: string[] = [];
+
+      ortLabRecords.forEach((record: any) => {
+        record.ortLab.splitRows.forEach((row: any) => {
+          if (selectedProjects.includes(row.buildProject)) {
+            lines.add(row.line);
+            
+            // If specific lines are selected, filter parts by those lines
+            if (selectedLines.length > 0) {
+              if (selectedLines.includes(row.line)) {
+                parts.push(...row.assignedParts);
+              }
+            } else {
+              // Otherwise, show all parts from selected projects
+              parts.push(...row.assignedParts);
+            }
+          }
+        });
+      });
+
+      setAvailableLines(Array.from(lines));
+      setAvailableParts(parts);
+    } else {
+      setAvailableLines([]);
+      setAvailableParts([]);
+    }
   };
 
   const handleEditInputChange = (field: keyof typeof editForm, value: string | string[]) => {
@@ -150,8 +217,94 @@ const Stage2Records: React.FC = () => {
     }));
   };
 
+  const handleEditProjectSelection = (project: string) => {
+    setEditForm(prev => {
+      const isSelected = prev.projects.includes(project);
+      const newProjects = isSelected
+        ? prev.projects.filter(p => p !== project)
+        : [...prev.projects, project];
+      
+      // Update available lines and parts when projects change
+      updateAvailableLinesAndParts(newProjects, prev.lines);
+      
+      return {
+        ...prev,
+        projects: newProjects
+      };
+    });
+  };
+
+  const handleEditLineSelection = (line: string) => {
+    setEditForm(prev => {
+      const isSelected = prev.lines.includes(line);
+      const newLines = isSelected
+        ? prev.lines.filter(l => l !== line)
+        : [...prev.lines, line];
+      
+      // Update available parts when lines change
+      updateAvailableLinesAndParts(prev.projects, newLines);
+      
+      return {
+        ...prev,
+        lines: newLines
+      };
+    });
+  };
+
+  const handleEditPartSelection = (part: string) => {
+    setEditForm(prev => {
+      const isSelected = prev.selectedParts.includes(part);
+      return {
+        ...prev,
+        selectedParts: isSelected
+          ? prev.selectedParts.filter(p => p !== part)
+          : [...prev.selectedParts, part]
+      };
+    });
+  };
+
+  const removeEditProject = (project: string) => {
+    setEditForm(prev => {
+      const newProjects = prev.projects.filter(p => p !== project);
+      updateAvailableLinesAndParts(newProjects, prev.lines);
+      return {
+        ...prev,
+        projects: newProjects
+      };
+    });
+  };
+
+  const removeEditLine = (line: string) => {
+    setEditForm(prev => {
+      const newLines = prev.lines.filter(l => l !== line);
+      updateAvailableLinesAndParts(prev.projects, newLines);
+      return {
+        ...prev,
+        lines: newLines
+      };
+    });
+  };
+
+  const removeEditPart = (part: string) => {
+    setEditForm(prev => ({
+      ...prev,
+      selectedParts: prev.selectedParts.filter(p => p !== part)
+    }));
+  };
+
   const handleSaveEdit = () => {
     if (!editingRecord) return;
+
+    // Validation
+    if (editForm.selectedParts.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "At least one part must be selected.",
+        duration: 3000,
+      });
+      return;
+    }
 
     try {
       const updatedRecord: Stage2Record = {
@@ -179,11 +332,10 @@ const Stage2Records: React.FC = () => {
           startTime: editForm.startTime,
           endTime: editForm.endTime,
           remark: editForm.remark,
-          submittedAt: editingRecord.stage2.submittedAt // Keep original submission time
+          submittedAt: editingRecord.stage2.submittedAt
         }
       };
 
-      // Update the record in stage2Records state
       const updatedRecords = stage2Records.map(record =>
         record.id === editingRecord.id ? updatedRecord : record
       );
@@ -441,9 +593,7 @@ const Stage2Records: React.FC = () => {
                       <div
                         className="h-4 w-4 rounded-full border border-gray-400"
                         style={{
-                          backgroundColor:
-                            selectedRecord.color,
-
+                          backgroundColor: selectedRecord.color,
                         }}
                       ></div>
                       <p className="text-sm">{selectedRecord.color}</p>
@@ -458,7 +608,7 @@ const Stage2Records: React.FC = () => {
                     <Badge variant="secondary" className={getStatusColor(selectedRecord.status)}>
                       {selectedRecord.status}
                     </Badge>
-                  </div>y
+                  </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Sample Configuration</label>
                     <p className="text-sm">{selectedRecord.sampleConfig}</p>
@@ -540,10 +690,6 @@ const Stage2Records: React.FC = () => {
                     <label className="text-sm font-medium text-gray-600">Test Condition</label>
                     <p className="text-sm">{selectedRecord.stage2.testCondition}</p>
                   </div>
-                  {/* <div>
-                    <label className="text-sm font-medium text-gray-600">Required Quantity</label>
-                    <p className="text-sm">{selectedRecord.stage2.requiredQty}</p>
-                  </div> */}
                   <div>
                     <label className="text-sm font-medium text-gray-600">Equipment</label>
                     <p className="text-sm">{selectedRecord.stage2.equipment}</p>
@@ -702,8 +848,6 @@ const Stage2Records: React.FC = () => {
                   />
                 </div>
 
-
-
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-500">Test Conditions <span className="text-red-600">*</span></label>
                   <input
@@ -715,17 +859,6 @@ const Stage2Records: React.FC = () => {
                   />
                 </div>
 
-
-                {/* <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-500">Required Quantities <span className="text-red-600">*</span></label>
-                  <input
-                  type="text"
-                    value={editForm.requiredQty}
-                    onChange={(e) => handleEditInputChange('requiredQty', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                  />
-                </div> */}
-
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-500">Equipment <span className="text-red-600">*</span></label>
                   <input
@@ -736,10 +869,185 @@ const Stage2Records: React.FC = () => {
                     disabled={true}
                   />
                 </div>
+
+                {/* Projects */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm font-medium text-gray-600">
+                      Projects ({editForm.projects.length} selected)
+                    </label>
+                  </div>
+                  
+                  {/* Available Projects to Add */}
+                  {availableProjects.filter(p => !editForm.projects.includes(p)).length > 0 && (
+                    <div className="space-y-2">
+                      <label className="text-xs text-gray-500">Add Projects:</label>
+                      <div className="flex flex-wrap gap-2 p-2 bg-gray-50 rounded border">
+                        {availableProjects
+                          .filter(p => !editForm.projects.includes(p))
+                          .map((project) => (
+                            <button
+                              key={project}
+                              onClick={() => handleEditProjectSelection(project)}
+                              className="px-3 py-1 bg-white border border-blue-300 text-blue-700 rounded-full text-sm hover:bg-blue-50 transition-colors"
+                            >
+                              + {project}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Selected Projects */}
+                  <div className="space-y-2">
+                    <label className="text-xs text-gray-500">Selected Projects:</label>
+                    <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
+                      {editForm.projects.length > 0 ? (
+                        editForm.projects.map((project) => (
+                          <div
+                            key={project}
+                            className="flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
+                          >
+                            <span>{project}</span>
+                            <button
+                              onClick={() => removeEditProject(project)}
+                              className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                              title="Remove project"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">No projects selected</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Lines */}
+                {availableLines.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className="text-sm font-medium text-gray-600">
+                        Lines ({editForm.lines.length} selected)
+                      </label>
+                    </div>
+                    
+                    {/* Available Lines to Add */}
+                    {availableLines.filter(l => !editForm.lines.includes(l)).length > 0 && (
+                      <div className="space-y-2">
+                        <label className="text-xs text-gray-500">Add Lines:</label>
+                        <div className="flex flex-wrap gap-2 p-2 bg-gray-50 rounded border">
+                          {availableLines
+                            .filter(l => !editForm.lines.includes(l))
+                            .map((line) => (
+                              <button
+                                key={line}
+                                onClick={() => handleEditLineSelection(line)}
+                                className="px-3 py-1 bg-white border border-green-300 text-green-700 rounded-full text-sm hover:bg-green-50 transition-colors"
+                              >
+                                + {line}
+                              </button>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Selected Lines */}
+                    <div className="space-y-2">
+                      <label className="text-xs text-gray-500">Selected Lines:</label>
+                      <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
+                        {editForm.lines.length > 0 ? (
+                          editForm.lines.map((line) => (
+                            <div
+                              key={line}
+                              className="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm"
+                            >
+                              <span>{line}</span>
+                              <button
+                                onClick={() => removeEditLine(line)}
+                                className="hover:bg-green-200 rounded-full p-0.5 transition-colors"
+                                title="Remove line"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500">No lines selected</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Parts */}
+                {availableParts.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className="text-sm font-medium text-gray-600">
+                        Parts ({editForm.selectedParts.length} selected) <span className="text-red-600">*</span>
+                      </label>
+                    </div>
+                    
+                    {/* Available Parts to Add */}
+                    {availableParts.filter(p => !editForm.selectedParts.includes(p)).length > 0 && (
+                      <div className="space-y-2">
+                        <label className="text-xs text-gray-500">Add Parts:</label>
+                        <div className="flex flex-wrap gap-2 p-2 bg-gray-50 rounded border max-h-[150px] overflow-y-auto">
+                          {availableParts
+                            .filter(p => !editForm.selectedParts.includes(p))
+                            .map((part) => (
+                              <button
+                                key={part}
+                                onClick={() => handleEditPartSelection(part)}
+                                className="px-3 py-1 bg-white border border-purple-300 text-purple-700 rounded-full text-sm font-mono hover:bg-purple-50 transition-colors"
+                              >
+                                + {part}
+                              </button>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Selected Parts */}
+                    <div className="space-y-2">
+                      <label className="text-xs text-gray-500">Selected Parts:</label>
+                      <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem] max-h-[200px] overflow-y-auto">
+                        {editForm.selectedParts.length > 0 ? (
+                          editForm.selectedParts.map((part) => (
+                            <div
+                              key={part}
+                              className="flex items-center gap-2 bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-mono"
+                            >
+                              <span>{part}</span>
+                              <button
+                                onClick={() => removeEditPart(part)}
+                                className="hover:bg-purple-200 rounded-full p-0.5 transition-colors"
+                                title="Remove part"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500">No parts selected</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ORT Lab Data Selection in Edit Modal */}
+              <div className="p-4 space-y-4">
+                {/* <h3 className="font-semibold text-lg text-blue-800">ORT Lab Data Selection</h3> */}
+                
+                
               </div>
             </div>
           )}
-
 
           <DialogFooter>
             <Button variant="outline" onClick={handleCancelEdit}>
