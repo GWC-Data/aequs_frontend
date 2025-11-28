@@ -702,8 +702,6 @@ const Stage2Records: React.FC = () => {
                   />
                 </div>
 
-
-
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-500">Test Conditions <span className="text-red-600">*</span></label>
                   <input
