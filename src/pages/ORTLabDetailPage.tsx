@@ -10,7 +10,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Eye, Trash2 } from "lucide-react";
+import { ArrowLeft, Eye, Trash2, RotateCcw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +42,7 @@ interface ORTLabRecord {
   createdAt: string;
   ortLabId: number;
   ortLab: {
+    submissionId: number;
     date: string;
     serialNumber: string;
     partNumbers: string[];
@@ -58,6 +59,7 @@ const ORTLabDetailsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedRecord, setSelectedRecord] = useState<ORTLabRecord | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedRecordForReload, setSelectedRecordForReload] = useState<ORTLabRecord | null>(null);
 
   useEffect(() => {
     loadORTRecords();
@@ -85,20 +87,6 @@ const ORTLabDetailsPage: React.FC = () => {
     setIsViewModalOpen(true);
   };
 
-  // const handleDelete = (record: ORTLabRecord) => {
-  //   if (window.confirm("Are you sure you want to delete this ORT Lab record?")) {
-  //     const updatedRecords = ortRecords.filter((r) => r.ortLabId !== record.ortLabId);
-  //     setOrtRecords(updatedRecords);
-  //     localStorage.setItem("ortLabRecords", JSON.stringify(updatedRecords));
-
-  //     toast({
-  //       title: "✅ Record Deleted",
-  //       description: "ORT Lab record has been deleted successfully",
-  //       duration: 3000,
-  //     });
-  //   }
-  // };
-
   const handleDelete = (record: ORTLabRecord) => {
     if (window.confirm("Are you sure you want to delete this ORT Lab record?")) {
       const updatedRecords = ortRecords.filter((r) => r.ortLabId !== record.ortLabId);
@@ -113,6 +101,39 @@ const ORTLabDetailsPage: React.FC = () => {
     }
   };
 
+  // New Reload Parts Functionality
+  const handleReloadParts = (record: ORTLabRecord) => {
+    // Store the selected record for reloading and navigate to ORT Lab page
+    setSelectedRecordForReload(record);
+    
+    // Navigate to ORT Lab page with the record data for reloading
+    navigate("/ort-lab-form", { 
+      state: { 
+        record: {
+          documentNumber: record.documentNumber,
+          documentTitle: record.documentTitle,
+          projectName: record.projectName,
+          color: record.color,
+          testLocation: record.testLocation,
+          testStartDate: record.testStartDate,
+          testCompletionDate: record.testCompletionDate,
+          sampleConfig: record.sampleConfig,
+          status: record.status,
+          id: record.id,
+          createdAt: record.createdAt
+        },
+        reloadMode: true,
+        existingRecord: record
+      }
+    });
+  };
+
+  // Function to check if reload is possible (based on document number and existing parts)
+  const canReloadParts = (record: ORTLabRecord) => {
+    // You can add business logic here to determine if reload is allowed
+    // For example, check if the document is still active, not completed, etc.
+    return record.status !== "Completed"; // Example condition
+  };
 
   if (loading) {
     return (
@@ -153,19 +174,20 @@ const ORTLabDetailsPage: React.FC = () => {
                   <TableHead className="font-semibold">Date</TableHead>
                   <TableHead className="font-semibold">Total Parts</TableHead>
                   <TableHead className="font-semibold">Splits</TableHead>
+                  <TableHead className="font-semibold">Status</TableHead>
                   <TableHead className="font-semibold text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {ortRecords.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                       No ORT Lab records found
                     </TableCell>
                   </TableRow>
                 ) : (
                   ortRecords.map((record, index) => (
-                    <TableRow key={record.id} className="hover:bg-gray-50">
+                    <TableRow key={record.ortLabId} className="hover:bg-gray-50">
                       <TableCell className="text-sm text-gray-500">{index + 1}</TableCell>
                       <TableCell className="font-mono text-sm">
                         {record.documentNumber}
@@ -177,24 +199,23 @@ const ORTLabDetailsPage: React.FC = () => {
                       <TableCell className="text-sm">
                         {new Date(record.ortLab.date).toLocaleDateString()}
                       </TableCell>
-                      {/* <TableCell className="text-sm">
+                      <TableCell className="text-sm">
                         <span className="bg-green-100 text-green-800 px-2 py-1 rounded font-medium">
                           {record.ortLab.partNumbers.length} parts
                         </span>
-                      </TableCell> */}
-
-                      <TableCell className="text-sm">
-                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded font-medium">
-                          {
-                            record.ortLab?.splitRows
-                              ?.reduce((total, row) => total + (row.assignedParts?.length || 0), 0)
-                          } parts
-                        </span>
                       </TableCell>
-
                       <TableCell className="text-sm">
                         <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded font-medium">
                           {record.ortLab.splitRows.length} split(s)
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        <span className={`px-2 py-1 rounded font-medium ${
+                          record.status === "Completed" 
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          {record.status}
                         </span>
                       </TableCell>
                       <TableCell className="text-center">
@@ -204,6 +225,16 @@ const ORTLabDetailsPage: React.FC = () => {
                             className="cursor-pointer text-blue-600 hover:text-blue-800"
                             onClick={() => handleViewDetails(record)}
                             title="View Details"
+                          />
+                          <RotateCcw
+                            size={18}
+                            className={`cursor-pointer ${
+                              canReloadParts(record)
+                                ? "text-green-600 hover:text-green-800"
+                                : "text-gray-400 cursor-not-allowed"
+                            }`}
+                            onClick={() => canReloadParts(record) && handleReloadParts(record)}
+                            title={canReloadParts(record) ? "Reload Parts" : "Cannot reload parts"}
                           />
                           <Trash2
                             size={18}
@@ -222,7 +253,7 @@ const ORTLabDetailsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* View Details Modal */}
+      {/* View Details Modal - Keep existing implementation */}
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
@@ -262,6 +293,10 @@ const ORTLabDetailsPage: React.FC = () => {
                     <p className="text-gray-800">
                       {new Date(selectedRecord.ortLab.submittedAt).toLocaleString()}
                     </p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Status:</span>
+                    <p className="text-gray-800 font-medium">{selectedRecord.status}</p>
                   </div>
                 </div>
               </div>
@@ -328,40 +363,32 @@ const ORTLabDetailsPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Assigned Parts Summary */}
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 className="font-semibold text-lg mb-3 text-blue-800">
-                  Assigned Parts (
-                  {
-                    selectedRecord?.ortLab?.splitRows
-                      ?.reduce((total, row) => total + (row.assignedParts?.length || 0), 0)
-                  }
-                  )
+              {/* All Parts Summary */}
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <h3 className="font-semibold text-lg mb-3 text-green-800">
+                  All Parts ({selectedRecord.ortLab.partNumbers.length})
                 </h3>
-
                 <div className="flex flex-wrap gap-1">
-                  {selectedRecord?.ortLab?.splitRows?.flatMap(row => row.assignedParts || [])
-                    .map((part, idx) => (
-                      <span
-                        key={idx}
-                        className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-mono"
-                      >
-                        {part}
-                      </span>
-                    ))
-                  }
+                  {selectedRecord.ortLab.partNumbers.map((part, idx) => (
+                    <span
+                      key={idx}
+                      className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-mono"
+                    >
+                      {part}
+                    </span>
+                  ))}
                 </div>
               </div>
 
               {/* Overall Remarks */}
-              {/* {selectedRecord.ortLab.remark && (
+              {selectedRecord.ortLab.remark && (
                 <div className="p-4 bg-gray-50 rounded-lg border">
                   <h3 className="font-semibold text-lg mb-2">Overall Remarks</h3>
                   <p className="text-gray-700 text-sm whitespace-pre-wrap">
                     {selectedRecord.ortLab.remark}
                   </p>
                 </div>
-              )} */}
+              )}
             </div>
           )}
         </DialogContent>
