@@ -94,6 +94,7 @@ interface Stage2Record {
         testCondition: string;
         requiredQty: string;
         equipment: string;
+        checkpoint?: number;  // ADD THIS LINE
         projects: string[];
         lines: string[];
         selectedParts: string[];
@@ -104,7 +105,27 @@ interface Stage2Record {
     };
     forms?: any;
     completedTests?: string[];
+    timerData?: {  // ADD THIS ENTIRE BLOCK
+        [formKey: string]: {
+            remainingSeconds: number;
+            isRunning: boolean;
+            startedAt?: string;
+        };
+    };
 }
+
+// interface FormRow {
+//     id: number;
+//     srNo: number;
+//     testDate: string;
+//     config: string;
+//     sampleId: string;
+//     status: string;
+//     partId: string; // New field to track which part this row belongs to
+//     cosmeticImage?: string;
+//     nonCosmeticImage?: string;
+//     [key: string]: any;
+// }
 
 interface FormRow {
     id: number;
@@ -113,12 +134,14 @@ interface FormRow {
     config: string;
     sampleId: string;
     status: string;
-    partId: string; // New field to track which part this row belongs to
+    partId: string;
+    part?: string; // ADD THIS
     cosmeticImage?: string;
     nonCosmeticImage?: string;
+    croppedImage?: string; // ADD THIS
+    regionLabel?: string; // ADD THIS
     [key: string]: any;
 }
-
 interface CustomColumn {
     id: string;
     label: string;
@@ -150,6 +173,7 @@ interface CroppedRegion {
     label: string;
     category: any;
     rect: any;
+    partId?: string;
 }
 
 interface Stage {
@@ -167,6 +191,14 @@ interface DefaultFormProps {
     updateRowField: (rowId: number, field: string, value: string) => void;
     addRow: (partId?: string) => void;
     selectedParts: string[];
+    checkpointHours: number;  // ADD THIS LINE
+    formKey: string;  // ADD THIS LINE
+    timerState: {  // ADD THIS BLOCK
+        remainingSeconds: number;
+        isRunning: boolean;
+    };
+    onTimerToggle: () => void;  // ADD THIS LINE
+    croppedRegions: CroppedRegion[];  // ADD THIS LINE
 }
 
 function DefaultForm({
@@ -174,14 +206,29 @@ function DefaultForm({
     updateFormField,
     updateRowField,
     addRow,
-    selectedParts
+    selectedParts,
+    checkpointHours,  // ADD THIS LINE
+    formKey,  // ADD THIS LINE
+    timerState,  // ADD THIS LINE
+    onTimerToggle,  // ADD THIS LINE
+    croppedRegions
 }: DefaultFormProps) {
     const [showAddColumnModal, setShowAddColumnModal] = useState(false);
+    // Timer states for each form
     const [newColumn, setNewColumn] = useState({
         label: '',
         type: 'text' as 'text' | 'number' | 'date' | 'select' | 'textarea' | 'image',
         options: [] as string[]
     });
+
+    // Format time display
+    const formatTime = (seconds: number) => {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
     const [newOption, setNewOption] = useState('');
 
     const handleAddColumn = () => {
@@ -380,17 +427,26 @@ function DefaultForm({
                 <div className="flex justify-between items-center mb-8">
                     <h2 className="text-3xl font-bold text-gray-900">{formData.testName}</h2>
                     <div className="flex items-center gap-4">
-                        <label className="text-sm font-semibold text-gray-700">Hours</label>
+                        <label className="text-sm font-semibold text-gray-700">Checkpoint Hours</label>
                         <input
                             type="text"
-                            className="border h-10 w-16 border-gray-300 outline-blue-500 rounded-md px-2"
+                            value={checkpointHours}
+                            readOnly
+                            className="border h-10 w-20 border-gray-300 bg-gray-100 rounded-md px-2 text-center font-semibold"
                         />
-                        <div className="flex gap-2">
+                        <div className="flex flex-col items-center gap-2">
+                            <div className={`text-2xl font-mono font-bold ${timerState.isRunning ? 'text-green-600' : 'text-gray-700'}`}>
+                                {formatTime(timerState.remainingSeconds)}
+                            </div>
                             <button
                                 type="button"
-                                className="flex items-center w-fit border rounded-md bg-[#f35b62] text-white p-2 hover:bg-[#EE161F] hover:text-white transition-colors"
+                                onClick={onTimerToggle}
+                                className={`flex items-center w-fit border rounded-md px-4 py-2 font-semibold transition-colors ${timerState.isRunning
+                                    ? 'bg-red-500 text-white hover:bg-red-600'
+                                    : 'bg-green-600 text-white hover:bg-green-700'
+                                    }`}
                             >
-                                <span>Option to start</span>
+                                <span>{timerState.isRunning ? 'Stop Timer' : 'Start Timer'}</span>
                             </button>
                         </div>
                     </div>
@@ -516,6 +572,11 @@ function DefaultForm({
                                                 Sample ID
                                             </th>
 
+                                            {/* <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                Part
+                                            </th> */}
+
+
                                             {/* Cosmetic Image Column */}
                                             <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
                                                 Cosmetic Image
@@ -524,6 +585,11 @@ function DefaultForm({
                                             {/* Non-Cosmetic Image Column */}
                                             <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
                                                 Non-Cosmetic Image
+                                            </th>
+
+                                            {/* Cropped Image Column - existing */}
+                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                Cropped Image
                                             </th>
 
                                             {/* Custom Columns */}
@@ -575,6 +641,12 @@ function DefaultForm({
                                                         className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                                     />
                                                 </td>
+                                                {/* Part Column */}
+                                                {/* <td className="px-4 py-4 border-r border-gray-200">
+                                                    <div className="px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg text-center">
+                                                        <span className="font-semibold text-purple-700">{row.partId}</span>
+                                                    </div>
+                                                </td> */}
 
                                                 {/* Cosmetic Image Upload */}
                                                 <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
@@ -692,6 +764,26 @@ function DefaultForm({
                                                     </div>
                                                 </td>
 
+                                                {/* Cropped Image Column */}
+                                                <td className="px-4 py-4 border-r border-gray-200 min-w-[150px]">
+                                                    {row.croppedImage ? (
+                                                        <div className="space-y-2">
+                                                            <img
+                                                                src={row.croppedImage}
+                                                                alt="Cropped"
+                                                                className="w-20 h-20 object-contain border rounded-lg mx-auto"
+                                                            />
+                                                            {row.regionLabel && (
+                                                                <div className="text-xs text-center font-semibold text-gray-700">
+                                                                    {row.regionLabel}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-xs text-gray-400 text-center">No crop</div>
+                                                    )}
+                                                </td>
+
                                                 {/* Custom Column Fields */}
                                                 {formData.customColumns?.map((column) => (
                                                     <td key={column.id} className={`px-4 py-4 border-r border-gray-200 ${column.type === 'image' ? 'min-w-[200px]' : ''}`}>
@@ -719,6 +811,9 @@ function DefaultForm({
                                 </table>
                             </div>
                         </div>
+
+
+
                         <div className="flex justify-end mt-3">
                             <button
                                 onClick={() => addRow(part)}
@@ -729,7 +824,7 @@ function DefaultForm({
                         </div>
                     </div>
                 ))}
-
+                {/* 
                 <div className="flex gap-4 mt-6">
                     <button
                         onClick={() => addRow()}
@@ -737,7 +832,7 @@ function DefaultForm({
                     >
                         + Add Row to All Parts
                     </button>
-                </div>
+                </div> */}
             </div>
 
             {/* Add Column Modal */}
@@ -867,6 +962,7 @@ export default function MultiStageTestForm() {
     const [dynamicStages, setDynamicStages] = useState<Stage[]>([]);
     const [selectedTestToResume, setSelectedTestToResume] = useState<string>("");
     const [availableTestsToResume, setAvailableTestsToResume] = useState<{ recordId: number, testName: string, formKey: string, completed: boolean }[]>([]);
+    const [timerStates, setTimerStates] = useState<Record<string, { remainingSeconds: number; isRunning: boolean }>>({});
 
     // Shared images by part
     const [sharedImagesByPart, setSharedImagesByPart] = useState<Record<string, { cosmetic: string | null, nonCosmetic: string | null }>>({});
@@ -932,10 +1028,14 @@ export default function MultiStageTestForm() {
                         .map(name => name.trim())
                         .filter(name => name.length > 0);
 
+                    // Get checkpoint hours (default to 0 if not available)
+                    const checkpointHours = latestRecord.stage2.checkpoint || 0;
+
                     // Create dynamic stages based on test names
                     const newStages: Stage[] = [];
                     const newForms: FormsState = {};
                     const testSelections: string[] = [];
+                    const initialTimerStates: Record<string, { remainingSeconds: number; isRunning: boolean }> = {};
 
                     testNames.forEach((testName, index) => {
                         const formKey = `test_${index}`;
@@ -951,9 +1051,25 @@ export default function MultiStageTestForm() {
                             testType: 'default'
                         });
 
+                        // Initialize timer state for this form
+                        const savedTimerData = latestRecord.timerData?.[formKey];
+                        if (savedTimerData) {
+                            initialTimerStates[formKey] = {
+                                remainingSeconds: savedTimerData.remainingSeconds,
+                                isRunning: savedTimerData.isRunning
+                            };
+                        } else {
+                            initialTimerStates[formKey] = {
+                                remainingSeconds: checkpointHours * 3600, // Convert hours to seconds
+                                isRunning: false
+                            };
+                        }
+
                         // Initialize form data with rows for each part
                         const initialRows: FormRow[] = [];
                         let srNo = 1;
+
+                        // ... rest of your existing code for creating rows ...
 
                         // Create one row per part initially
                         latestRecord.stage2.selectedParts.forEach((part, partIndex) => {
@@ -992,6 +1108,7 @@ export default function MultiStageTestForm() {
                     });
 
                     setSelectedTests(testSelections);
+                    setTimerStates(initialTimerStates);
                     setDynamicStages(newStages);
                     setForms(newForms);
 
@@ -1008,20 +1125,124 @@ export default function MultiStageTestForm() {
         }
     }, []);
 
+    // Timer countdown effect
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setTimerStates(prev => {
+                const updated = { ...prev };
+                let hasChanges = false;
+
+                Object.keys(updated).forEach(formKey => {
+                    if (updated[formKey].isRunning && updated[formKey].remainingSeconds > 0) {
+                        updated[formKey] = {
+                            ...updated[formKey],
+                            remainingSeconds: updated[formKey].remainingSeconds - 1
+                        };
+                        hasChanges = true;
+                    } else if (updated[formKey].isRunning && updated[formKey].remainingSeconds === 0) {
+                        // Timer completed
+                        updated[formKey] = {
+                            ...updated[formKey],
+                            isRunning: false
+                        };
+                        hasChanges = true;
+
+                        // Show alert when timer completes
+                        const stage = dynamicStages.find(s => s.formKey === formKey);
+                        if (stage) {
+                            alert(`⏰ Timer completed for ${stage.name}!`);
+                        }
+                    }
+                });
+
+                return hasChanges ? updated : prev;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [dynamicStages]);
+
+    // Save timer states to localStorage whenever they change
+    useEffect(() => {
+        if (currentRecord && Object.keys(timerStates).length > 0) {
+            const storedRecords = localStorage.getItem("stage2Records");
+            if (storedRecords) {
+                try {
+                    const records: Stage2Record[] = JSON.parse(storedRecords);
+                    const currentRecordIndex = records.findIndex((r: Stage2Record) => r.id === currentRecord.id);
+
+                    if (currentRecordIndex !== -1) {
+                        const timerData: Record<string, any> = {};
+                        Object.keys(timerStates).forEach(formKey => {
+                            timerData[formKey] = {
+                                remainingSeconds: timerStates[formKey].remainingSeconds,
+                                isRunning: timerStates[formKey].isRunning,
+                                startedAt: timerStates[formKey].isRunning ? new Date().toISOString() : undefined
+                            };
+                        });
+
+                        records[currentRecordIndex] = {
+                            ...records[currentRecordIndex],
+                            timerData: timerData
+                        };
+
+                        localStorage.setItem("stage2Records", JSON.stringify(records));
+                    }
+                } catch (error) {
+                    console.error("Error saving timer states:", error);
+                }
+            }
+        }
+    }, [timerStates, currentRecord]);
+
+
+    // Handle image upload for specific part
+    // const handleImageUpload = (partId: string, type: 'cosmetic' | 'nonCosmetic', file: File) => {
+    //     const imageUrl = URL.createObjectURL(file);
+    //     setSharedImagesByPart(prev => ({
+    //         ...prev,
+    //         [partId]: {
+    //             ...prev[partId],
+    //             [type]: imageUrl
+    //         }
+    //     }));
+
+    //     if (type === "nonCosmetic") {
+    //         processNonCosmeticImage(file, partId);
+    //     }
+    // };
+
     // Handle image upload for specific part
     const handleImageUpload = (partId: string, type: 'cosmetic' | 'nonCosmetic', file: File) => {
-        const imageUrl = URL.createObjectURL(file);
-        setSharedImagesByPart(prev => ({
-            ...prev,
-            [partId]: {
-                ...prev[partId],
-                [type]: imageUrl
-            }
-        }));
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const imageUrl = e.target?.result as string;
 
-        if (type === "nonCosmetic") {
-            processNonCosmeticImage(file, partId);
-        }
+            setSharedImagesByPart(prev => ({
+                ...prev,
+                [partId]: {
+                    ...prev[partId],
+                    [type]: imageUrl
+                }
+            }));
+
+            // If cosmetic image, update all rows for this part
+            if (type === "cosmetic") {
+                Object.keys(forms).forEach(formKey => {
+                    const formData = forms[formKey];
+                    const rowsForPart = formData.rows.filter(row => row.partId === partId);
+
+                    rowsForPart.forEach(row => {
+                        updateRowField(formKey, row.id, 'cosmeticImage', imageUrl);
+                    });
+                });
+            }
+
+            if (type === "nonCosmetic") {
+                processNonCosmeticImage(file, partId, imageUrl);
+            }
+        };
+        reader.readAsDataURL(file);
     };
 
     const clearImage = (partId: string, type: 'cosmetic' | 'nonCosmetic') => {
@@ -1040,7 +1261,218 @@ export default function MultiStageTestForm() {
     };
 
     // Modified processNonCosmeticImage to accept partId
-    const processNonCosmeticImage = (file: File, partId: string) => {
+    // const processNonCosmeticImage = (file: File, partId: string) => {
+    //     if (!cvLoaded) {
+    //         alert("OpenCV not loaded yet. Please wait...");
+    //         return;
+    //     }
+
+    //     setProcessing(true);
+    //     const reader = new FileReader();
+    //     reader.onload = (e) => {
+    //         const img = new Image();
+    //         img.onload = async () => {
+    //             try {
+    //                 const cv = window.cv;
+    //                 const canvas = document.createElement("canvas");
+    //                 canvas.width = img.width;
+    //                 canvas.height = img.height;
+    //                 const ctx = canvas.getContext("2d");
+    //                 if (!ctx) {
+    //                     setProcessing(false);
+    //                     return;
+    //                 }
+
+    //                 ctx.drawImage(img, 0, 0);
+    //                 const src = cv.imread(canvas);
+
+    //                 const srcForDetection = cv.imread(canvas);
+    //                 const hasMarks = detectYellowMarks(srcForDetection);
+    //                 srcForDetection.delete();
+    //                 setHasYellowMarks(hasMarks);
+
+    //                 console.log(`Image for part ${partId} has yellow marks: ${hasMarks}`);
+
+    //                 let detectedRegions: any[] = [];
+
+    //                 if (hasMarks) {
+    //                     detectedRegions = processImageWithYellowMarks(src, img);
+    //                 } else {
+    //                     detectedRegions = processImageWithoutYellowMarks(src, img);
+    //                 }
+
+    //                 console.log(`Detected regions for part ${partId}:`, detectedRegions);
+
+    //                 const croppedImages: CroppedRegion[] = [];
+    //                 detectedRegions.forEach((rect, i) => {
+    //                     try {
+    //                         const x = Math.max(0, Math.min(rect.x, src.cols - 1));
+    //                         const y = Math.max(0, Math.min(rect.y, src.rows - 1));
+    //                         const width = Math.min(rect.width, src.cols - x);
+    //                         const height = Math.min(rect.height, src.rows - y);
+
+    //                         if (width <= 0 || height <= 0) {
+    //                             console.warn(`Invalid dimensions for region ${i}: ${width}x${height}`);
+    //                             return;
+    //                         }
+
+    //                         const validRect = new cv.Rect(x, y, width, height);
+    //                         const roi = src.roi(validRect);
+
+    //                         const cropCanvas = document.createElement("canvas");
+    //                         cropCanvas.width = width;
+    //                         cropCanvas.height = height;
+    //                         cv.imshow(cropCanvas, roi);
+
+    //                         const croppedData = cropCanvas.toDataURL("image/png", 1.0);
+
+    //                         const detectedLabel = hasMarks
+    //                             ? detectLabelText(croppedData, i, detectedRegions, true)
+    //                             : rect.label;
+
+    //                         const category = getLabelCategory(detectedLabel);
+
+    //                         croppedImages.push({
+    //                             id: i,
+    //                             data: croppedData,
+    //                             label: `${partId}-${detectedLabel}`,
+    //                             category: category,
+    //                             rect: { x, y, width, height }
+    //                         });
+
+    //                         console.log(`Part ${partId} - Region ${i}: ${detectedLabel} → ${category?.form} (${x},${y} ${width}x${height})`);
+
+    //                         roi.delete();
+    //                     } catch (err) {
+    //                         console.error(`Error cropping region ${i}:`, err);
+    //                     }
+    //                 });
+
+    //                 setCroppedRegions(prev => [...prev, ...croppedImages]);
+    //                 setRegions(detectedRegions);
+
+    //                 src.delete();
+    //             } catch (err) {
+    //                 console.error("Error processing image:", err);
+    //                 alert("Failed to process image. Please try again.");
+    //             } finally {
+    //                 setProcessing(false);
+    //             }
+    //         };
+    //         img.src = e.target?.result as string;
+    //     };
+    //     reader.readAsDataURL(file);
+    // };
+
+    // const processNonCosmeticImage = (file: File, partId: string) => {
+    //     if (!cvLoaded) {
+    //         alert("OpenCV not loaded yet. Please wait...");
+    //         return;
+    //     }
+
+    //     setProcessing(true);
+    //     const reader = new FileReader();
+    //     reader.onload = (e) => {
+    //         const img = new Image();
+    //         img.onload = async () => {
+    //             try {
+    //                 const cv = window.cv;
+    //                 const canvas = document.createElement("canvas");
+    //                 canvas.width = img.width;
+    //                 canvas.height = img.height;
+    //                 const ctx = canvas.getContext("2d");
+    //                 if (!ctx) {
+    //                     setProcessing(false);
+    //                     return;
+    //                 }
+
+    //                 ctx.drawImage(img, 0, 0);
+    //                 const src = cv.imread(canvas);
+
+    //                 const srcForDetection = cv.imread(canvas);
+    //                 const hasMarks = detectYellowMarks(srcForDetection);
+    //                 srcForDetection.delete();
+    //                 setHasYellowMarks(hasMarks);
+
+    //                 console.log(`Image for part ${partId} has yellow marks: ${hasMarks}`);
+
+    //                 let detectedRegions: any[] = [];
+
+    //                 if (hasMarks) {
+    //                     detectedRegions = processImageWithYellowMarks(src, img);
+    //                 } else {
+    //                     detectedRegions = processImageWithoutYellowMarks(src, img);
+    //                 }
+
+    //                 console.log(`Detected regions for part ${partId}:`, detectedRegions);
+
+    //                 const croppedImages: CroppedRegion[] = [];
+    //                 detectedRegions.forEach((rect, i) => {
+    //                     try {
+    //                         const x = Math.max(0, Math.min(rect.x, src.cols - 1));
+    //                         const y = Math.max(0, Math.min(rect.y, src.rows - 1));
+    //                         const width = Math.min(rect.width, src.cols - x);
+    //                         const height = Math.min(rect.height, src.rows - y);
+
+    //                         if (width <= 0 || height <= 0) {
+    //                             console.warn(`Invalid dimensions for region ${i}: ${width}x${height}`);
+    //                             return;
+    //                         }
+
+    //                         const validRect = new cv.Rect(x, y, width, height);
+    //                         const roi = src.roi(validRect);
+
+    //                         const cropCanvas = document.createElement("canvas");
+    //                         cropCanvas.width = width;
+    //                         cropCanvas.height = height;
+    //                         cv.imshow(cropCanvas, roi);
+
+    //                         const croppedData = cropCanvas.toDataURL("image/png", 1.0);
+
+    //                         const detectedLabel = hasMarks
+    //                             ? detectLabelText(croppedData, i, detectedRegions, true)
+    //                             : rect.label;
+
+    //                         const category = getLabelCategory(detectedLabel);
+
+    //                         croppedImages.push({
+    //                             id: i,
+    //                             data: croppedData,
+    //                             label: `${partId}-${detectedLabel}`,
+    //                             category: category,
+    //                             rect: { x, y, width, height },
+    //                             partId: partId  // ADD THIS LINE - Associate with part
+    //                         });
+
+    //                         console.log(`Part ${partId} - Region ${i}: ${detectedLabel} → ${category?.form} (${x},${y} ${width}x${height})`);
+
+    //                         roi.delete();
+    //                     } catch (err) {
+    //                         console.error(`Error cropping region ${i}:`, err);
+    //                     }
+    //                 });
+
+    //                 // Replace existing cropped regions for this part
+    //                 setCroppedRegions(prev => {
+    //                     const filtered = prev.filter(region => !(region as any).partId || (region as any).partId !== partId);
+    //                     return [...filtered, ...croppedImages];
+    //                 });
+    //                 setRegions(detectedRegions);
+
+    //                 src.delete();
+    //             } catch (err) {
+    //                 console.error("Error processing image:", err);
+    //                 alert("Failed to process image. Please try again.");
+    //             } finally {
+    //                 setProcessing(false);
+    //             }
+    //         };
+    //         img.src = e.target?.result as string;
+    //     };
+    //     reader.readAsDataURL(file);
+    // };
+
+    const processNonCosmeticImage = (file: File, partId: string, nonCosmeticImageUrl: string) => {
         if (!cvLoaded) {
             alert("OpenCV not loaded yet. Please wait...");
             return;
@@ -1114,9 +1546,10 @@ export default function MultiStageTestForm() {
                             croppedImages.push({
                                 id: i,
                                 data: croppedData,
-                                label: `${partId}-${detectedLabel}`,
+                                label: detectedLabel,
                                 category: category,
-                                rect: { x, y, width, height }
+                                rect: { x, y, width, height },
+                                partId: partId
                             });
 
                             console.log(`Part ${partId} - Region ${i}: ${detectedLabel} → ${category?.form} (${x},${y} ${width}x${height})`);
@@ -1127,9 +1560,64 @@ export default function MultiStageTestForm() {
                         }
                     });
 
-                    setCroppedRegions(prev => [...prev, ...croppedImages]);
-                    setRegions(detectedRegions);
+                    // Replace existing cropped regions for this part
+                    setCroppedRegions(prev => {
+                        const filtered = prev.filter(region => region.partId !== partId);
+                        return [...filtered, ...croppedImages];
+                    });
 
+                    // Auto-populate rows based on cropped images
+                    Object.keys(forms).forEach(formKey => {
+                        const formData = forms[formKey];
+
+                        // Remove existing rows for this part
+                        const otherRows = formData.rows.filter(row => row.partId !== partId);
+
+                        // Get cosmetic image for this part
+                        const cosmeticImage = sharedImagesByPart[partId]?.cosmetic || '';
+
+                        // Create new rows based on cropped images
+                        const newRows = croppedImages.map((croppedImage, index) => {
+                            const srNo = otherRows.length + index + 1;
+                            const baseRow: any = {
+                                id: Date.now() + index,
+                                srNo: srNo,
+                                testDate: "",
+                                config: "",
+                                sampleId: `${partId}-${index + 1}`,
+                                status: "Pass",
+                                partId: partId,
+                                part: partId, // Add part column
+                                cosmeticImage: cosmeticImage,
+                                nonCosmeticImage: nonCosmeticImageUrl,
+                                croppedImage: croppedImage.data,
+                                regionLabel: croppedImage.label
+                            };
+
+                            // Add all custom column fields with empty values
+                            if (formData.customColumns) {
+                                formData.customColumns.forEach(col => {
+                                    baseRow[col.id] = '';
+                                });
+                            }
+
+                            return baseRow;
+                        });
+
+                        // Update forms with new rows
+                        setForms(prev => ({
+                            ...prev,
+                            [formKey]: {
+                                ...prev[formKey],
+                                rows: [...otherRows, ...newRows].map((row, idx) => ({
+                                    ...row,
+                                    srNo: idx + 1
+                                }))
+                            }
+                        }));
+                    });
+
+                    setRegions(detectedRegions);
                     src.delete();
                 } catch (err) {
                     console.error("Error processing image:", err);
@@ -1291,6 +1779,17 @@ export default function MultiStageTestForm() {
         });
     };
 
+    // Handle timer toggle
+    const handleTimerToggle = (formKey: string) => {
+        setTimerStates(prev => ({
+            ...prev,
+            [formKey]: {
+                ...prev[formKey],
+                isRunning: !prev[formKey].isRunning
+            }
+        }));
+    };
+
     const handleSubmit = () => {
         try {
             const storedData = localStorage.getItem("stage2Records");
@@ -1397,6 +1896,51 @@ export default function MultiStageTestForm() {
         });
         return total.toString();
     };
+
+    // Auto-start timer when moving to a form stage
+    useEffect(() => {
+        if (currentStage > 0 && currentStageData?.formKey) {
+            const formKey = currentStageData.formKey;
+            const timerState = timerStates[formKey];
+
+            if (timerState && !timerState.isRunning && timerState.remainingSeconds > 0) {
+                // Auto-start timer with a small delay to ensure state is ready
+                const timer = setTimeout(() => {
+                    handleTimerToggle(formKey);
+                }, 100);
+
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [currentStage, currentStageData?.formKey]);
+
+    const renderCurrentForm = () => {
+        if (!currentStageData?.formKey) return null;
+
+        const formKey = currentStageData.formKey;
+        const formData = forms[formKey];
+
+        if (!formData) return null;
+
+        const checkpointHours = currentRecord?.stage2?.checkpoint || 0;
+        const timerState = timerStates[formKey] || { remainingSeconds: 0, isRunning: false };
+
+        return (
+            <DefaultForm
+                formData={formData}
+                updateFormField={(field, value) => updateFormField(formKey, field, value)}
+                updateRowField={(rowId, field, value) => updateRowField(formKey, rowId, field, value)}
+                addRow={(partId) => addRow(formKey, partId)}
+                selectedParts={selectedParts}
+                checkpointHours={checkpointHours}
+                formKey={formKey}
+                timerState={timerState}
+                onTimerToggle={() => handleTimerToggle(formKey)}
+                croppedRegions={croppedRegions}
+            />
+        );
+    };
+
 
     const renderImageUploadStage = () => (
         <div className="p-6">
@@ -1548,25 +2092,6 @@ export default function MultiStageTestForm() {
             </div>
         </div>
     );
-
-    const renderCurrentForm = () => {
-        if (!currentStageData?.formKey) return null;
-
-        const formKey = currentStageData.formKey;
-        const formData = forms[formKey];
-
-        if (!formData) return null;
-
-        return (
-            <DefaultForm
-                formData={formData}
-                updateFormField={(field, value) => updateFormField(formKey, field, value)}
-                updateRowField={(rowId, field, value) => updateRowField(formKey, rowId, field, value)}
-                addRow={(partId) => addRow(formKey, partId)}
-                selectedParts={selectedParts}
-            />
-        );
-    };
 
     // Load OpenCV
     useEffect(() => {

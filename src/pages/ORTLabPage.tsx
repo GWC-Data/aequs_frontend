@@ -1570,6 +1570,7 @@ const ORTLabPage: React.FC = () => {
   // };
 
   // Process barcode data from physical scanner - UPDATED LOGIC
+ 
   const processBarcodeData = (data: string) => {
     if (!data.trim()) {
       toast({

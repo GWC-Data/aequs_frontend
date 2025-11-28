@@ -16,7 +16,7 @@ import { toast } from "@/components/ui/use-toast";
 import { flaskData } from "@/data/flaskData";
 import { ArrowLeft, X } from "lucide-react";
 import DateTimePicker from "@/components/DatePicker";
- 
+
 interface TestRecord {
   documentNumber: string;
   documentTitle: string;
@@ -30,14 +30,14 @@ interface TestRecord {
   id: number;
   createdAt: string;
 }
- 
+
 interface SplitRow {
   quantity: string;
   buildProject: string;
   line: string;
   assignedParts: string[];
 }
- 
+
 interface ORTLabRecord {
   documentNumber: string;
   id: number;
@@ -50,12 +50,12 @@ interface ORTLabRecord {
     submittedAt: string;
   };
 }
- 
+
 const Stage2Page: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const selectedRecord = location.state?.record as TestRecord | undefined;
- 
+
   const [filteredData, setFilteredData] = useState<typeof flaskData>([]);
   const [availableTestNames, setAvailableTestNames] = useState<string[]>([]);
   const [stage2Form, setStage2Form] = useState({
@@ -65,6 +65,7 @@ const Stage2Page: React.FC = () => {
     testCondition: "",
     requiredQty: "",
     equipment: "",
+    checkpoint: "",
     startDateTime: "",
     endDateTime: "",
     remark: "",
@@ -72,25 +73,25 @@ const Stage2Page: React.FC = () => {
     lines: [] as string[],
     selectedParts: [] as string[]
   });
- 
+
   // ORT Lab data
   const [ortLabRecords, setOrtLabRecords] = useState<ORTLabRecord[]>([]);
   const [availableProjects, setAvailableProjects] = useState<string[]>([]);
   const [availableLines, setAvailableLines] = useState<string[]>([]);
   const [availableParts, setAvailableParts] = useState<string[]>([]);
- 
+
   // Load ORT Lab records on component mount
   useEffect(() => {
     loadORTLabRecords();
   }, []);
- 
+
   const loadORTLabRecords = () => {
     try {
       const storedRecords = localStorage.getItem("ortLabRecords");
       if (storedRecords) {
         const records: ORTLabRecord[] = JSON.parse(storedRecords);
         setOrtLabRecords(records);
- 
+
         // Extract unique projects
         const projects = new Set<string>();
         records.forEach(record => {
@@ -104,13 +105,13 @@ const Stage2Page: React.FC = () => {
       console.error("Error loading ORT Lab records:", error);
     }
   };
- 
+
   // Update lines when projects change
   useEffect(() => {
     if (stage2Form.projects.length > 0) {
       const lines = new Set<string>();
       const parts: string[] = [];
- 
+
       ortLabRecords.forEach(record => {
         record.ortLab.splitRows.forEach(row => {
           if (stage2Form.projects.includes(row.buildProject)) {
@@ -119,10 +120,10 @@ const Stage2Page: React.FC = () => {
           }
         });
       });
- 
+
       setAvailableLines(Array.from(lines));
       setAvailableParts(parts);
- 
+
       // Reset lines and parts when projects change
       setStage2Form(prev => ({
         ...prev,
@@ -139,12 +140,12 @@ const Stage2Page: React.FC = () => {
       }));
     }
   }, [stage2Form.projects, ortLabRecords]);
- 
+
   // Filter parts when lines change
   useEffect(() => {
     if (stage2Form.projects.length > 0 && stage2Form.lines.length > 0) {
       const parts: string[] = [];
- 
+
       ortLabRecords.forEach(record => {
         record.ortLab.splitRows.forEach(row => {
           if (stage2Form.projects.includes(row.buildProject) &&
@@ -153,9 +154,9 @@ const Stage2Page: React.FC = () => {
           }
         });
       });
- 
+
       setAvailableParts(parts);
- 
+
       // Reset selected parts when lines change
       setStage2Form(prev => ({
         ...prev,
@@ -176,31 +177,31 @@ const Stage2Page: React.FC = () => {
       setAvailableParts([]);
     }
   }, [stage2Form.lines, stage2Form.projects, ortLabRecords]);
- 
+
   // Form handling functions
   const processStages = Array.from(new Set(flaskData.map(item => item.processStage)));
   const types = Array.from(new Set(flaskData.map(item => item.type)));
- 
+
   // const handleStage2InputChange = (field: keyof typeof stage2Form, value: string | string[]) => {
   //   setStage2Form(prev => ({
   //     ...prev,
   //     [field]: value
   //   }));
- 
+
   //   if (field === "processStage" || field === "type") {
   //     const { processStage, type } = field === "processStage"
   //       ? { processStage: value as string, type: stage2Form.type }
   //       : { processStage: stage2Form.processStage, type: value as string };
- 
+
   //     if (processStage && type) {
   //       const matchedData = flaskData.filter(
   //         item => item.processStage === processStage && item.type === type
   //       );
- 
+
   //       setFilteredData(matchedData);
   //       const testNames = Array.from(new Set(matchedData.map(item => item.testName)));
   //       setAvailableTestNames(testNames);
- 
+
   //       setStage2Form(prev => ({
   //         ...prev,
   //         testName: "",
@@ -220,7 +221,7 @@ const Stage2Page: React.FC = () => {
   //       }));
   //     }
   //   }
- 
+
   //   if (field === "testName" && value) {
   //     const selectedTest = filteredData.find(item => item.testName === value);
   //     if (selectedTest) {
@@ -231,28 +232,28 @@ const Stage2Page: React.FC = () => {
   //     }
   //   }
   // };
- 
- 
+
+
   const handleStage2InputChange = (field: keyof typeof stage2Form, value: string | string[]) => {
     setStage2Form(prev => ({
       ...prev,
       [field]: value
     }));
- 
+
     if (field === "processStage" || field === "type") {
       const { processStage, type } = field === "processStage"
         ? { processStage: value as string, type: stage2Form.type }
         : { processStage: stage2Form.processStage, type: value as string };
- 
+
       if (processStage && type) {
         const matchedData = flaskData.filter(
           item => item.processStage === processStage && item.type === type
         );
- 
+
         setFilteredData(matchedData);
         const testNames = Array.from(new Set(matchedData.map(item => item.testName)));
         setAvailableTestNames(testNames);
- 
+
         setStage2Form(prev => ({
           ...prev,
           testName: "",
@@ -272,7 +273,7 @@ const Stage2Page: React.FC = () => {
         }));
       }
     }
- 
+
     if (field === "testName" && value) {
       const selectedTest = filteredData.find(item => item.testName === value);
       if (selectedTest) {
@@ -284,8 +285,8 @@ const Stage2Page: React.FC = () => {
       }
     }
   };
- 
- 
+
+
   const handleProjectSelection = (project: string) => {
     setStage2Form(prev => {
       const isSelected = prev.projects.includes(project);
@@ -297,7 +298,7 @@ const Stage2Page: React.FC = () => {
       };
     });
   };
- 
+
   const handleLineSelection = (line: string) => {
     setStage2Form(prev => {
       const isSelected = prev.lines.includes(line);
@@ -309,7 +310,7 @@ const Stage2Page: React.FC = () => {
       };
     });
   };
- 
+
   const handlePartSelection = (partNumber: string) => {
     setStage2Form(prev => {
       const isSelected = prev.selectedParts.includes(partNumber);
@@ -321,73 +322,73 @@ const Stage2Page: React.FC = () => {
       };
     });
   };
- 
+
   const removeSelectedProject = (project: string) => {
     setStage2Form(prev => ({
       ...prev,
       projects: prev.projects.filter(p => p !== project)
     }));
   };
- 
+
   const removeSelectedLine = (line: string) => {
     setStage2Form(prev => ({
       ...prev,
       lines: prev.lines.filter(l => l !== line)
     }));
   };
- 
+
   const removeSelectedPart = (partNumber: string) => {
     setStage2Form(prev => ({
       ...prev,
       selectedParts: prev.selectedParts.filter(p => p !== partNumber)
     }));
   };
- 
+
   const selectAllProjects = () => {
     setStage2Form(prev => ({
       ...prev,
       projects: [...availableProjects]
     }));
   };
- 
+
   const clearAllProjects = () => {
     setStage2Form(prev => ({
       ...prev,
       projects: []
     }));
   };
- 
+
   const selectAllLines = () => {
     setStage2Form(prev => ({
       ...prev,
       lines: [...availableLines]
     }));
   };
- 
+
   const clearAllLines = () => {
     setStage2Form(prev => ({
       ...prev,
       lines: []
     }));
   };
- 
+
   const selectAllParts = () => {
     setStage2Form(prev => ({
       ...prev,
       selectedParts: [...availableParts]
     }));
   };
- 
+
   const clearAllParts = () => {
     setStage2Form(prev => ({
       ...prev,
       selectedParts: []
     }));
   };
- 
+
   const handleStage2Submit = () => {
     if (!selectedRecord) return;
- 
+
     if (!stage2Form.testName || !stage2Form.processStage ||
       !stage2Form.type || !stage2Form.testCondition) {
       toast({
@@ -398,7 +399,7 @@ const Stage2Page: React.FC = () => {
       });
       return;
     }
- 
+
     if (stage2Form.projects.length === 0) {
       toast({
         variant: "destructive",
@@ -408,7 +409,7 @@ const Stage2Page: React.FC = () => {
       });
       return;
     }
- 
+
     if (stage2Form.selectedParts.length === 0) {
       toast({
         variant: "destructive",
@@ -418,7 +419,7 @@ const Stage2Page: React.FC = () => {
       });
       return;
     }
- 
+
     try {
       const stage2Data = {
         ...selectedRecord,
@@ -429,6 +430,7 @@ const Stage2Page: React.FC = () => {
           testCondition: stage2Form.testCondition,
           requiredQty: stage2Form.requiredQty,
           equipment: stage2Form.equipment,
+          checkpoint: Number(stage2Form.checkpoint) ,
           projects: stage2Form.projects,
           lines: stage2Form.lines,
           selectedParts: stage2Form.selectedParts,
@@ -438,13 +440,13 @@ const Stage2Page: React.FC = () => {
           submittedAt: new Date().toISOString()
         }
       };
- 
+
       const existingStage2Data = localStorage.getItem("stage2Records");
       const stage2Records = existingStage2Data ? JSON.parse(existingStage2Data) : [];
- 
+
       stage2Records.push(stage2Data);
       localStorage.setItem("stage2Records", JSON.stringify(stage2Records));
- 
+
       // Remove from testRecords
       const existingTestRecords = localStorage.getItem("testRecords");
       if (existingTestRecords) {
@@ -454,15 +456,15 @@ const Stage2Page: React.FC = () => {
         );
         localStorage.setItem("testRecords", JSON.stringify(updatedTestRecords));
       }
- 
+
       toast({
         title: "✅ Stage 2 Submitted",
         description: `Stage 2 data has been saved successfully!`,
         duration: 3000,
       });
- 
+
       navigate("/stage2");
- 
+
     } catch (error) {
       toast({
         variant: "destructive",
@@ -473,7 +475,7 @@ const Stage2Page: React.FC = () => {
       console.error("Error saving Stage 2 data:", error);
     }
   };
- 
+
   const isStage2SubmitEnabled = () => {
     return stage2Form.processStage &&
       stage2Form.type &&
@@ -481,43 +483,44 @@ const Stage2Page: React.FC = () => {
       stage2Form.testCondition &&
       // stage2Form.requiredQty &&
       stage2Form.equipment &&
+      stage2Form.checkpoint &&
       stage2Form.projects.length > 0 &&
       stage2Form.selectedParts.length > 0;
   };
- 
+
   if (!selectedRecord) {
     return null;
   }
- 
+
   const unselectedProjects = availableProjects.filter(
     project => !stage2Form.projects.includes(project)
   );
- 
+
   const unselectedLines = availableLines.filter(
     line => !stage2Form.lines.includes(line)
   );
- 
+
   const unselectedParts = availableParts.filter(
     part => !stage2Form.selectedParts.includes(part)
   );
   function Time12Hour({ label, value, onChange }) {
     const [time, setTime] = React.useState(value?.split(" ")[0] || "");
     const [period, setPeriod] = React.useState(value?.split(" ")[1] || "AM");
- 
+
     const handleTimeChange = (t) => {
       setTime(t);
       onChange(`${t} ${period}`);
     };
- 
+
     const handlePeriodChange = (p) => {
       setPeriod(p);
       onChange(`${time} ${p}`);
     };
- 
+
     return (
       <div className="space-y-2">
         <Label className="text-base">{label}</Label>
- 
+
         <div className="flex gap-2">
           <Input
             type="time"
@@ -525,7 +528,7 @@ const Stage2Page: React.FC = () => {
             onChange={(e) => handleTimeChange(e.target.value)}
             className="h-11"
           />
- 
+
           <select
             className="border rounded px-2"
             value={period}
@@ -538,8 +541,8 @@ const Stage2Page: React.FC = () => {
       </div>
     );
   }
- 
- 
+
+
   return (
     <div className="container mx-auto p-6 max-w-6xl">
       <Button
@@ -550,7 +553,7 @@ const Stage2Page: React.FC = () => {
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Live Test Checklist
       </Button>
- 
+
       <Card>
         <CardHeader className="bg-[#e0413a] text-white">
           <CardTitle className="text-2xl">Stage 2 - Test Configuration</CardTitle>
@@ -574,9 +577,9 @@ const Stage2Page: React.FC = () => {
               </div>
             </div>
           </div>
- 
- 
- 
+
+
+
           {/* Stage 2 Form Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
@@ -599,7 +602,7 @@ const Stage2Page: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
- 
+
             <div className="space-y-2">
               <Label htmlFor="type" className="text-base">
                 Type <span className="text-red-600">*</span>
@@ -620,7 +623,7 @@ const Stage2Page: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
- 
+
             <div className="space-y-2">
               <Label htmlFor="testName" className="text-base">
                 Test Name <span className="text-red-600">*</span>
@@ -642,7 +645,7 @@ const Stage2Page: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
- 
+
             <div className="space-y-2">
               <Label htmlFor="testCondition" className="text-base">
                 Test Condition <span className="text-red-600">*</span>
@@ -656,8 +659,8 @@ const Stage2Page: React.FC = () => {
                 disabled={true}
               />
             </div>
- 
- 
+
+
             {/* <div className="space-y-2">
               <Label htmlFor="requiredQty" className="text-base">
                 Required Quantity <span className="text-red-600">*</span>
@@ -670,7 +673,7 @@ const Stage2Page: React.FC = () => {
                 className="h-11"
               />
             </div> */}
- 
+
             <div className="space-y-2">
               <Label htmlFor="equipment" className="text-base">
                 Equipment
@@ -684,20 +687,35 @@ const Stage2Page: React.FC = () => {
                 className="h-11 bg-gray-50"
               />
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="checkpoint" className="text-base">
+                CheckPoint <span className="text-red-600">*</span>
+              </Label>
+              <Input
+                id="checkpoint"
+                type="number"
+                value={stage2Form.checkpoint}
+                onChange={(e) => handleStage2InputChange('checkpoint', e.target.value)}
+                placeholder="Enter the Hours"
+                className="h-11"
+              />
+            </div>
+
             <DateTimePicker
               label="Start Date & Time"
               value={stage2Form.startDateTime}
               onChange={(val) => handleStage2InputChange("startDateTime", val)}
             />
- 
+
             <DateTimePicker
               label="End Date & Time"
               value={stage2Form.endDateTime}
               onChange={(val) => handleStage2InputChange("endDateTime", val)}
             />
- 
- 
-            <div className="space-y-2"></div>
+
+
+            {/* <div className="space-y-2"></div> */}
             <div className="space-y-2">
               {/* Projects Selection */}
               <div className="space-y-4 mb-6">
@@ -746,7 +764,7 @@ const Stage2Page: React.FC = () => {
                 <p className="text-xs text-gray-500">
                   {stage2Form.projects.length} of {availableProjects.length} projects selected
                 </p>
- 
+
                 {/* Selected Projects Display */}
                 {stage2Form.projects.length > 0 && (
                   <div className="space-y-2">
@@ -776,7 +794,7 @@ const Stage2Page: React.FC = () => {
                   </div>
                 )}
               </div>
- 
+
               {/* Lines Selection */}
               {availableLines.length > 0 && (
                 <div className="space-y-4 mb-6">
@@ -825,7 +843,7 @@ const Stage2Page: React.FC = () => {
                   <p className="text-xs text-gray-500">
                     {stage2Form.lines.length} of {availableLines.length} lines selected
                   </p>
- 
+
                   {/* Selected Lines Display */}
                   {stage2Form.lines.length > 0 && (
                     <div className="space-y-2">
@@ -856,7 +874,7 @@ const Stage2Page: React.FC = () => {
                   )}
                 </div>
               )}
- 
+
               {/* Parts Selection */}
               {availableParts.length > 0 && (
                 <div className="space-y-4">
@@ -905,7 +923,7 @@ const Stage2Page: React.FC = () => {
                   <p className="text-xs text-gray-500">
                     {stage2Form.selectedParts.length} of {availableParts.length} parts selected
                   </p>
- 
+
                   {/* Selected Parts Display */}
                   {stage2Form.selectedParts.length > 0 && (
                     <div className="space-y-2">
@@ -937,7 +955,7 @@ const Stage2Page: React.FC = () => {
                 </div>
               )}
             </div>
- 
+
             {/* <div className="space-y-2 md:col-span-2">
               <Label htmlFor="remark" className="text-base">
                 Remarks
@@ -951,9 +969,9 @@ const Stage2Page: React.FC = () => {
               />
             </div> */}
             {/* ORT Lab Data Selection Section */}
- 
+
           </div>
- 
+
           {/* Action Buttons */}
           <div className="flex justify-end gap-4 mt-8 pt-2">
             <Button
@@ -976,7 +994,6 @@ const Stage2Page: React.FC = () => {
     </div>
   );
 };
- 
+
 export default Stage2Page;
- 
- 
+
