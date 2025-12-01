@@ -9,12 +9,15 @@ interface TestData {
   documentNumber: string;
   documentTitle: string;
   projectName: string;
-  color: string;
   testLocation: string;
-  submissionDate: string;
+  submissionPartDate: string;
   sampleConfig: string;
   remarks: string;
   status: string;
+  project: string[];
+  colour: string;
+  line: string;
+  quantity: number;
 }
 
 // Test name options - can be extended in the future
@@ -26,20 +29,29 @@ const TEST_NAME_OPTIONS = [
   { id: 'sidesnap', name: 'Side Snap' },
 ];
 
+const PROJECT_OPTIONS = ["Project AA", "Project BB", "Project CC"];
+const LINE_OPTIONS = ["Line 1", "Line 2", "Line 3"];
+const COLOUR_OPTIONS = ["NDA- XX", "LB- XX", "SD XX"];
+
 const TestForm: React.FC = () => {
   const [formData, setFormData] = React.useState<TestData>({
     documentNumber: "",
     documentTitle: "",
     projectName: "",
-    color: "",
     testLocation: "",
-    submissionDate: "",
+    submissionPartDate: "",
     sampleConfig: "",
     remarks: "",
     status: "In-Progress",
+    project: [],
+    line: "",
+    colour:"",
+    quantity: 0
+
   });
 
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
+  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = React.useState(false);
   // Load existing data from localStorage on component mount
   React.useEffect(() => {
     const storedData = localStorage.getItem("testRecords");
@@ -47,6 +59,37 @@ const TestForm: React.FC = () => {
       console.log("Existing records:", JSON.parse(storedData));
     }
   }, []);
+
+  const selectAllProjects = () => {
+    setFormData(prev => ({
+      ...prev,
+      project: [...PROJECT_OPTIONS]
+    }));
+  };
+
+  const clearAllProjects = () => {
+    setFormData(prev => ({
+      ...prev,
+      project: []
+    }));
+  };
+
+  const handleProjectSelect = (project: string) => {
+    setFormData(prev => {
+      const isSelected = prev.project.includes(project);
+      if (isSelected) {
+        return {
+          ...prev,
+          project: prev.project.filter(p => p !== project)
+        };
+      } else {
+        return {
+          ...prev,
+          project: [...prev.project, project]
+        };
+      }
+    });
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -100,12 +143,15 @@ const TestForm: React.FC = () => {
         documentNumber: "",
         documentTitle: "",
         projectName: "",
-        color: "",
         testLocation: "",
-        submissionDate: "",
+        submissionPartDate: "",
         sampleConfig: "",
-        remarks:"",
+        remarks: "",
         status: "",
+        project: [],
+        colour:"",
+        line: "",
+        quantity: 0
       });
 
       setIsDropdownOpen(false);
@@ -184,7 +230,7 @@ const TestForm: React.FC = () => {
               />
             </div>
 
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
                 Color <span className="text-red-600">*</span>
               </label>
@@ -197,7 +243,7 @@ const TestForm: React.FC = () => {
                 className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
                 required
               />
-            </div>
+            </div> */}
 
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
@@ -220,8 +266,8 @@ const TestForm: React.FC = () => {
               </label>
               <Input
                 type="date"
-                name="submissionDate"
-                value={formData.submissionDate}
+                name="submissionPartDate"
+                value={formData.submissionPartDate}
                 onChange={handleInputChange}
                 className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
                 required
@@ -246,22 +292,6 @@ const TestForm: React.FC = () => {
 
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
-                Status <span className="text-red-600">*</span>
-              </label>
-              <Input
-                type="text"
-                name="status"
-                value={formData.status}
-                onChange={handleInputChange}
-                placeholder="Enter status"
-                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
-                required
-                disabled
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
                 Remarks <span className="text-red-600">*</span>
               </label>
               <Input
@@ -272,6 +302,154 @@ const TestForm: React.FC = () => {
                 placeholder="Enter any remarks"
                 className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
                 required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                Quantity <span className="text-red-600">*</span>
+              </label>
+              <Input
+                type="number"
+                name="quantity"
+                value={formData.quantity}
+                onChange={handleInputChange}
+                placeholder="Enter quantity"
+                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
+                required
+                min="1"
+              />
+            </div>
+
+            <div className="space-y-2">
+  <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+    Project <span className="text-red-600">*</span>
+  </label>
+  <div className="relative">
+    <button
+      type="button"
+      onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
+      className="h-14 w-full px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 flex items-center justify-between focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm text-left"
+    >
+      <span className="truncate">
+        {formData.project && formData.project.length > 0
+          ? formData.project.join(", ")
+          : "Select project(s)"}
+      </span>
+      {isProjectDropdownOpen ? (
+        <ChevronUp className="flex-shrink-0 ml-2" />
+      ) : (
+        <ChevronDown className="flex-shrink-0 ml-2" />
+      )}
+    </button>
+    
+    {isProjectDropdownOpen && (
+      <div className="absolute z-10 w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-lg">
+        <div className="p-2 border-b flex justify-between items-center">
+          <div>
+            <button
+              type="button"
+              onClick={selectAllProjects}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium px-2 py-1"
+            >
+              Select All
+            </button>
+            <button
+              type="button"
+              onClick={clearAllProjects}
+              className="text-sm text-red-600 hover:text-red-800 font-medium px-2 py-1 ml-4"
+            >
+              Clear All
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsProjectDropdownOpen(false)}
+            className="p-1 hover:bg-slate-100 rounded"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="max-h-60 overflow-y-auto">
+          {PROJECT_OPTIONS.map((option) => (
+            <label
+              key={option}
+              className="flex items-center px-4 py-3 hover:bg-slate-100 cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                checked={formData.project?.includes(option) || false}
+                onChange={() => handleProjectSelect(option)}
+                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="ml-3 font-medium text-slate-700">{option}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+</div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                Line <span className="text-red-600">*</span>
+              </label>
+              <div className="relative">
+                <select
+                  name="line"
+                  value={formData.line}
+                  onChange={handleInputChange}
+                  className="h-14 w-full px-5 border-2 border-slate-500 rounded-xl font-medium text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm bg-white appearance-none pr-10"
+                  required
+                >
+                  <option value="">Select line</option>
+                  {LINE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-500 pointer-events-none" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                Colour <span className="text-red-600">*</span>
+              </label>
+              <div className="relative">
+                <select
+                  name="colour"
+                  value={formData.colour}
+                  onChange={handleInputChange}
+                  className="h-14 w-full px-5 border-2 border-slate-500 rounded-xl font-medium text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm bg-white appearance-none pr-10"
+                  required
+                >
+                  <option value="">Select colour</option>
+                  {COLOUR_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-500 pointer-events-none" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                Status <span className="text-red-600">*</span>
+              </label>
+              <Input
+                type="text"
+                name="status"
+                value={formData.status}
+                onChange={handleInputChange}
+                placeholder="Enter status"
+                className="h-14 px-5 border-2 border-slate-500 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
+                required
+                disabled
               />
             </div>
           </div>
