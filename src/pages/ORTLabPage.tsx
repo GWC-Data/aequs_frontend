@@ -2439,10 +2439,10 @@ const ORTLabPage: React.FC = () => {
       };
 
       // Save to localStorage
-      const existingORTData = localStorage.getItem("ortLabRecords");
+      const existingORTData = localStorage.getItem("testRecords");
       const ortRecords = existingORTData ? JSON.parse(existingORTData) : [];
       ortRecords.push(ortLabData);
-      localStorage.setItem("ortLabRecords", JSON.stringify(ortRecords));
+      localStorage.setItem("testRecords", JSON.stringify(ortRecords));
 
       // Update test record status
       // const existingTestData = localStorage.getItem("testRecords");

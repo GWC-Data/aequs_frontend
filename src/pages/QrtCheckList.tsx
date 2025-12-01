@@ -227,7 +227,7 @@ const LiveTestProgress: React.FC = () => {
                     <TableHead className="font-semibold text-center w-[120px]">Action</TableHead>
                     {hasReceivedStatus && (
                       <>
-                        <TableHead className="font-semibold text-center w-[120px]">ORT Lab</TableHead>
+                        {/* <TableHead className="font-semibold text-center w-[120px]">ORT Lab</TableHead> */}
                         <TableHead className="font-semibold text-center w-[120px]">Stage 2</TableHead>
                       </>
                     )}
@@ -289,7 +289,7 @@ const LiveTestProgress: React.FC = () => {
                         </TableCell>
                         {hasReceivedStatus && (
                           <>
-                            <TableCell className="text-center">
+                            {/* <TableCell className="text-center">
                               {record.status === "Received" && (
                                 <Button
                                   variant="outline"
@@ -300,7 +300,7 @@ const LiveTestProgress: React.FC = () => {
                                   ORT Lab
                                 </Button>
                               )}
-                            </TableCell>
+                            </TableCell> */}
                             <TableCell className="text-center">
                               {record.status === "Received" && (
                                 <Button
