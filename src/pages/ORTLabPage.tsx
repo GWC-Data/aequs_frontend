@@ -78,7 +78,102 @@ const ORTLabPage: React.FC = () => {
     }
   };
 
+<<<<<<< HEAD
   // Process barcode data
+=======
+
+  // NEW: Handle manual part input for reload mode
+  const handleManualPartInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+
+      const part = manualPartInput.trim().toUpperCase();
+      if (part) {
+        addManualPart(part);
+        setManualPartInput("");
+      }
+    }
+  };
+
+  // NEW: Add manual part
+  const addManualPart = (part: string) => {
+    if (selectedPartNumbers.includes(part)) {
+      toast({
+        variant: "destructive",
+        title: "Duplicate Part",
+        description: `Part ${part} is already added`,
+        duration: 2000,
+      });
+      return;
+    }
+
+    const newParts = [...selectedPartNumbers, part];
+    setSelectedPartNumbers(newParts);
+    setScannedPartNumbers(newParts);
+
+    toast({
+      title: "Part Added",
+      description: `Part ${part} added successfully`,
+      duration: 2000,
+    });
+  };
+
+  // NEW: Add sample part
+  const addSamplePart = (part: string) => {
+    if (selectedPartNumbers.includes(part)) {
+      toast({
+        variant: "destructive",
+        title: "Duplicate Part",
+        description: `Part ${part} is already added`,
+        duration: 2000,
+      });
+      return;
+    }
+
+    const newParts = [...selectedPartNumbers, part];
+    setSelectedPartNumbers(newParts);
+    setScannedPartNumbers(newParts);
+
+    // Remove from available sample parts
+    setAvailableSampleParts(prev => prev.filter(p => p !== part));
+
+    toast({
+      title: "Sample Part Added",
+      description: `Part ${part} added successfully`,
+      duration: 2000,
+    });
+  };
+
+  // NEW: Add multiple sample parts at once
+  const addMultipleSampleParts = (count: number) => {
+    const partsToAdd = availableSampleParts.slice(0, count);
+
+    if (partsToAdd.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No Parts Available",
+        description: "No more sample parts available to add",
+        duration: 2000,
+      });
+      return;
+    }
+
+    const newParts = [...selectedPartNumbers, ...partsToAdd];
+    setSelectedPartNumbers(newParts);
+    setScannedPartNumbers(newParts);
+
+    // Remove from available sample parts
+    setAvailableSampleParts(prev => prev.slice(count));
+
+    toast({
+      title: "Sample Parts Added",
+      description: `${partsToAdd.length} sample parts added successfully`,
+      duration: 3000,
+    });
+  };
+
+
+>>>>>>> a97992dc3a5a5112ab4cc31eaf4c2cfb127a4b58
   const processBarcodeData = (data: string) => {
     if (!data.trim()) {
       toast({
@@ -438,6 +533,7 @@ const ORTLabPage: React.FC = () => {
             </div>
           )}
 
+<<<<<<< HEAD
           {/* Progress Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card>
@@ -554,9 +650,308 @@ const ORTLabPage: React.FC = () => {
                       Stop Scanner
                     </Button>
                   )}
-                </div>
+=======
+          {/* Parts Summary Table */}
+          {showSummaryTable && partsSummary.length > 0 && (
+            <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
+              <h3 className="font-semibold text-lg mb-4 text-green-800">Parts Summary - Unassigned Parts Remain</h3>
+              <p className="text-sm text-green-700 mb-4">
+                ⚠️ Some parts are still unassigned. Please assign all parts before proceeding to QRT Checklist.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-gray-300">
+                  <thead>
+                    <tr className="bg-green-100">
+                      <th className="border border-gray-300 px-4 py-2 text-left">Serial Number</th>
+                      <th className="border border-gray-300 px-4 py-2 text-left">Available Parts</th>
+                      <th className="border border-gray-300 px-4 py-2 text-left">Assigned Parts</th>
+                      <th className="border border-gray-300 px-4 py-2 text-left">Unassigned Parts</th>
+                      <th className="border border-gray-300 px-4 py-2 text-left">Status</th>
+                      <th className="border border-gray-300 px-4 py-2 text-left">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {partsSummary.map((summary) => {
+                      const isComplete = summary.unassignedParts.length === 0;
+                      const uniqueKey = `${summary.serialNumber}-${summary.recordId}`;
+
+                      return (
+                        <tr key={uniqueKey} className="bg-white">
+                          <td className="border border-gray-300 px-4 py-2 font-mono">
+                            <div className="flex items-center gap-2">
+                              {summary.serialNumber}
+                              {isComplete && <CheckCircle className="h-4 w-4 text-green-600" />}
+                            </div>
+                          </td>
+                          <td className="border border-gray-300 px-4 py-2">
+                            <div className="flex flex-wrap gap-1">
+                              {summary.availableParts.map((part, idx) => (
+                                <span key={`${part}-${idx}`} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                  {part}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="border border-gray-300 px-4 py-2">
+                            <div className="flex flex-wrap gap-1">
+                              {summary.assignedParts.map((part, idx) => (
+                                <span key={`assigned-${part}-${idx}`} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                                  {part}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="border border-gray-300 px-4 py-2">
+                            <div className="flex flex-wrap gap-1">
+                              {summary.unassignedParts.map((part, idx) => (
+                                <span key={`unassigned-${part}-${idx}`} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                                  {part}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="border border-gray-300 px-4 py-2">
+                            {isComplete ? (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Complete
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                {summary.assignedParts.length}/{summary.availableParts.length} Assigned
+                              </span>
+                            )}
+                          </td>
+                          <td className="border border-gray-300 px-4 py-2">
+                            <div className="flex gap-2">
+                              {!isComplete && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEdit(summary)}
+                                  className="bg-blue-500 text-white hover:bg-blue-600"
+                                >
+                                  <Edit className="h-3 w-3 mr-1" />
+                                  Edit
+                                </Button>
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDelete(summary.serialNumber)}
+                                className="bg-red-500 text-white hover:bg-red-600"
+                              >
+                                <Trash2 className="h-3 w-3 mr-1" />
+                                Delete
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleProceed}
+                                className="bg-green-500 text-white hover:bg-green-600"
+                              >
+                                <Play className="h-3 w-3 mr-1" />
+                                Proceed
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Physical Barcode Scanner Section */}
+          {!showSummaryTable && (
+            <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-lg text-blue-800 flex items-center gap-2">
+                  <Scan className="h-5 w-5" />
+                  {isReloadMode ? 'Manual Parts Entry' : 'Barcode Scanner'}
+                </h3>
+                <Button
+                  variant="outline"
+                  onClick={clearScannedData}
+                  disabled={!serialNumber && scannedPartNumbers.length === 0}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Clear All
+                </Button>
               </div>
 
+              <div className="space-y-4">
+                {/* Barcode Input for Normal Mode */}
+                {!isReloadMode && (
+                  <div className="space-y-2">
+                    <Label htmlFor="barcodeInput" className="text-base font-medium">
+                      Scanner Input <span className="text-red-600">*</span>
+                    </Label>
+                    <Input
+                      ref={barcodeInputRef}
+                      id="barcodeInput"
+                      value={barcodeInput}
+                      onChange={(e) => setBarcodeInput(e.target.value)}
+                      onKeyDown={handleBarcodeInput}
+                      placeholder="Enter barcode manually or click test buttons below (Press Enter to scan)"
+                      className="h-12 font-mono text-lg border-2 border-blue-300 focus:border-blue-500"
+                      autoFocus
+                      disabled={serialNumber && isSerialComplete(serialNumber)} // ⭐ Disable when complete
+                    />
+                    {serialNumber && isSerialComplete(serialNumber) && (
+                      <p className="text-sm text-green-600 font-medium">
+                        ✅ This serial is complete. Clear the form to scan a new serial.
+                      </p>
+                    )}
+                    <p className="text-sm text-blue-700">
+                      💡 <strong>Smart Scanning:</strong> Only shows unused parts for each serial number across all records.
+                    </p>
+                  </div>
+                )}
+
+                {/* Manual Parts Entry for Reload Mode */}
+                {isReloadMode && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="manualPartInput" className="text-base font-medium">
+                        Manual Part Entry <span className="text-red-600">*</span>
+                      </Label>
+                      <Input
+                        id="manualPartInput"
+                        value={manualPartInput}
+                        onChange={(e) => setManualPartInput(e.target.value)}
+                        onKeyDown={handleManualPartInput}
+                        placeholder="Enter part number manually (Press Enter to add)"
+                        className="h-12 font-mono text-lg border-2 border-green-300 focus:border-green-500"
+                        autoFocus
+                      />
+                      <p className="text-sm text-green-700">
+                        💡 <strong>Manual Entry:</strong> Enter part numbers manually and press Enter to add them.
+                      </p>
+                    </div>
+
+                    {/* Sample Parts Section */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-gray-700">
+                        Quick Add Sample Parts:
+                      </Label>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {availableSampleParts.slice(0, 5).map((part) => (
+                          <Button
+                            key={part}
+                            variant="outline"
+                            size="sm"
+                            onClick={() => addSamplePart(part)}
+                            className="text-xs font-mono bg-green-100 hover:bg-green-200"
+                          >
+                            <Barcode className="h-3 w-3 mr-1" />
+                            {part}
+                          </Button>
+                        ))}
+                      </div>
+
+                      {/* Bulk Add Buttons */}
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addMultipleSampleParts(3)}
+                          className="text-xs bg-blue-100 hover:bg-blue-200"
+                        >
+                          Add 3 Sample Parts
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addMultipleSampleParts(5)}
+                          className="text-xs bg-blue-100 hover:bg-blue-200"
+                        >
+                          Add 5 Sample Parts
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addMultipleSampleParts(availableSampleParts.length)}
+                          className="text-xs bg-blue-100 hover:bg-blue-200"
+                        >
+                          Add All ({availableSampleParts.length}) Parts
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Test Barcode Buttons (Only show in normal mode) */}
+                {!isReloadMode && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">
+                      Test Barcodes (Click to simulate scan):
+                    </Label>
+                    <div className="flex flex-wrap gap-2">
+                      {STATIC_BARCODE_DATA.map((barcode, index) => (
+                        <Button
+                          key={`test-barcode-${barcode}-${index}`}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => testWithStaticBarcode(barcode.split(':')[0])}
+                          className="text-xs font-mono"
+                        >
+                          {barcode.split(':')[0]}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+
+                {/* Scanner Status */}
+                <div className="p-3 bg-white rounded border">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-600">Serial Number:</span>
+                      <p className="font-mono text-blue-700">{serialNumber || "Not scanned"}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-600">Total Parts:</span>
+                      <p className="text-blue-700">
+                        {selectedPartNumbers.length} parts
+                        {serialNumber && (
+                          <span className="text-orange-600 ml-2">
+                            ({getSerialCompletionStatus(serialNumber).assigned} already assigned out of {getSerialCompletionStatus(serialNumber).total})
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+          }
+
+          {/* Rest of the form remains the same */}
+          {/* Form Fields (only show when not in summary table view) */}
+          {
+            !showSummaryTable && (
+              <>
+                {/* Date Field */}
+                <div className="mb-6 space-y-2">
+                  <Label htmlFor="date" className="text-base">
+                    Date <span className="text-red-600">*</span>
+                  </Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={ortForm.date}
+                    onChange={(e) => handleORTInputChange('date', e.target.value)}
+                    className="h-11 max-w-xs"
+                  />
+>>>>>>> a97992dc3a5a5112ab4cc31eaf4c2cfb127a4b58
+                </div>
+
+<<<<<<< HEAD
               {/* Scanner Status */}
               <div className="p-3 bg-white rounded border">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -671,6 +1066,265 @@ const ORTLabPage: React.FC = () => {
         </CardContent>
       </Card>
     </div>
+=======
+                {/* Serial Number Display */}
+                <div className="mb-6 space-y-2">
+                  <Label htmlFor="serialNumber" className="text-base">
+                    Serial Number <span className="text-red-600">*</span>
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="serialNumber"
+                      value={serialNumber}
+                      onChange={(e) => handleManualSerialInput(e.target.value)}
+                      placeholder="Will auto-fill from scanner"
+                      className="h-11 font-mono flex-1 max-w-md bg-blue-50"
+                    />
+                    {serialNumber && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSerialNumber("")}
+                        className="h-11"
+                      >
+                        <X size={16} />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Parts Summary */}
+                {selectedPartNumbers.length > 0 && (
+                  <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold text-green-800">Available Parts Summary</h3>
+                      <div className="text-sm text-green-700">
+                        Total: <span className="font-bold">{selectedPartNumbers.length}</span> parts
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {selectedPartNumbers.map((part, index) => (
+                        <span key={index} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-mono">
+                          {part}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Split Rows Section */}
+                {selectedPartNumbers.length > 0 && (
+                  <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-lg text-yellow-800">Split Parts Assignment</h3>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={autoAssignParts}
+                          className="bg-green-600 text-white hover:bg-green-700"
+                        >
+                          Auto-Assign Parts
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={addSplitRow}
+                        >
+                          <Plus className="mr-1 h-4 w-4" />
+                          Add Row
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {splitRows.map((row, index) => (
+                        <div key={row.id} className="p-4 bg-white rounded-lg border border-gray-200">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-semibold text-gray-700">Split #{index + 1}</h4>
+                            {splitRows.length > 1 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeSplitRow(row.id)}
+                                className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                              >
+                                <Minus className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+                            <div className="space-y-2">
+                              <Label htmlFor={`quantity-${row.id}`}>
+                                Quantity <span className="text-red-600">*</span>
+                              </Label>
+                              <Input
+                                id={`quantity-${row.id}`}
+                                type="number"
+                                value={row.quantity}
+                                onChange={(e) => updateSplitRow(row.id, 'quantity', e.target.value)}
+                                placeholder="Enter qty"
+                                className="h-11"
+                                min="1"
+                                max={selectedPartNumbers.length}
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor={`buildProject-${row.id}`}>
+                                Build/Project <span className="text-red-600">*</span>
+                              </Label>
+                              <Select
+                                value={row.buildProject}
+                                onValueChange={(value) => updateSplitRow(row.id, 'buildProject', value)}
+                              >
+                                <SelectTrigger className="h-11">
+                                  <SelectValue placeholder="Select" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {BUILD_PROJECT_OPTIONS.map((option) => (
+                                    <SelectItem key={option} value={option}>
+                                      {option}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor={`line-${row.id}`}>
+                                Line <span className="text-red-600">*</span>
+                              </Label>
+                              <Select
+                                value={row.line}
+                                onValueChange={(value) => updateSplitRow(row.id, 'line', value)}
+                              >
+                                <SelectTrigger className="h-11">
+                                  <SelectValue placeholder="Select" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {LINE_OPTIONS.map((option) => (
+                                    <SelectItem key={option} value={option}>
+                                      {option}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor={`color-${row.id}`}>
+                                Color <span className="text-red-600">*</span>
+                              </Label>
+                              <Select
+                                value={row.color}
+                                onValueChange={(value) => updateSplitRow(row.id, 'color', value)}
+                              >
+                                <SelectTrigger className="h-11">
+                                  <SelectValue placeholder="Select color" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {COLOR_OPTIONS.map((option) => (
+                                    <SelectItem key={option} value={option}>
+                                      {option}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Assigned Parts</Label>
+                              <div className="h-11 px-3 py-2 bg-gray-50 rounded border text-sm flex items-center">
+                                {row.assignedParts.length > 0 ? (
+                                  <span className="text-green-600 font-medium">
+                                    {row.assignedParts.length} parts assigned
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400">No parts assigned</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Individual Remark for each split */}
+                          <div className="space-y-2">
+                            <Label htmlFor={`remark-${row.id}`}>
+                              Split Remark
+                            </Label>
+                            <Textarea
+                              id={`remark-${row.id}`}
+                              value={row.remark}
+                              onChange={(e) => updateSplitRow(row.id, 'remark', e.target.value)}
+                              placeholder="Enter remark for this split..."
+                              className="min-h-[60px] resize-vertical"
+                            />
+                          </div>
+
+                          {/* Show assigned parts */}
+                          {row.assignedParts.length > 0 && (
+                            <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200">
+                              <Label className="text-xs text-blue-700 mb-1">Assigned Part Numbers:</Label>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {row.assignedParts.map((part, idx) => (
+                                  <span key={idx} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-mono">
+                                    {part}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Assignment Summary */}
+                    <div className="mt-4 p-3 bg-white rounded border">
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-600">Total Parts:</span>
+                          <p className="text-lg font-bold text-gray-800">{selectedPartNumbers.length}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Assigned:</span>
+                          <p className="text-lg font-bold text-green-600">
+                            {splitRows.reduce((sum, row) => sum + row.assignedParts.length, 0)}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Unassigned:</span>
+                          <p className="text-lg font-bold text-orange-600">{unassignedParts.length}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-4 pt-6 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate(isReloadMode ? "/ortlab-details" : "/")}
+                    className="px-6"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleORTSubmit}
+                    disabled={!isORTSubmitEnabled()}
+                    className={`${isReloadMode ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'} text-white px-6`}
+                  >
+                    {isReloadMode ? 'Reload Parts' : 'Submit ORT Lab'}
+                  </Button>
+                </div>
+              </>
+            )
+          }
+        </CardContent >
+      </Card >
+    </div >
+>>>>>>> a97992dc3a5a5112ab4cc31eaf4c2cfb127a4b58
   );
 };
 

@@ -103,6 +103,7 @@ const PlanningModule = () => {
   ]);
 
   const stage2Record = JSON.parse(localStorage.getItem('stage2Records') || '[]');
+  console.log(stage2Record)
 
   // Create machine cards and separate into occupied (left) and available (right)
   const { occupiedMachines, availableMachines } = useMemo(() => {
