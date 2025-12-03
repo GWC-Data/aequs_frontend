@@ -1,20 +1,1076 @@
+// import React, { useRef, useEffect, useState } from "react";
+// import { useNavigate, useLocation } from "react-router-dom";
+// import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+// import { Button } from "@/components/ui/button";
+// import { Input } from "@/components/ui/input";
+// import { Label } from "@/components/ui/label";
+// import { toast } from "@/components/ui/use-toast";
+// import { ArrowLeft, X, Scan, Trash2, CheckCircle, Barcode } from "lucide-react";
+// import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+// interface TestRecord {
+//   documentNumber: string;
+//   documentTitle: string;
+//   projectName: string;
+//   color: string;
+//   testLocation: string;
+//   testStartDate: string;
+//   testCompletionDate: string;
+//   sampleConfig: string;
+//   status: string;
+//   id: number;
+//   createdAt: string;
+//   quantity: number;
+//   project: string[];
+//   line: string;
+//   colour: string;
+//   remarks: string;
+// }
+
+// interface ORTLabPageLocationState {
+//   record: TestRecord;
+//   reloadMode?: boolean;
+//   existingRecord?: any;
+// }
+
+// // Static barcode data for testing
+// const STATIC_BARCODE_DATA = [
+//   "SN001:PART001,PART002,PART003,PART004,PART005"
+// ];
+
+// // Static additional parts for reload mode
+// const ADDITIONAL_PARTS = [
+//   { id: 6, partNumber: "PART006" },
+//   { id: 7, partNumber: "PART007" },
+//   { id: 8, partNumber: "PART008" },
+//   { id: 9, partNumber: "PART009" },
+//   { id: 10, partNumber: "PART010" },
+// ];
+
+// interface ScannedPart {
+//   serialNumber: string;
+//   partNumber: string;
+//   scannedAt: Date;
+// }
+
+// const ORTLabPage: React.FC = () => {
+//   const navigate = useNavigate();
+//   const location = useLocation();
+//   const locationState = location.state as ORTLabPageLocationState | undefined;
+//   const selectedRecord = locationState?.record;
+//   const reloadMode = locationState?.reloadMode || false;
+//   const existingRecord = locationState?.existingRecord;
+
+//   const videoRef = useRef<HTMLVideoElement>(null);
+//   const [serialNumber, setSerialNumber] = useState("");
+//   const [scannedParts, setScannedParts] = useState<ScannedPart[]>([]);
+//   const [barcodeInput, setBarcodeInput] = useState("");
+//   const [isScanning, setIsScanning] = useState(false);
+//   const [showScanner, setShowScanner] = useState(false);
+//   const barcodeInputRef = useRef<HTMLInputElement>(null);
+//   const [isReloadMode, setIsReloadMode] = useState(false);
+//   const [existingORTRecord, setExistingORTRecord] = useState<any>(null);
+//   const [selectedAdditionalParts, setSelectedAdditionalParts] = useState<string[]>([]);
+
+//   // Auto-focus on barcode input
+//   useEffect(() => {
+//     if (barcodeInputRef.current) {
+//       barcodeInputRef.current.focus();
+//     }
+//   }, []);
+
+//   // Load existing scanned parts if in reload mode
+//   useEffect(() => {
+//     if (reloadMode && existingRecord) {
+//       setIsReloadMode(true);
+//       setExistingORTRecord(existingRecord);
+
+//       // Load existing scanned parts
+//       if (existingRecord.ortLab?.scannedParts) {
+//         setScannedParts(existingRecord.ortLab.scannedParts.map((part: any) => ({
+//           ...part,
+//           scannedAt: new Date(part.scannedAt)
+//         })));
+//         setSerialNumber(existingRecord.ortLab.serialNumber || "");
+//       }
+
+//       toast({
+//         title: "Reload Mode Active",
+//         description: `Loaded ${existingRecord.ortLab?.scannedParts?.length || 0} existing parts. You can now add more parts.`,
+//         duration: 4000,
+//       });
+//     }
+//   }, [reloadMode, existingRecord]);
+
+//   // Handle barcode input from physical scanner
+//   const handleBarcodeInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
+//     if (e.key === 'Enter') {
+//       e.preventDefault();
+
+//       const barcodeData = barcodeInput.trim();
+//       if (barcodeData) {
+//         processBarcodeData(barcodeData);
+//         setBarcodeInput("");
+
+//         // Auto-refocus for next scan
+//         setTimeout(() => {
+//           if (barcodeInputRef.current) {
+//             barcodeInputRef.current.focus();
+//           }
+//         }, 100);
+//       }
+//     }
+//   };
+
+//   // Process barcode data
+//   const processBarcodeData = (data: string) => {
+//     if (!data.trim()) {
+//       toast({
+//         variant: "destructive",
+//         title: "Invalid Barcode",
+//         description: "Scanned data is empty",
+//         duration: 2000,
+//       });
+//       return;
+//     }
+
+//     try {
+//       let serial = "";
+//       let partNumbers: string[] = [];
+
+//       // Check if input is a static barcode from our test data
+//       const staticBarcode = STATIC_BARCODE_DATA.find(barcode =>
+//         barcode.split(':')[0] === data.toUpperCase()
+//       );
+
+//       if (staticBarcode) {
+//         const parts = staticBarcode.split(':');
+//         serial = parts[0].trim();
+//         if (parts.length > 1) {
+//           partNumbers = parts[1].split(',')
+//             .map(p => p.trim())
+//             .filter(p => p.length > 0);
+//         }
+//       }
+//       // Format 1: SERIAL:PART1,PART2,PART3
+//       else if (data.includes(':') && data.includes(',')) {
+//         const parts = data.split(':');
+//         serial = parts[0].trim();
+//         if (parts.length > 1) {
+//           partNumbers = parts[1].split(',')
+//             .map(p => p.trim())
+//             .filter(p => p.length > 0);
+//         }
+//       }
+//       // Format 2: SERIAL:PART1 (single part)
+//       else if (data.includes(':') && !data.includes(',')) {
+//         const parts = data.split(':');
+//         serial = parts[0].trim();
+//         if (parts.length > 1) {
+//           partNumbers = [parts[1].trim()];
+//         }
+//       }
+//       // Format 3: Simple serial number only
+//       else {
+//         serial = data.trim();
+//       }
+
+//       // Validate serial number
+//       if (!serial) {
+//         toast({
+//           variant: "destructive",
+//           title: "Invalid Barcode Format",
+//           description: "No serial number found in scanned data",
+//           duration: 3000,
+//         });
+//         return;
+//       }
+
+//       // Set serial number
+//       setSerialNumber(serial);
+
+//       // Check if we've reached the required quantity (skip in reload mode)
+//       const requiredQuantity = selectedRecord?.quantity || 0;
+//       if (!isReloadMode && scannedParts.length >= requiredQuantity) {
+//         toast({
+//           variant: "destructive",
+//           title: "Quantity Limit Reached",
+//           description: `Required quantity is ${requiredQuantity}. All parts have been scanned.`,
+//           duration: 3000,
+//         });
+//         return;
+//       }
+
+//       // Add scanned parts
+//       const newParts: ScannedPart[] = partNumbers.map(part => ({
+//         serialNumber: serial,
+//         partNumber: part,
+//         scannedAt: new Date()
+//       }));
+
+//       // Replace the parts addition section with:
+//       // Check how many more parts we can add
+//       const remainingCapacity = isReloadMode
+//         ? 999 // Allow unlimited additional parts in reload mode
+//         : requiredQuantity - scannedParts.length;
+//       const partsToAdd = newParts.slice(0, remainingCapacity);
+
+//       if (partsToAdd.length > 0) {
+//         setScannedParts(prev => [...prev, ...partsToAdd]);
+
+//         const messagePrefix = isReloadMode ? "Additional" : "";
+//         toast({
+//           title: `${messagePrefix} Parts Scanned`,
+//           description: `Added ${partsToAdd.length} part(s) to serial ${serial}${isReloadMode ? ' (Reload Mode)' : ''}`,
+//           duration: 2000,
+//         });
+
+//         // Check if we reached required quantity (only in normal mode)
+//         if (!isReloadMode && scannedParts.length + partsToAdd.length >= requiredQuantity) {
+//           toast({
+//             title: "All Parts Scanned!",
+//             description: `All ${requiredQuantity} parts have been scanned successfully.`,
+//             duration: 3000,
+//           });
+//         }
+//       } else {
+//         toast({
+//           variant: "destructive",
+//           title: "Cannot Add More Parts",
+//           description: `Required quantity ${requiredQuantity} already reached.`,
+//           duration: 3000,
+//         });
+//       }
+
+//     } catch (error) {
+//       console.error("Barcode processing error:", error);
+//       toast({
+//         variant: "destructive",
+//         title: "Scan Error",
+//         description: "Failed to process barcode data. Please check the format.",
+//         duration: 3000,
+//       });
+//     }
+//   };
+
+//   // Test with static barcode data
+//   const testWithStaticBarcode = (barcode: string) => {
+//     setBarcodeInput(barcode);
+//     processBarcodeData(barcode);
+//     setBarcodeInput("");
+//   };
+
+//   // Clear all scanned data
+//   const clearScannedData = () => {
+//     setSerialNumber("");
+//     setScannedParts([]);
+//     setBarcodeInput("");
+//     if (barcodeInputRef.current) {
+//       barcodeInputRef.current.focus();
+//     }
+//     toast({
+//       title: "Data Cleared",
+//       description: "All scanned data has been cleared",
+//       duration: 2000,
+//     });
+//   };
+
+//   // Start/Stop camera scanner
+//   const startScanner = async () => {
+//     try {
+//       const stream = await navigator.mediaDevices.getUserMedia({
+//         video: { facingMode: "environment" }
+//       });
+//       if (videoRef.current) {
+//         videoRef.current.srcObject = stream;
+//         setIsScanning(true);
+//         setShowScanner(true);
+//       }
+//     } catch (err) {
+//       console.error("Error accessing camera:", err);
+//       toast({
+//         variant: "destructive",
+//         title: "Camera Error",
+//         description: "Unable to access camera. Please check permissions.",
+//         duration: 3000,
+//       });
+//     }
+//   };
+
+//   const stopScanner = () => {
+//     if (videoRef.current?.srcObject) {
+//       const stream = videoRef.current.srcObject as MediaStream;
+//       stream.getTracks().forEach(track => track.stop());
+//       videoRef.current.srcObject = null;
+//     }
+//     setIsScanning(false);
+//     setShowScanner(false);
+//   };
+
+//   // Toggle additional part selection
+//   const toggleAdditionalPart = (partNumber: string) => {
+//     setSelectedAdditionalParts(prev => {
+//       if (prev.includes(partNumber)) {
+//         return prev.filter(p => p !== partNumber);
+//       } else {
+//         return [...prev, partNumber];
+//       }
+//     });
+//   };
+
+//   // Check if a part is already scanned
+//   const isPartAlreadyScanned = (partNumber: string) => {
+//     return scannedParts.some(part => part.partNumber === partNumber);
+//   };
+
+//   // Add selected additional parts to scanned parts
+//   const addSelectedAdditionalParts = () => {
+//     if (selectedAdditionalParts.length === 0) {
+//       toast({
+//         variant: "destructive",
+//         title: "No Parts Selected",
+//         description: "Please select at least one part to add.",
+//         duration: 2000,
+//       });
+//       return;
+//     }
+
+//     if (!serialNumber) {
+//       toast({
+//         variant: "destructive",
+//         title: "Serial Number Required",
+//         description: "Please scan or enter a serial number first.",
+//         duration: 2000,
+//       });
+//       return;
+//     }
+
+//     // Create new scanned parts from selection
+//     const newParts: ScannedPart[] = selectedAdditionalParts.map(partNumber => ({
+//       serialNumber: serialNumber,
+//       partNumber: partNumber,
+//       scannedAt: new Date()
+//     }));
+
+//     setScannedParts(prev => [...prev, ...newParts]);
+
+//     toast({
+//       title: "Additional Parts Added",
+//       description: `Successfully added ${newParts.length} additional part(s) to serial ${serialNumber}`,
+//       duration: 2000,
+//     });
+
+//     // Clear selection
+//     setSelectedAdditionalParts([]);
+//   };
+
+//   const handleORTSubmit = () => {
+//     if (!selectedRecord) return;
+
+//     const requiredQuantity = selectedRecord.quantity;
+
+//     // In reload mode, just need at least one part
+//     // In normal mode, need all required parts
+//     if (!isReloadMode && scannedParts.length < requiredQuantity) {
+//       toast({
+//         variant: "destructive",
+//         title: "Incomplete Scanning",
+//         description: `Only ${scannedParts.length} of ${requiredQuantity} parts scanned. Please scan all required parts.`,
+//         duration: 3000,
+//       });
+//       return;
+//     }
+
+//     if (isReloadMode && scannedParts.length === existingORTRecord?.ortLab?.scannedParts?.length) {
+//       toast({
+//         variant: "destructive",
+//         title: "No New Parts Added",
+//         description: "Please scan at least one new part before submitting.",
+//         duration: 3000,
+//       });
+//       return;
+//     }
+
+//     try {
+//       // Retrieve existing ORT records
+//       const existingORTData = localStorage.getItem("ortLabRecords");
+//       const ortRecords = existingORTData ? JSON.parse(existingORTData) : [];
+
+//       if (isReloadMode && existingORTRecord) {
+//         // UPDATE existing record
+//         const updatedORTData = {
+//           ...existingORTRecord,
+//           ortLab: {
+//             ...existingORTRecord.ortLab,
+//             serialNumber: serialNumber,
+//             scannedParts: scannedParts,
+//             totalParts: scannedParts.length,
+//             lastUpdatedAt: new Date().toISOString(),
+//             updateCount: (existingORTRecord.ortLab?.updateCount || 0) + 1
+//           }
+//         };
+
+//         // Find and update the existing record
+//         const updatedRecords = ortRecords.map((record: any) =>
+//           record.ortLabId === existingORTRecord.ortLabId ? updatedORTData : record
+//         );
+
+//         localStorage.setItem("ortLabRecords", JSON.stringify(updatedRecords));
+
+//         toast({
+//           title: "ORT Lab Updated!",
+//           description: `Record updated with ${scannedParts.length} total parts (added ${scannedParts.length - (existingORTRecord.ortLab?.scannedParts?.length || 0)} new parts).`,
+//           duration: 4000,
+//         });
+
+//         // Navigate back to QRT checklist
+//         navigate("/stage2", {
+//           state: {
+//             record: selectedRecord,
+//             ortData: updatedORTData
+//           }
+//         });
+
+//       } else {
+//         // CREATE new record (existing logic)
+//         const ortLabId = Date.now();
+//         const ortLabData = {
+//           ...selectedRecord,
+//           ortLabId: ortLabId,
+//           ortLab: {
+//             submissionId: ortLabId,
+//             date: new Date().toISOString().split('T')[0],
+//             serialNumber: serialNumber,
+//             scannedParts: scannedParts,
+//             totalParts: scannedParts.length,
+//             requiredQuantity: requiredQuantity,
+//             submittedAt: new Date().toISOString(),
+//             updateCount: 0
+//           }
+//         };
+
+//         ortRecords.push(ortLabData);
+//         localStorage.setItem("ortLabRecords", JSON.stringify(ortRecords));
+
+//         toast({
+//           title: "ORT Lab Completed!",
+//           description: `${scannedParts.length} parts scanned and assigned successfully.`,
+//           duration: 4000,
+//         });
+
+//         navigate("/qrtchecklist", {
+//           state: {
+//             record: selectedRecord,
+//             ortData: ortLabData
+//           }
+//         });
+//       }
+
+//     } catch (error) {
+//       toast({
+//         variant: "destructive",
+//         title: "Submission Failed",
+//         description: "There was an error processing the request. Please try again.",
+//         duration: 3000,
+//       });
+//       console.error("Error:", error);
+//     }
+//   };
+
+//   if (!selectedRecord) {
+//     return (
+//       <div className="container mx-auto p-6 max-w-6xl">
+//         <Card>
+//           <CardContent className="p-6">
+//             <div className="text-center text-gray-500">No record selected. Please go back and select a record.</div>
+//             <Button
+//               variant="outline"
+//               onClick={() => navigate("/")}
+//               className="mt-4"
+//             >
+//               <ArrowLeft className="mr-2 h-4 w-4" />
+//               Back to Dashboard
+//             </Button>
+//           </CardContent>
+//         </Card>
+//       </div>
+//     );
+//   }
+
+//   const requiredQuantity = selectedRecord.quantity || 0;
+//   const scannedCount = scannedParts.length;
+//   const remainingCount = isReloadMode ? 0 : Math.max(0, requiredQuantity - scannedCount);
+//   const isComplete = isReloadMode
+//     ? scannedCount > (existingORTRecord?.ortLab?.scannedParts?.length || 0)
+//     : scannedCount >= requiredQuantity;
+
+//   return (
+//     <div className="container mx-auto p-6 max-w-6xl">
+//       <Button
+//         variant="ghost"
+//         onClick={() => navigate("/")}
+//         className="mb-4 hover:bg-gray-100"
+//       >
+//         <ArrowLeft className="mr-2 h-4 w-4" />
+//         Back to Live Test Checklist
+//       </Button>
+
+//       <Card>
+//         <CardHeader className="bg-blue-600 text-white">
+//           <CardTitle className="text-2xl">
+//             ORT Lab - Part Scanning
+//           </CardTitle>
+//         </CardHeader>
+//         <CardContent className="pt-6">
+//           {/* Serial Number Input - Show in reload mode */}
+//           {isReloadMode && (
+//             <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+//               <h3 className="font-semibold text-lg text-purple-800 mb-3 flex items-center gap-2">
+//                 <Barcode className="h-5 w-5" />
+//                 Serial Number
+//               </h3>
+//               <div className="space-y-2">
+//                 <Label htmlFor="serialNumberInput" className="text-base font-medium">
+//                   Serial Number {!serialNumber && <span className="text-red-600">*</span>}
+//                 </Label>
+//                 <Input
+//                   id="serialNumberInput"
+//                   value={serialNumber}
+//                   onChange={(e) => setSerialNumber(e.target.value.toUpperCase())}
+//                   placeholder="Enter serial number (e.g., SN001)"
+//                   className="h-12 font-mono text-lg border-2 border-purple-300 focus:border-purple-500"
+//                 />
+//                 {serialNumber && (
+//                   <p className="text-sm text-green-600 font-medium">
+//                     ✓ Serial Number: {serialNumber}
+//                   </p>
+//                 )}
+//               </div>
+//             </div>
+//           )}
+
+//           {/* OQC Form Data Display */}
+//           <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+//             <h3 className="font-semibold text-lg mb-3 text-gray-700">
+//               OQC Form Data
+//             </h3>
+//             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+//               <div className="space-y-1">
+//                 <Label className="text-sm font-medium text-gray-500">Quantity Required</Label>
+//                 <div className="text-xl font-bold">{selectedRecord.quantity}</div>
+//               </div>
+
+//               <div className="space-y-1">
+//                 <Label className="text-sm font-medium text-gray-500">Project(s)</Label>
+//                 <div className="flex flex-wrap gap-1">
+//                   {Array.isArray(selectedRecord.project) && selectedRecord.project.length > 0 ? (
+//                     selectedRecord.project.map((proj, index) => (
+//                       <div key={index} className="text-sm font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded">
+//                         {proj}
+//                       </div>
+//                     ))
+//                   ) : (
+//                     <div className="text-sm font-medium">{selectedRecord.projectName}</div>
+//                   )}
+//                 </div>
+//               </div>
+
+//               <div className="space-y-1">
+//                 <Label className="text-sm font-medium text-gray-500">Line</Label>
+//                 <div className="text-sm font-medium">{selectedRecord.line || "N/A"}</div>
+//               </div>
+
+//               <div className="space-y-1">
+//                 <Label className="text-sm font-medium text-gray-500">Colour</Label>
+//                 <div className="flex items-center">
+//                   <div
+//                     className="w-4 h-4 rounded-full mr-2 border"
+//                     style={{
+//                       backgroundColor: selectedRecord.colour === "N/A" ? "#ccc" :
+//                         selectedRecord.colour?.includes("NDA") ? "#4f46e5" :
+//                           selectedRecord.colour?.includes("LB") ? "#10b981" :
+//                             selectedRecord.colour?.includes("SD") ? "#f59e0b" : selectedRecord.color || "#ccc"
+//                     }}
+//                   />
+//                   <span className="text-sm font-medium">{selectedRecord.colour || selectedRecord.color || "N/A"}</span>
+//                 </div>
+//               </div>
+//             </div>
+//           </div>
+
+
+//           {/* Completion Status Banner */}
+//           {isComplete && !isReloadMode && (
+//             <div className="mb-6 p-4 bg-green-100 border border-green-400 rounded-lg">
+//               <div className="flex items-center gap-3">
+//                 <CheckCircle className="h-6 w-6 text-green-600" />
+//                 <div>
+//                   <h3 className="font-semibold text-green-800">All Parts Scanned!</h3>
+//                   <p className="text-green-700 text-sm">
+//                     {scannedCount} parts have been scanned. Ready to submit.
+//                   </p>
+//                 </div>
+//               </div>
+//             </div>
+//           )}
+
+//           {/* Reload Mode - Ready to Update Banner */}
+//           {isReloadMode && scannedCount > (existingORTRecord?.ortLab?.scannedParts?.length || 0) && (
+//             <div className="mb-6 p-4 bg-blue-100 border border-blue-400 rounded-lg">
+//               <div className="flex items-center gap-3">
+//                 <CheckCircle className="h-6 w-6 text-blue-600" />
+//                 <div>
+//                   <h3 className="font-semibold text-blue-800">Additional Parts Added!</h3>
+//                   <p className="text-blue-700 text-sm">
+//                     {scannedCount - (existingORTRecord?.ortLab?.scannedParts?.length || 0)} new part(s) added.
+//                     Total: {scannedCount} parts. Ready to update.
+//                   </p>
+//                 </div>
+//               </div>
+//             </div>
+//           )}
+
+//           {/* Progress Summary Cards */}
+//           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+//             <Card>
+//               <CardContent className="pt-6">
+//                 <div className="text-center">
+//                   <p className="text-sm text-gray-500">Required</p>
+//                   <p className="text-3xl font-bold">{requiredQuantity}</p>
+//                 </div>
+//               </CardContent>
+//             </Card>
+//             <Card>
+//               <CardContent className="pt-6">
+//                 <div className="text-center">
+//                   <p className="text-sm text-gray-500">Scanned</p>
+//                   <p className={`text-3xl font-bold ${isComplete ? 'text-green-600' : 'text-blue-600'}`}>
+//                     {scannedCount}
+//                   </p>
+//                 </div>
+//               </CardContent>
+//             </Card>
+//             <Card>
+//               <CardContent className="pt-6">
+//                 <div className="text-center">
+//                   <p className="text-sm text-gray-500">Remaining</p>
+//                   <p className={`text-3xl font-bold ${remainingCount === 0 ? 'text-green-600' : 'text-yellow-600'}`}>
+//                     {remainingCount}
+//                   </p>
+//                 </div>
+//               </CardContent>
+//             </Card>
+//           </div>
+
+//           {/* Barcode Scanner Section */}
+//           <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+//             <div className="flex items-center justify-between mb-4">
+//               <h3 className="font-semibold text-lg text-blue-800 flex items-center gap-2">
+//                 <Scan className="h-5 w-5" />
+//                 Barcode Scanner
+//               </h3>
+//               <Button
+//                 variant="outline"
+//                 onClick={clearScannedData}
+//                 disabled={!serialNumber && scannedParts.length === 0}
+//               >
+//                 <Trash2 className="mr-2 h-4 w-4" />
+//                 Clear All
+//               </Button>
+//             </div>
+
+//             <div className="space-y-4">
+//               {/* Barcode Input */}
+//               <div className="space-y-2">
+//                 <Label htmlFor="barcodeInput" className="text-base font-medium">
+//                   Scanner Input <span className="text-red-600">*</span>
+//                 </Label>
+//                 <Input
+//                   ref={barcodeInputRef}
+//                   id="barcodeInput"
+//                   value={barcodeInput}
+//                   onChange={(e) => setBarcodeInput(e.target.value)}
+//                   onKeyDown={handleBarcodeInput}
+//                   placeholder="Enter barcode manually or click test buttons below (Press Enter to scan)"
+//                   className="h-12 font-mono text-lg border-2 border-blue-300 focus:border-blue-500"
+//                   autoFocus
+//                   disabled={isComplete}
+//                 />
+//                 {isComplete && (
+//                   <p className="text-sm text-green-600 font-medium">
+//                     All parts scanned. Ready to submit.
+//                   </p>
+//                 )}
+//               </div>
+
+//               {/* Test Barcode Buttons */}
+//               <div className="space-y-2">
+//                 <Label className="text-sm font-medium text-gray-700">
+//                   Test Barcodes (Click to simulate scan):
+//                 </Label>
+//                 <div className="flex flex-wrap gap-2">
+//                   {STATIC_BARCODE_DATA.map((barcode, index) => (
+//                     <Button
+//                       key={`test-barcode-${barcode}-${index}`}
+//                       variant="outline"
+//                       size="sm"
+//                       onClick={() => testWithStaticBarcode(barcode.split(':')[0])}
+//                       className="text-xs font-mono"
+//                       disabled={isComplete}
+//                     >
+//                       {barcode.split(':')[0]}
+//                     </Button>
+//                   ))}
+//                 </div>
+//               </div>
+
+//               {/* Camera Scanner */}
+//               <div className="space-y-2">
+//                 <Label className="text-sm font-medium text-gray-700">
+//                   Camera Scanner:
+//                 </Label>
+//                 <div className="flex gap-2">
+//                   <Button
+//                     variant="outline"
+//                     onClick={startScanner}
+//                     disabled={showScanner || isComplete}
+//                   >
+//                     <Scan className="mr-2 h-4 w-4" />
+//                     Start Camera Scanner
+//                   </Button>
+//                   {showScanner && (
+//                     <Button
+//                       variant="destructive"
+//                       onClick={stopScanner}
+//                     >
+//                       Stop Scanner
+//                     </Button>
+//                   )}
+//                 </div>
+//               </div>
+
+//               {/* Scanner Status */}
+//               <div className="p-3 bg-white rounded border">
+//                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+//                   <div>
+//                     <span className="font-medium text-gray-600">Serial Number:</span>
+//                     <p className="font-mono text-blue-700">{serialNumber || "Not scanned"}</p>
+//                   </div>
+//                   <div>
+//                     <span className="font-medium text-gray-600">Status:</span>
+//                     <p className={`font-medium ${isComplete ? 'text-green-600' : 'text-yellow-600'}`}>
+//                       {isComplete ? 'Complete' : `${scannedCount}/${requiredQuantity} parts scanned`}
+//                     </p>
+//                   </div>
+//                 </div>
+//               </div>
+//             </div>
+//           </div>
+
+//           {/* Camera Preview */}
+//           {showScanner && (
+//             <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+//               <Label className="text-sm font-medium text-gray-700 mb-2 block">
+//                 Camera Preview:
+//               </Label>
+//               <div className="relative rounded-lg overflow-hidden bg-black">
+//                 <video
+//                   ref={videoRef}
+//                   className="w-full h-auto"
+//                   autoPlay
+//                   playsInline
+//                 />
+//                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+//                   <div className="w-64 h-32 border-2 border-green-400 rounded-lg"></div>
+//                 </div>
+//               </div>
+//             </div>
+//           )}
+
+
+//           {/* Additional Parts Section - Only show in reload mode */}
+//           {isReloadMode && (
+//             <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border-2 border-green-300">
+//               <div className="mb-4">
+//                 <h3 className="font-semibold text-lg text-green-800 flex items-center gap-2">
+//                   <Barcode className="h-5 w-5" />
+//                   Add Additional Parts (PART006 - PART010)
+//                 </h3>
+//                 <p className="text-sm text-green-700 mt-1">
+//                   Click to select additional parts to add to existing record
+//                 </p>
+//               </div>
+
+//               {!serialNumber && (
+//                 <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg">
+//                   <p className="text-sm text-yellow-800 font-medium">
+//                     ⚠️ Please enter or scan a serial number first before selecting additional parts
+//                   </p>
+//                 </div>
+//               )}
+
+//               {/* Additional Parts Grid - 5 Buttons */}
+//               <div className="grid grid-cols-5 gap-3 mb-4">
+//                 {ADDITIONAL_PARTS.map((part) => {
+//                   const isSelected = selectedAdditionalParts.includes(part.partNumber);
+//                   const alreadyScanned = isPartAlreadyScanned(part.partNumber);
+
+//                   return (
+//                     <button
+//                       key={part.id}
+//                       onClick={() => !alreadyScanned && serialNumber && toggleAdditionalPart(part.partNumber)}
+//                       disabled={alreadyScanned || !serialNumber}
+//                       className={`
+//               p-4 rounded-lg border-2 transition-all text-center
+//               ${alreadyScanned
+//                           ? 'bg-gray-100 border-gray-300 cursor-not-allowed opacity-50'
+//                           : isSelected
+//                             ? 'bg-green-500 border-green-600 shadow-lg transform scale-105 cursor-pointer'
+//                             : 'bg-white border-green-200 hover:border-green-400 hover:shadow-md hover:scale-102 cursor-pointer'
+//                         }
+//               ${!serialNumber && !alreadyScanned ? 'opacity-50 cursor-not-allowed' : ''}
+//             `}
+//                     >
+//                       <div className="flex justify-center mb-2">
+//                         {alreadyScanned ? (
+//                           <CheckCircle className="h-6 w-6 text-green-600" />
+//                         ) : isSelected ? (
+//                           <div className="h-6 w-6 rounded-full bg-white flex items-center justify-center">
+//                             <CheckCircle className="h-5 w-5 text-green-600" />
+//                           </div>
+//                         ) : (
+//                           <div className="h-6 w-6 rounded-full border-2 border-gray-300" />
+//                         )}
+//                       </div>
+//                       <div className={`font-mono text-sm font-bold mb-1 ${isSelected ? 'text-white' : 'text-gray-800'}`}>
+//                         {part.partNumber}
+//                       </div>
+//                       <div className={`text-xs ${isSelected ? 'text-white' : 'text-gray-600'}`}>
+//                         {part.description}
+//                       </div>
+//                       {alreadyScanned && (
+//                         <div className="text-xs text-green-600 font-medium mt-2">
+//                           ✓ Added
+//                         </div>
+//                       )}
+//                     </button>
+//                   );
+//                 })}
+//               </div>
+
+//               {/* Selection Summary and Add Button */}
+//               {selectedAdditionalParts.length > 0 && (
+//                 <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
+//                   <div className="text-sm font-medium text-gray-700">
+//                     Selected: <span className="text-green-700 font-bold">{selectedAdditionalParts.length}</span> part(s)
+//                     <span className="text-gray-500 ml-2">
+//                       ({selectedAdditionalParts.join(', ')})
+//                     </span>
+//                   </div>
+//                   <div className="flex gap-2">
+//                     <Button
+//                       variant="outline"
+//                       size="sm"
+//                       onClick={() => setSelectedAdditionalParts([])}
+//                     >
+//                       Clear Selection
+//                     </Button>
+//                     <Button
+//                       onClick={addSelectedAdditionalParts}
+//                       className="bg-green-600 hover:bg-green-700 text-white"
+//                     >
+//                       <CheckCircle className="mr-2 h-4 w-4" />
+//                       Add {selectedAdditionalParts.length} Part(s)
+//                     </Button>
+//                   </div>
+//                 </div>
+//               )}
+
+//               {/* Quick Stats */}
+//               <div className="mt-3 pt-3 border-t border-green-200">
+//                 <div className="grid grid-cols-3 gap-4 text-center text-sm">
+//                   <div>
+//                     <div className="text-gray-500">Available</div>
+//                     <div className="text-lg font-bold text-green-700">
+//                       {ADDITIONAL_PARTS.length - scannedParts.filter(p =>
+//                         ADDITIONAL_PARTS.some(ap => ap.partNumber === p.partNumber)
+//                       ).length}
+//                     </div>
+//                   </div>
+//                   <div>
+//                     <div className="text-gray-500">Selected</div>
+//                     <div className="text-lg font-bold text-blue-700">
+//                       {selectedAdditionalParts.length}
+//                     </div>
+//                   </div>
+//                   <div>
+//                     <div className="text-gray-500">Already Added</div>
+//                     <div className="text-lg font-bold text-gray-700">
+//                       {scannedParts.filter(p =>
+//                         ADDITIONAL_PARTS.some(ap => ap.partNumber === p.partNumber)
+//                       ).length}
+//                     </div>
+//                   </div>
+//                 </div>
+//               </div>
+//             </div>
+//           )}
+
+//           {/* Scanned Parts Table */}
+//           {scannedParts.length > 0 && (
+//             <div className="mb-6">
+//               <div className="flex items-center justify-between mb-3">
+//                 <h3 className="font-semibold text-lg text-gray-700">
+//                   Scanned Parts ({scannedParts.length} {isReloadMode ? 'total' : `of ${requiredQuantity}`})
+//                 </h3>
+//                 {isReloadMode && existingORTRecord && (
+//                   <div className="text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1 rounded-full">
+//                     Original: {existingORTRecord.ortLab?.scannedParts?.length || 0} |
+//                     New: {scannedParts.length - (existingORTRecord.ortLab?.scannedParts?.length || 0)}
+//                   </div>
+//                 )}
+//               </div>
+//               <div className="overflow-x-auto border rounded-lg">
+//                 <Table>
+//                   <TableHeader>
+//                     <TableRow>
+//                       <TableHead className="w-16">#</TableHead>
+//                       <TableHead>Serial Number</TableHead>
+//                       <TableHead>Part Number</TableHead>
+//                       <TableHead>Description</TableHead>
+//                       <TableHead>Scanned At</TableHead>
+//                       {isReloadMode && <TableHead>Status</TableHead>}
+//                     </TableRow>
+//                   </TableHeader>
+//                   <TableBody>
+//                     {scannedParts.map((part, index) => {
+//                       const additionalPartDetails = ADDITIONAL_PARTS.find(p => p.partNumber === part.partNumber);
+//                       const isNewPart = isReloadMode && index >= (existingORTRecord?.ortLab?.scannedParts?.length || 0);
+//                       const isAdditionalPart = additionalPartDetails !== undefined;
+
+//                       return (
+//                         <TableRow
+//                           key={index}
+//                           className={`${isNewPart ? 'bg-green-50' : ''} ${isAdditionalPart ? 'border-l-4 border-l-green-500' : ''}`}
+//                         >
+//                           <TableCell className="font-medium">{index + 1}</TableCell>
+//                           <TableCell className="font-mono text-sm">{part.serialNumber}</TableCell>
+//                           <TableCell className="font-semibold text-blue-700">{part.partNumber}</TableCell>
+//                           <TableCell className="text-sm text-gray-600">
+//                             {additionalPartDetails?.description || `Component ${part.partNumber.replace('PART', '')}`}
+//                           </TableCell>
+//                           <TableCell className="text-sm">
+//                             {part.scannedAt.toLocaleTimeString([], {
+//                               hour: '2-digit',
+//                               minute: '2-digit',
+//                               second: '2-digit'
+//                             })}
+//                           </TableCell>
+//                           {isReloadMode && (
+//                             <TableCell>
+//                               {isNewPart ? (
+//                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-300">
+//                                   ✓ New
+//                                 </span>
+//                               ) : (
+//                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-300">
+//                                   Original
+//                                 </span>
+//                               )}
+//                             </TableCell>
+//                           )}
+//                         </TableRow>
+//                       );
+//                     })}
+//                   </TableBody>
+//                 </Table>
+//               </div>
+//             </div>
+//           )}
+
+//           {/* Progress Summary Cards
+//           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+//             <Card>
+//               <CardContent className="pt-6">
+//                 <div className="text-center">
+//                   <p className="text-sm text-gray-500">
+//                     {isReloadMode ? "Original Parts" : "Required"}
+//                   </p>
+//                   <p className="text-3xl font-bold">
+//                     {isReloadMode ? (existingORTRecord?.ortLab?.scannedParts?.length || 0) : requiredQuantity}
+//                   </p>
+//                 </div>
+//               </CardContent>
+//             </Card>
+//             <Card>
+//               <CardContent className="pt-6">
+//                 <div className="text-center">
+//                   <p className="text-sm text-gray-500">
+//                     {isReloadMode ? "Total Parts" : "Scanned"}
+//                   </p>
+//                   <p className={`text-3xl font-bold ${isComplete ? 'text-green-600' : 'text-blue-600'}`}>
+//                     {scannedCount}
+//                   </p>
+//                 </div>
+//               </CardContent>
+//             </Card>
+//             <Card>
+//               <CardContent className="pt-6">
+//                 <div className="text-center">
+//                   <p className="text-sm text-gray-500">
+//                     {isReloadMode ? "Parts Added" : "Remaining"}
+//                   </p>
+//                   <p className={`text-3xl font-bold ${isReloadMode
+//                     ? 'text-green-600'
+//                     : remainingCount === 0 ? 'text-green-600' : 'text-yellow-600'
+//                     }`}>
+//                     {isReloadMode
+//                       ? Math.max(0, scannedCount - (existingORTRecord?.ortLab?.scannedParts?.length || 0))
+//                       : remainingCount
+//                     }
+//                   </p>
+//                 </div>
+//               </CardContent>
+//             </Card>
+//           </div> */}
+
+//           {/* Action Buttons */}
+//           <div className="flex justify-end gap-4 pt-6 border-t">
+//             <Button
+//               variant="outline"
+//               onClick={() => navigate("/")}
+//               className="px-6"
+//             >
+//               Cancel
+//             </Button>
+//             <Button
+//               onClick={handleORTSubmit}
+//               disabled={!isComplete}
+//               className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+//             >
+//               <CheckCircle className="mr-2 h-4 w-4" />
+//               {isReloadMode ? "Update ORT Lab" : "Submit ORT Lab"}
+//             </Button>
+//           </div>
+//         </CardContent>
+//       </Card>
+//     </div>
+//   );
+// };
+
+// export default ORTLabPage;
+
+
 import React, { useRef, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
-import { ArrowLeft, X, Scan, Trash2, Plus, Minus, Edit, Play, CheckCircle, Barcode } from "lucide-react";
-
+import { ArrowLeft, X, Scan, Trash2, CheckCircle, Barcode } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+ 
 interface TestRecord {
   documentNumber: string;
   documentTitle: string;
@@ -27,320 +1083,98 @@ interface TestRecord {
   status: string;
   id: number;
   createdAt: string;
+  quantity: number;
+  project: string[];
+  line: string;
+  colour: string;
+  remarks: string;
 }
-
+ 
+interface ORTLabPageLocationState {
+  record: TestRecord;
+  reloadMode?: boolean;
+  existingRecord?: any;
+}
+ 
 // Static barcode data for testing
 const STATIC_BARCODE_DATA = [
   "SN001:PART001,PART002,PART003,PART004,PART005"
 ];
-
-// Sample parts for manual entry in reload mode
-const SAMPLE_PARTS = [
-  "PART006", "PART007", "PART008", "PART009", "PART010",
-  "PART011", "PART012", "PART013", "PART014", "PART015"
+ 
+// Static additional parts for reload mode
+const ADDITIONAL_PARTS = [
+  { id: 6, partNumber: "PART006" },
+  { id: 7, partNumber: "PART007" },
+  { id: 8, partNumber: "PART008" },
+  { id: 9, partNumber: "PART009" },
+  { id: 10, partNumber: "PART010" },
 ];
-
-// Interface for used parts tracking
-interface UsedParts {
-  [serialNumber: string]: string[];
-}
-
-// Interface for ORT records
-interface ORTRecord {
-  ortLab: {
-    date: string;
-    serialNumber: string;
-    partNumbers: string[];
-    scannedPartNumbers: string[];
-    splitRows: {
-      quantity: string;
-      buildProject: string;
-      line: string;
-      color: string;
-      remark: string;
-      assignedParts: string[];
-    }[];
-    remark: string;
-    submittedAt: string;
-  };
-}
-
-// Build/Project options
-const BUILD_PROJECT_OPTIONS = [
-  "PRQ/ProjectAA",
-  "PRB/ProjectBB"
-];
-
-// Line options
-const LINE_OPTIONS = [
-  "Line1",
-  "Line2"
-];
-
-// Color options
-const COLOR_OPTIONS = [
-  "NDA-XX",
-  "LB-XX",
-  "SD-XX"
-];
-
-// Interface for split row
-interface SplitRow {
-  id: string;
-  quantity: string;
-  buildProject: string;
-  line: string;
-  color: string;
-  remark: string;
-  assignedParts: string[];
-}
-
-// Interface for parts summary table
-interface PartsSummary {
+ 
+interface ScannedPart {
   serialNumber: string;
-  availableParts: string[];
-  assignedParts: string[];
-  unassignedParts: string[];
-  recordId: number;
+  partNumber: string;
+  scannedAt: Date;
 }
-
-// Interface for existing ORT record
-interface ExistingORTRecord {
-  documentNumber: string;
-  documentTitle: string;
-  projectName: string;
-  color: string;
-  testLocation: string;
-  testStartDate: string;
-  testCompletionDate: string;
-  sampleConfig: string;
-  status: string;
-  id: number;
-  createdAt: string;
-  ortLabId: number;
-  ortLab: {
-    submissionId: number;
-    date: string;
-    serialNumber: string;
-    partNumbers: string[];
-    scannedPartNumbers: string[];
-    splitRows: SplitRow[];
-    remark: string;
-    submittedAt: string;
-  };
-}
-
+ 
 const ORTLabPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const selectedRecord = location.state?.record as TestRecord | undefined;
-  const reloadMode = location.state?.reloadMode || false;
-  const existingRecord = location.state?.existingRecord as ExistingORTRecord | undefined;
-
-  const [ortForm, setOrtForm] = useState({
-    date: new Date().toISOString().split('T')[0],
-    remark: ""
-  });
-
+  const locationState = location.state as ORTLabPageLocationState | undefined;
+  const selectedRecord = locationState?.record;
+  const reloadMode = locationState?.reloadMode || false;
+  const existingRecord = locationState?.existingRecord;
+ 
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [serialNumber, setSerialNumber] = useState("");
-  const [scannedPartNumbers, setScannedPartNumbers] = useState<string[]>([]);
-  const [selectedPartNumbers, setSelectedPartNumbers] = useState<string[]>([]);
+  const [scannedParts, setScannedParts] = useState<ScannedPart[]>([]);
   const [barcodeInput, setBarcodeInput] = useState("");
-  const [usedParts, setUsedParts] = useState<UsedParts>({});
-  const [partsSummary, setPartsSummary] = useState<PartsSummary[]>([]);
-  const [showSummaryTable, setShowSummaryTable] = useState(false);
-  const [isReloadMode, setIsReloadMode] = useState(reloadMode);
-  const [manualPartInput, setManualPartInput] = useState("");
-  const [availableSampleParts, setAvailableSampleParts] = useState<string[]>(SAMPLE_PARTS);
+  const [isScanning, setIsScanning] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
-
-  // Split management
-  const [splitRows, setSplitRows] = useState<SplitRow[]>([
-    {
-      id: '1',
-      quantity: '',
-      buildProject: '',
-      line: '',
-      color: '',
-      remark: '',
-      assignedParts: []
-    }
-  ]);
-
+  const [isReloadMode, setIsReloadMode] = useState(false);
+  const [existingORTRecord, setExistingORTRecord] = useState<any>(null);
+  const [selectedAdditionalParts, setSelectedAdditionalParts] = useState<string[]>([]);
+ 
   // Auto-focus on barcode input
   useEffect(() => {
     if (barcodeInputRef.current) {
       barcodeInputRef.current.focus();
     }
   }, []);
-
-  // Handle reload mode initialization
+ 
+  // Load existing scanned parts if in reload mode
   useEffect(() => {
     if (reloadMode && existingRecord) {
       setIsReloadMode(true);
-
-      // Pre-fill the form with existing record data
-      setSerialNumber(existingRecord.ortLab.serialNumber);
-      setSelectedPartNumbers(existingRecord.ortLab.partNumbers);
-      setScannedPartNumbers(existingRecord.ortLab.scannedPartNumbers);
-
-      // Filter out parts that are already in the existing record
-      const existingPartsSet = new Set(existingRecord.ortLab.partNumbers);
-      const filteredSampleParts = SAMPLE_PARTS.filter(part => !existingPartsSet.has(part));
-      setAvailableSampleParts(filteredSampleParts);
-
+      setExistingORTRecord(existingRecord);
+ 
+      // Load existing scanned parts
+      if (existingRecord.ortLab?.scannedParts) {
+        setScannedParts(existingRecord.ortLab.scannedParts.map((part: any) => ({
+          ...part,
+          scannedAt: new Date(part.scannedAt)
+        })));
+        setSerialNumber(existingRecord.ortLab.serialNumber || "");
+      }
+ 
       toast({
-        title: "Reload Mode Activated",
-        description: `Adding parts to existing document: ${existingRecord.documentNumber}`,
-        duration: 3000,
+        title: "Reload Mode Active",
+        description: `Loaded ${existingRecord.ortLab?.scannedParts?.length || 0} existing parts. You can now add more parts.`,
+        duration: 4000,
       });
     }
   }, [reloadMode, existingRecord]);
-
-  // Load used parts and parts summary from localStorage on component mount
-  useEffect(() => {
-    const loadData = () => {
-      try {
-        const existingORTData = localStorage.getItem("ortLabRecords");
-        if (existingORTData) {
-          const ortRecords = JSON.parse(existingORTData);
-          const usedPartsMap: UsedParts = {};
-
-          // ⭐ NEW: Group records by serial number for proper aggregation
-          const serialGroupMap = new Map<string, any[]>();
-
-          ortRecords.forEach((record: any) => {
-            if (record.ortLab && record.ortLab.serialNumber && record.ortLab.partNumbers) {
-              const serial = record.ortLab.serialNumber;
-
-              // Group records by serial
-              if (!serialGroupMap.has(serial)) {
-                serialGroupMap.set(serial, []);
-              }
-              serialGroupMap.get(serial)!.push(record);
-            }
-          });
-
-          // ⭐ NEW: Process each serial group to aggregate all parts
-          const summary: PartsSummary[] = [];
-
-          serialGroupMap.forEach((records, serial) => {
-            // Aggregate all parts across all records for this serial
-            const allPartsSet = new Set<string>();
-            const allAssignedPartsSet = new Set<string>();
-            let recordId = 0;
-
-            records.forEach((record: any) => {
-              // Collect all part numbers
-              record.ortLab.partNumbers.forEach((part: string) => allPartsSet.add(part));
-
-              // Collect all assigned parts from all split rows
-              const assignedInRecord = record.ortLab.splitRows?.flatMap((row: any) => row.assignedParts) || [];
-              assignedInRecord.forEach((part: string) => allAssignedPartsSet.add(part));
-
-              recordId = record.ortLabId || record.id; // Use the latest record ID
-            });
-
-            const allParts = Array.from(allPartsSet);
-            const allAssignedParts = Array.from(allAssignedPartsSet);
-            const unassignedParts = allParts.filter(part => !allAssignedPartsSet.has(part));
-
-            // Add to used parts map
-            if (!usedPartsMap[serial]) {
-              usedPartsMap[serial] = [];
-            }
-            usedPartsMap[serial] = allParts;
-
-            // Add aggregated summary for this serial
-            summary.push({
-              serialNumber: serial,
-              availableParts: allParts,
-              assignedParts: allAssignedParts,
-              unassignedParts: unassignedParts,
-              recordId: recordId
-            });
-          });
-
-          setUsedParts(usedPartsMap);
-          setPartsSummary(summary);
-        }
-      } catch (error) {
-        console.error("Error loading data:", error);
-      }
-    };
-
-    loadData();
-  }, []);
-
-  // Get available (unused) part numbers for current serial
-  const getAvailablePartNumbers = (allParts: string[], serial: string) => {
-    // Get the summary for this serial (which now aggregates all records)
-    const summary = partsSummary.find(s => s.serialNumber === serial);
-
-    if (summary) {
-      // Filter out parts that are already assigned in ANY record for this serial
-      return allParts.filter(part => !summary.assignedParts.includes(part));
-    }
-
-    // If no summary exists yet, all parts are available
-    return allParts;
-  };
-
-  // Get unassigned part numbers (parts not assigned to any row yet)
-  const getUnassignedPartNumbers = () => {
-    const assignedParts = splitRows.flatMap(row => row.assignedParts);
-    return selectedPartNumbers.filter(part => !assignedParts.includes(part));
-  };
-
-  // Check if a serial number has all parts assigned
-  const isSerialComplete = (serial: string): boolean => {
-    const summary = partsSummary.find(s => s.serialNumber === serial);
-    if (!summary) return false;
-
-    // ⭐ A serial is complete when there are no unassigned parts
-    return summary.unassignedParts.length === 0 && summary.availableParts.length > 0;
-  };
-  // Get completion status for a serial number
-  const getSerialCompletionStatus = (serial: string): { complete: boolean; assigned: number; total: number } => {
-    const summary = partsSummary.find(s => s.serialNumber === serial);
-    if (!summary) return { complete: false, assigned: 0, total: 0 };
-
-    return {
-      complete: summary.unassignedParts.length === 0,
-      assigned: summary.assignedParts.length,
-      total: summary.availableParts.length
-    };
-  };
-
-  // Handle physical barcode scanner input
-  // const handleBarcodeInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
-  //   if (e.key === 'Enter') {
-  //     e.preventDefault();
-
-  //     const barcodeData = barcodeInput.trim();
-  //     if (barcodeData) {
-  //       processBarcodeData(barcodeData);
-  //       setBarcodeInput("");
-
-  //       // Auto-refocus for next scan
-  //       setTimeout(() => {
-  //         if (barcodeInputRef.current) {
-  //           barcodeInputRef.current.focus();
-  //         }
-  //       }, 100);
-  //     }
-  //   }
-  // };
-
+ 
+  // Handle barcode input from physical scanner
   const handleBarcodeInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-
+ 
       const barcodeData = barcodeInput.trim();
       if (barcodeData) {
         processBarcodeData(barcodeData);
-        setBarcodeInput(""); // Clear input after processing
-
+        setBarcodeInput("");
+ 
         // Auto-refocus for next scan
         setTimeout(() => {
           if (barcodeInputRef.current) {
@@ -350,262 +1184,8 @@ const ORTLabPage: React.FC = () => {
       }
     }
   };
-
-
-  // NEW: Handle manual part input for reload mode
-  const handleManualPartInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-
-      const part = manualPartInput.trim().toUpperCase();
-      if (part) {
-        addManualPart(part);
-        setManualPartInput("");
-      }
-    }
-  };
-
-  // NEW: Add manual part
-  const addManualPart = (part: string) => {
-    if (selectedPartNumbers.includes(part)) {
-      toast({
-        variant: "destructive",
-        title: "Duplicate Part",
-        description: `Part ${part} is already added`,
-        duration: 2000,
-      });
-      return;
-    }
-
-    const newParts = [...selectedPartNumbers, part];
-    setSelectedPartNumbers(newParts);
-    setScannedPartNumbers(newParts);
-
-    toast({
-      title: "Part Added",
-      description: `Part ${part} added successfully`,
-      duration: 2000,
-    });
-  };
-
-  // NEW: Add sample part
-  const addSamplePart = (part: string) => {
-    if (selectedPartNumbers.includes(part)) {
-      toast({
-        variant: "destructive",
-        title: "Duplicate Part",
-        description: `Part ${part} is already added`,
-        duration: 2000,
-      });
-      return;
-    }
-
-    const newParts = [...selectedPartNumbers, part];
-    setSelectedPartNumbers(newParts);
-    setScannedPartNumbers(newParts);
-
-    // Remove from available sample parts
-    setAvailableSampleParts(prev => prev.filter(p => p !== part));
-
-    toast({
-      title: "Sample Part Added",
-      description: `Part ${part} added successfully`,
-      duration: 2000,
-    });
-  };
-
-  // NEW: Add multiple sample parts at once
-  const addMultipleSampleParts = (count: number) => {
-    const partsToAdd = availableSampleParts.slice(0, count);
-
-    if (partsToAdd.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "No Parts Available",
-        description: "No more sample parts available to add",
-        duration: 2000,
-      });
-      return;
-    }
-
-    const newParts = [...selectedPartNumbers, ...partsToAdd];
-    setSelectedPartNumbers(newParts);
-    setScannedPartNumbers(newParts);
-
-    // Remove from available sample parts
-    setAvailableSampleParts(prev => prev.slice(count));
-
-    toast({
-      title: "Sample Parts Added",
-      description: `${partsToAdd.length} sample parts added successfully`,
-      duration: 3000,
-    });
-  };
-
-  // Process barcode data from physical scanner
-  // const processBarcodeData = (data: string) => {
-  //   if (!data.trim()) {
-  //     toast({
-  //       variant: "destructive",
-  //       title: "Invalid Barcode",
-  //       description: "Scanned data is empty",
-  //       duration: 2000,
-  //     });
-  //     return;
-  //   }
-
-  //   try {
-  //     let serial = "";
-  //     let partNumbers: string[] = [];
-
-  //     // Check if input is a static barcode from our test data
-  //     const staticBarcode = STATIC_BARCODE_DATA.find(barcode =>
-  //       barcode.split(':')[0] === data.toUpperCase()
-  //     );
-
-  //     if (staticBarcode) {
-  //       const parts = staticBarcode.split(':');
-  //       serial = parts[0].trim();
-  //       if (parts.length > 1) {
-  //         partNumbers = parts[1].split(',')
-  //           .map(p => p.trim())
-  //           .filter(p => p.length > 0);
-  //       }
-  //     }
-  //     // Format 1: SERIAL:PART1,PART2,PART3
-  //     else if (data.includes(':') && data.includes(',')) {
-  //       const parts = data.split(':');
-  //       serial = parts[0].trim();
-
-  //       if (parts.length > 1) {
-  //         partNumbers = parts[1].split(',')
-  //           .map(p => p.trim())
-  //           .filter(p => p.length > 0);
-  //       }
-  //     }
-  //     // Format 2: SERIAL:PART1 (single part)
-  //     else if (data.includes(':') && !data.includes(',')) {
-  //       const parts = data.split(':');
-  //       serial = parts[0].trim();
-  //       if (parts.length > 1) {
-  //         partNumbers = [parts[1].trim()];
-  //       }
-  //     }
-  //     // Format 3: JSON format from smart scanners
-  //     else if (data.startsWith('{') && data.endsWith('}')) {
-  //       try {
-  //         const parsedData = JSON.parse(data);
-  //         serial = parsedData.serial || parsedData.Serial || parsedData.SN || "";
-  //         partNumbers = Array.isArray(parsedData.parts) ? parsedData.parts
-  //           : Array.isArray(parsedData.partNumbers) ? parsedData.partNumbers
-  //             : parsedData.part ? [parsedData.part]
-  //               : [];
-  //       } catch (jsonError) {
-  //         console.error("JSON parse error:", jsonError);
-  //         serial = data.trim();
-  //       }
-  //     }
-  //     // Format 4: Simple serial number only
-  //     else {
-  //       serial = data.trim();
-  //     }
-
-  //     // Validate serial number
-  //     if (!serial) {
-  //       toast({
-  //         variant: "destructive",
-  //         title: "Invalid Barcode Format",
-  //         description: "No serial number found in scanned data",
-  //         duration: 3000,
-  //       });
-  //       return;
-  //     }
-
-  //     // Check if this serial is already complete
-  //     if (isSerialComplete(serial)) {
-  //       const status = getSerialCompletionStatus(serial);
-  //       toast({
-  //         variant: "default",
-  //         title: "✅ All Parts Already Scanned",
-  //         description: `Serial ${serial} is complete! ${status.assigned}/${status.total} parts assigned.`,
-  //         duration: 4000,
-  //       });
-  //       return;
-  //     }
-
-  //     // Set serial number
-  //     setSerialNumber(serial);
-
-  //     // Check if this serial already exists in our records
-  //     const existingSummary = partsSummary.find(summary => summary.serialNumber === serial);
-
-  //     if (existingSummary) {
-  //       // Serial exists - show remaining unassigned parts
-  //       const remainingParts = existingSummary.unassignedParts;
-  //       const status = getSerialCompletionStatus(serial);
-
-  //       if (remainingParts.length > 0) {
-  //         setScannedPartNumbers(remainingParts);
-  //         setSelectedPartNumbers(remainingParts);
-  //         toast({
-  //           title: "🔄 Continuing with Existing Serial",
-  //           description: `Serial: ${serial} - ${remainingParts.length} unassigned parts remaining (${status.assigned}/${status.total} already assigned)`,
-  //           duration: 4000,
-  //         });
-  //       } else {
-  //         // This should not happen due to earlier check, but just in case
-  //         setScannedPartNumbers([]);
-  //         setSelectedPartNumbers([]);
-  //         toast({
-  //           title: "✅ All Parts Already Assigned",
-  //           description: `Serial: ${serial} - All ${status.total} parts have been assigned`,
-  //           duration: 3000,
-  //         });
-  //       }
-  //     } else if (partNumbers.length > 0) {
-  //       // New serial number - get available (unused) parts
-  //       const availableParts = getAvailablePartNumbers(partNumbers, serial);
-
-  //       setScannedPartNumbers(availableParts);
-
-  //       if (availableParts.length > 0) {
-  //         // Auto-select all available parts
-  //         setSelectedPartNumbers(availableParts);
-  //         toast({
-  //           title: "✅ New Serial Scanned",
-  //           description: `Serial: ${serial}, ${availableParts.length} available part(s) loaded`,
-  //           duration: 3000,
-  //         });
-  //       } else {
-  //         setSelectedPartNumbers([]);
-  //         toast({
-  //           title: "⚠️ All Parts Already Used",
-  //           description: `Serial: ${serial} - All parts from this barcode are already used in previous records`,
-  //           duration: 3000,
-  //         });
-  //       }
-  //     } else {
-  //       // Serial only, no parts
-  //       setScannedPartNumbers([]);
-  //       setSelectedPartNumbers([]);
-  //       toast({
-  //         title: "✅ Serial Number Scanned",
-  //         description: `Serial: ${serial} - No parts found in barcode`,
-  //         duration: 3000,
-  //       });
-  //     }
-
-  //   } catch (error) {
-  //     console.error("Barcode processing error:", error);
-  //     toast({
-  //       variant: "destructive",
-  //       title: "Scan Error",
-  //       description: "Failed to process barcode data. Please check the format.",
-  //       duration: 3000,
-  //     });
-  //   }
-  // };
-
+ 
+  // Process barcode data
   const processBarcodeData = (data: string) => {
     if (!data.trim()) {
       toast({
@@ -616,16 +1196,16 @@ const ORTLabPage: React.FC = () => {
       });
       return;
     }
-
+ 
     try {
       let serial = "";
       let partNumbers: string[] = [];
-
-      // [Keep existing parsing logic - same as before]
+ 
+      // Check if input is a static barcode from our test data
       const staticBarcode = STATIC_BARCODE_DATA.find(barcode =>
         barcode.split(':')[0] === data.toUpperCase()
       );
-
+ 
       if (staticBarcode) {
         const parts = staticBarcode.split(':');
         serial = parts[0].trim();
@@ -635,6 +1215,7 @@ const ORTLabPage: React.FC = () => {
             .filter(p => p.length > 0);
         }
       }
+      // Format 1: SERIAL:PART1,PART2,PART3
       else if (data.includes(':') && data.includes(',')) {
         const parts = data.split(':');
         serial = parts[0].trim();
@@ -644,6 +1225,7 @@ const ORTLabPage: React.FC = () => {
             .filter(p => p.length > 0);
         }
       }
+      // Format 2: SERIAL:PART1 (single part)
       else if (data.includes(':') && !data.includes(',')) {
         const parts = data.split(':');
         serial = parts[0].trim();
@@ -651,23 +1233,12 @@ const ORTLabPage: React.FC = () => {
           partNumbers = [parts[1].trim()];
         }
       }
-      else if (data.startsWith('{') && data.endsWith('}')) {
-        try {
-          const parsedData = JSON.parse(data);
-          serial = parsedData.serial || parsedData.Serial || parsedData.SN || "";
-          partNumbers = Array.isArray(parsedData.parts) ? parsedData.parts
-            : Array.isArray(parsedData.partNumbers) ? parsedData.partNumbers
-              : parsedData.part ? [parsedData.part]
-                : [];
-        } catch (jsonError) {
-          console.error("JSON parse error:", jsonError);
-          serial = data.trim();
-        }
-      }
+      // Format 3: Simple serial number only
       else {
         serial = data.trim();
       }
-
+ 
+      // Validate serial number
       if (!serial) {
         toast({
           variant: "destructive",
@@ -677,66 +1248,63 @@ const ORTLabPage: React.FC = () => {
         });
         return;
       }
-
-      // ⭐ CRITICAL: Check completion using aggregated data
-      if (isSerialComplete(serial)) {
-        const status = getSerialCompletionStatus(serial);
+ 
+      // Set serial number
+      setSerialNumber(serial);
+ 
+      // Check if we've reached the required quantity (skip in reload mode)
+      const requiredQuantity = selectedRecord?.quantity || 0;
+      if (!isReloadMode && scannedParts.length >= requiredQuantity) {
         toast({
-          variant: "default",
-          title: "✅ Serial Already Complete",
-          description: `Serial ${serial} has all parts assigned (${status.assigned}/${status.total}). No further scanning needed.`,
-          duration: 4000,
+          variant: "destructive",
+          title: "Quantity Limit Reached",
+          description: `Required quantity is ${requiredQuantity}. All parts have been scanned.`,
+          duration: 3000,
         });
-        setBarcodeInput("");
         return;
       }
-
-      setSerialNumber(serial);
-
-      // ⭐ Get aggregated summary for this serial
-      const existingSummary = partsSummary.find(summary => summary.serialNumber === serial);
-
-      if (existingSummary) {
-        // Serial exists - show remaining unassigned parts from aggregated data
-        const remainingParts = existingSummary.unassignedParts;
-        const status = getSerialCompletionStatus(serial);
-
-        if (remainingParts.length > 0) {
-          setScannedPartNumbers(remainingParts);
-          setSelectedPartNumbers(remainingParts);
+ 
+      // Add scanned parts
+      const newParts: ScannedPart[] = partNumbers.map(part => ({
+        serialNumber: serial,
+        partNumber: part,
+        scannedAt: new Date()
+      }));
+ 
+      // Replace the parts addition section with:
+      // Check how many more parts we can add
+      const remainingCapacity = isReloadMode
+        ? 999 // Allow unlimited additional parts in reload mode
+        : requiredQuantity - scannedParts.length;
+      const partsToAdd = newParts.slice(0, remainingCapacity);
+ 
+      if (partsToAdd.length > 0) {
+        setScannedParts(prev => [...prev, ...partsToAdd]);
+ 
+        const messagePrefix = isReloadMode ? "Additional" : "";
+        toast({
+          title: `${messagePrefix} Parts Scanned`,
+          description: `Added ${partsToAdd.length} part(s) to serial ${serial}${isReloadMode ? ' (Reload Mode)' : ''}`,
+          duration: 2000,
+        });
+ 
+        // Check if we reached required quantity (only in normal mode)
+        if (!isReloadMode && scannedParts.length + partsToAdd.length >= requiredQuantity) {
           toast({
-            title: "🔄 Continuing with Existing Serial",
-            description: `Serial: ${serial} - ${remainingParts.length} unassigned parts remaining (${status.assigned}/${status.total} already assigned)`,
-            duration: 4000,
-          });
-        } else {
-          setScannedPartNumbers([]);
-          setSelectedPartNumbers([]);
-          toast({
-            title: "✅ All Parts Already Assigned",
-            description: `Serial: ${serial} - All ${status.total} parts have been assigned`,
+            title: "All Parts Scanned!",
+            description: `All ${requiredQuantity} parts have been scanned successfully.`,
             duration: 3000,
           });
         }
-      } else if (partNumbers.length > 0) {
-        // New serial number - all parts are available
-        setScannedPartNumbers(partNumbers);
-        setSelectedPartNumbers(partNumbers);
-        toast({
-          title: "✅ New Serial Scanned",
-          description: `Serial: ${serial}, ${partNumbers.length} available part(s) loaded`,
-          duration: 3000,
-        });
       } else {
-        setScannedPartNumbers([]);
-        setSelectedPartNumbers([]);
         toast({
-          title: "✅ Serial Number Scanned",
-          description: `Serial: ${serial} - No parts found in barcode`,
+          variant: "destructive",
+          title: "Cannot Add More Parts",
+          description: `Required quantity ${requiredQuantity} already reached.`,
           duration: 3000,
         });
       }
-
+ 
     } catch (error) {
       console.error("Barcode processing error:", error);
       toast({
@@ -747,1379 +1315,717 @@ const ORTLabPage: React.FC = () => {
       });
     }
   };
-  // Manual serial number input fallback
-  // const handleManualSerialInput = (value: string) => {
-  //   // Check if this serial is already complete
-  //   if (isSerialComplete(value)) {
-  //     const status = getSerialCompletionStatus(value);
-  //     toast({
-  //       variant: "default",
-  //       title: "✅ All Parts Already Scanned",
-  //       description: `Serial ${value} is complete! ${status.assigned}/${status.total} parts assigned.`,
-  //       duration: 4000,
-  //     });
-  //     return;
-  //   }
-
-  //   setSerialNumber(value);
-
-  //   // Check if this serial exists in records
-  //   const existingSummary = partsSummary.find(summary => summary.serialNumber === value);
-  //   if (existingSummary && existingSummary.unassignedParts.length > 0) {
-  //     setScannedPartNumbers(existingSummary.unassignedParts);
-  //     setSelectedPartNumbers(existingSummary.unassignedParts);
-  //     const status = getSerialCompletionStatus(value);
-  //     toast({
-  //       title: "Existing Serial Loaded",
-  //       description: `Loaded ${existingSummary.unassignedParts.length} unassigned parts (${status.assigned}/${status.total} already assigned)`,
-  //       duration: 2000,
-  //     });
-  //   } else {
-  //     setScannedPartNumbers([]);
-  //     setSelectedPartNumbers([]);
-  //   }
-
-  //   setSplitRows([{
-  //     id: '1',
-  //     quantity: '',
-  //     buildProject: '',
-  //     line: '',
-  //     color: '',
-  //     remark: '',
-  //     assignedParts: []
-  //   }]);
-  // };
-
-  const handleManualSerialInput = (value: string) => {
-    // ⭐ CRITICAL FIX: Check if serial is complete FIRST
-    if (isSerialComplete(value)) {
-      const status = getSerialCompletionStatus(value);
-      toast({
-        variant: "default",
-        title: "✅ Serial Already Complete",
-        description: `Serial ${value} has all parts assigned (${status.assigned}/${status.total}). No further action needed.`,
-        duration: 4000,
-      });
-
-      // ⭐ IMPORTANT: Don't set the serial number - block the action
-      return; // Exit function completely
-    }
-
-    setSerialNumber(value);
-
-    // Check if this serial exists in records
-    const existingSummary = partsSummary.find(summary => summary.serialNumber === value);
-    if (existingSummary && existingSummary.unassignedParts.length > 0) {
-      setScannedPartNumbers(existingSummary.unassignedParts);
-      setSelectedPartNumbers(existingSummary.unassignedParts);
-      const status = getSerialCompletionStatus(value);
-      toast({
-        title: "Existing Serial Loaded",
-        description: `Loaded ${existingSummary.unassignedParts.length} unassigned parts (${status.assigned}/${status.total} already assigned)`,
-        duration: 2000,
-      });
-    } else {
-      setScannedPartNumbers([]);
-      setSelectedPartNumbers([]);
-    }
-
-    setSplitRows([{
-      id: '1',
-      quantity: '',
-      buildProject: '',
-      line: '',
-      color: '',
-      remark: '',
-      assignedParts: []
-    }]);
+ 
+  // Test with static barcode data
+  const testWithStaticBarcode = (barcode: string) => {
+    setBarcodeInput(barcode);
+    processBarcodeData(barcode);
+    setBarcodeInput("");
   };
-
+ 
   // Clear all scanned data
   const clearScannedData = () => {
     setSerialNumber("");
-    setScannedPartNumbers([]);
-    setSelectedPartNumbers([]);
+    setScannedParts([]);
     setBarcodeInput("");
-    setManualPartInput("");
-    setSplitRows([{
-      id: '1',
-      quantity: '',
-      buildProject: '',
-      line: '',
-      color: '',
-      remark: '',
-      assignedParts: []
-    }]);
-
-    // Reset available sample parts in reload mode
-    if (isReloadMode && existingRecord) {
-      const existingPartsSet = new Set(existingRecord.ortLab.partNumbers);
-      const filteredSampleParts = SAMPLE_PARTS.filter(part => !existingPartsSet.has(part));
-      setAvailableSampleParts(filteredSampleParts);
-    } else {
-      setAvailableSampleParts(SAMPLE_PARTS);
-    }
-
     if (barcodeInputRef.current) {
       barcodeInputRef.current.focus();
     }
-
     toast({
       title: "Data Cleared",
       description: "All scanned data has been cleared",
       duration: 2000,
     });
   };
-
-  // Test with static barcode data
-  // const testWithStaticBarcode = (barcode: string) => {
-  //   setBarcodeInput(barcode);
-  //   processBarcodeData(barcode);
-  //   setBarcodeInput("");
-  // };
-
-  const testWithStaticBarcode = (barcode: string) => {
-    // Extract serial from barcode
-    const serial = barcode.split(':')[0];
-
-    // ⭐ Check if serial is complete before processing
-    if (isSerialComplete(serial)) {
-      const status = getSerialCompletionStatus(serial);
-      toast({
-        variant: "default",
-        title: "✅ Serial Already Complete",
-        description: `Serial ${serial} has all parts assigned (${status.assigned}/${status.total}). Cannot scan again.`,
-        duration: 4000,
+ 
+  // Start/Stop camera scanner
+  const startScanner = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" }
       });
-      return; // Exit without processing
-    }
-
-    setBarcodeInput(barcode);
-    processBarcodeData(barcode);
-    setBarcodeInput("");
-  };
-
-  // Add a new split row
-  const addSplitRow = () => {
-    const newId = (splitRows.length + 1).toString();
-    setSplitRows([...splitRows, {
-      id: newId,
-      quantity: '',
-      buildProject: '',
-      line: '',
-      color: '',
-      remark: '',
-      assignedParts: []
-    }]);
-  };
-
-  // Remove a split row
-  const removeSplitRow = (id: string) => {
-    if (splitRows.length === 1) {
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        setIsScanning(true);
+        setShowScanner(true);
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
       toast({
         variant: "destructive",
-        title: "Cannot Remove",
-        description: "At least one row is required",
-        duration: 2000,
-      });
-      return;
-    }
-    setSplitRows(splitRows.filter(row => row.id !== id));
-  };
-
-  // Update split row field
-  const updateSplitRow = (id: string, field: keyof SplitRow, value: string) => {
-    setSplitRows(splitRows.map(row =>
-      row.id === id ? { ...row, [field]: value } : row
-    ));
-  };
-
-  // Auto-assign parts based on quantities
-  const autoAssignParts = () => {
-    if (selectedPartNumbers.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "No Parts Available",
-        description: "Please scan and select parts first",
-        duration: 2000,
-      });
-      return;
-    }
-
-    // Validate quantities
-    const totalQuantity = splitRows.reduce((sum, row) => {
-      const qty = parseInt(row.quantity) || 0;
-      return sum + qty;
-    }, 0);
-
-    if (totalQuantity === 0) {
-      toast({
-        variant: "destructive",
-        title: "Invalid Quantities",
-        description: "Please enter quantities for the rows",
-        duration: 2000,
-      });
-      return;
-    }
-
-    if (totalQuantity > selectedPartNumbers.length) {
-      toast({
-        variant: "destructive",
-        title: "Insufficient Parts",
-        description: `Total quantity (${totalQuantity}) exceeds available parts (${selectedPartNumbers.length})`,
+        title: "Camera Error",
+        description: "Unable to access camera. Please check permissions.",
         duration: 3000,
       });
-      return;
     }
-
-    // Assign parts to rows based on quantity
-    let currentIndex = 0;
-    const updatedRows = splitRows.map(row => {
-      const qty = parseInt(row.quantity) || 0;
-      const assignedParts = selectedPartNumbers.slice(currentIndex, currentIndex + qty);
-      currentIndex += qty;
-      return { ...row, assignedParts };
-    });
-
-    setSplitRows(updatedRows);
-
-    toast({
-      title: "✅ Parts Assigned",
-      description: `${totalQuantity} parts have been assigned to ${splitRows.length} row(s)`,
-      duration: 3000,
+  };
+ 
+  const stopScanner = () => {
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setIsScanning(false);
+    setShowScanner(false);
+  };
+ 
+  // Toggle additional part selection
+  const toggleAdditionalPart = (partNumber: string) => {
+    setSelectedAdditionalParts(prev => {
+      if (prev.includes(partNumber)) {
+        return prev.filter(p => p !== partNumber);
+      } else {
+        return [...prev, partNumber];
+      }
     });
   };
-
-  // Form handling functions
-  const handleORTInputChange = (field: keyof typeof ortForm, value: string) => {
-    setOrtForm(prev => ({
-      ...prev,
-      [field]: value
-    }));
+ 
+  // Check if a part is already scanned
+  const isPartAlreadyScanned = (partNumber: string) => {
+    return scannedParts.some(part => part.partNumber === partNumber);
   };
-
-  // Handle ORT Submit with reload mode support
-  // const handleORTSubmit = () => {
-  //   if (!selectedRecord && !isReloadMode) return;
-
-  //   // Validate basic fields
-  //   if (!ortForm.date) {
-  //     toast({
-  //       variant: "destructive",
-  //       title: "Incomplete Form",
-  //       description: "Please fill in the date field.",
-  //       duration: 2000,
-  //     });
-  //     return;
-  //   }
-
-  //   if (!serialNumber) {
-  //     toast({
-  //       variant: "destructive",
-  //       title: "Missing Serial Number",
-  //       description: "Please scan or enter a serial number.",
-  //       duration: 2000,
-  //     });
-  //     return;
-  //   }
-
-  //   if (selectedPartNumbers.length === 0) {
-  //     toast({
-  //       variant: "destructive",
-  //       title: "No Part Numbers",
-  //       description: "Please scan and select parts.",
-  //       duration: 2000,
-  //     });
-  //     return;
-  //   }
-
-  //   // Validate split rows
-  //   const invalidRows = splitRows.filter(row =>
-  //     !row.quantity || !row.buildProject || !row.line || !row.color || row.assignedParts.length === 0
-  //   );
-
-  //   if (invalidRows.length > 0) {
-  //     toast({
-  //       variant: "destructive",
-  //       title: "Incomplete Split Rows",
-  //       description: "Please complete all rows (Quantity, Build/Project, Line, Color) and assign parts.",
-  //       duration: 3000,
-  //     });
-  //     return;
-  //   }
-
-  //   // Check if all selected parts are assigned
-  //   const totalAssigned = splitRows.reduce((sum, row) => sum + row.assignedParts.length, 0);
-  //   const unassignedParts = selectedPartNumbers.filter(part =>
-  //     !splitRows.flatMap(row => row.assignedParts).includes(part)
-  //   );
-
-  //   try {
-  //     const ortLabId = Date.now();
-
-  //     let ortLabData;
-
-  //     if (isReloadMode && existingRecord) {
-  //       // Reload mode: Merge with existing record
-  //       const mergedPartNumbers = [...new Set([...existingRecord.ortLab.partNumbers, ...selectedPartNumbers])];
-  //       const mergedScannedParts = [...new Set([...existingRecord.ortLab.scannedPartNumbers, ...scannedPartNumbers])];
-  //       const mergedSplitRows = [...existingRecord.ortLab.splitRows, ...splitRows.map(row => ({
-  //         quantity: row.quantity,
-  //         buildProject: row.buildProject,
-  //         line: row.line,
-  //         color: row.color,
-  //         remark: row.remark,
-  //         assignedParts: row.assignedParts
-  //       }))];
-
-  //       ortLabData = {
-  //         ...existingRecord,
-  //         ortLabId: ortLabId,
-  //         ortLab: {
-  //           submissionId: ortLabId,
-  //           date: new Date().toISOString().split('T')[0], // Current date for reload
-  //           serialNumber: serialNumber,
-  //           partNumbers: mergedPartNumbers,
-  //           scannedPartNumbers: mergedScannedParts,
-  //           splitRows: mergedSplitRows,
-  //           remark: ortForm.remark || existingRecord.ortLab.remark,
-  //           submittedAt: new Date().toISOString() // Current timestamp
-  //         }
-  //       };
-
-  //       // Remove the old record and add the merged record
-  //       const existingORTData = localStorage.getItem("ortLabRecords");
-  //       const ortRecords = existingORTData ? JSON.parse(existingORTData) : [];
-  //       const updatedRecords = ortRecords.filter((record: any) =>
-  //         record.ortLabId !== existingRecord.ortLabId
-  //       );
-
-  //       // Add the merged record
-  //       updatedRecords.push(ortLabData);
-  //       localStorage.setItem("ortLabRecords", JSON.stringify(updatedRecords));
-
-  //     } else {
-  //       // Normal mode: Create new record
-  //       ortLabData = {
-  //         ...selectedRecord!,
-  //         ortLabId: ortLabId,
-  //         ortLab: {
-  //           submissionId: ortLabId,
-  //           date: ortForm.date,
-  //           serialNumber: serialNumber,
-  //           partNumbers: selectedPartNumbers,
-  //           scannedPartNumbers: scannedPartNumbers,
-  //           splitRows: splitRows.map(row => ({
-  //             quantity: row.quantity,
-  //             buildProject: row.buildProject,
-  //             line: row.line,
-  //             color: row.color,
-  //             remark: row.remark,
-  //             assignedParts: row.assignedParts
-  //           })),
-  //           remark: ortForm.remark,
-  //           submittedAt: new Date().toISOString()
-  //         }
-  //       };
-
-  //       const existingORTData = localStorage.getItem("ortLabRecords");
-  //       const ortRecords = existingORTData ? JSON.parse(existingORTData) : [];
-  //       ortRecords.push(ortLabData);
-  //       localStorage.setItem("ortLabRecords", JSON.stringify(ortRecords));
-  //     }
-
-  //     // Update used parts in state
-  //     setUsedParts(prev => {
-  //       const newUsedParts = { ...prev };
-  //       if (!newUsedParts[serialNumber]) {
-  //         newUsedParts[serialNumber] = [];
-  //       }
-  //       newUsedParts[serialNumber] = [...new Set([...newUsedParts[serialNumber], ...selectedPartNumbers])];
-  //       return newUsedParts;
-  //     });
-
-  //     // Update parts summary - Store only current session data
-  //     const assignedParts = splitRows.flatMap(row => row.assignedParts);
-
-  //     setPartsSummary(prev => {
-  //       const filtered = prev.filter(summary => summary.recordId !== ortLabId);
-  //       return [...filtered, {
-  //         serialNumber: serialNumber,
-  //         availableParts: selectedPartNumbers,
-  //         assignedParts: assignedParts,
-  //         unassignedParts: unassignedParts,
-  //         recordId: ortLabId
-  //       }];
-  //     });
-
-  //     // Success message
-  //     toast({
-  //       title: isReloadMode ? "✅ Parts Reloaded Successfully" : "✅ ORT Lab Submitted",
-  //       description: isReloadMode
-  //         ? `Added ${selectedPartNumbers.length} new parts to document ${existingRecord?.documentNumber}`
-  //         : `ORT Lab data with ${splitRows.length} split(s) has been saved successfully!`,
-  //       duration: 4000,
-  //     });
-
-  //     // Clear form for next entry
-  //     setSerialNumber("");
-  //     setScannedPartNumbers([]);
-  //     setSelectedPartNumbers([]);
-  //     setSplitRows([{
-  //       id: '1',
-  //       quantity: '',
-  //       buildProject: '',
-  //       line: '',
-  //       color: '',
-  //       remark: '',
-  //       assignedParts: []
-  //     }]);
-  //     setBarcodeInput("");
-  //     setManualPartInput("");
-  //     setIsReloadMode(false);
-
-  //     // Show summary table
-  //     setShowSummaryTable(true);
-
-  //   } catch (error) {
-  //     toast({
-  //       variant: "destructive",
-  //       title: isReloadMode ? "Reload Failed" : "Submission Failed",
-  //       description: "There was an error processing the request. Please try again.",
-  //       duration: 3000,
-  //     });
-  //     console.error("Error:", error);
-  //   }
-  // };
-
-  const handleORTSubmit = () => {
-    if (!selectedRecord && !isReloadMode) return;
-
-    // [Keep all existing validation logic]
-    if (!ortForm.date) {
+ 
+  // Add selected additional parts to scanned parts
+  const addSelectedAdditionalParts = () => {
+    if (selectedAdditionalParts.length === 0) {
       toast({
         variant: "destructive",
-        title: "Incomplete Form",
-        description: "Please fill in the date field.",
+        title: "No Parts Selected",
+        description: "Please select at least one part to add.",
         duration: 2000,
       });
       return;
     }
-
+ 
     if (!serialNumber) {
       toast({
         variant: "destructive",
-        title: "Missing Serial Number",
-        description: "Please scan or enter a serial number.",
+        title: "Serial Number Required",
+        description: "Please scan or enter a serial number first.",
         duration: 2000,
       });
       return;
     }
-
-    if (selectedPartNumbers.length === 0) {
+ 
+    // Create new scanned parts from selection
+    const newParts: ScannedPart[] = selectedAdditionalParts.map(partNumber => ({
+      serialNumber: serialNumber,
+      partNumber: partNumber,
+      scannedAt: new Date()
+    }));
+ 
+    setScannedParts(prev => [...prev, ...newParts]);
+ 
+    toast({
+      title: "Additional Parts Added",
+      description: `Successfully added ${newParts.length} additional part(s) to serial ${serialNumber}`,
+      duration: 2000,
+    });
+ 
+    // Clear selection
+    setSelectedAdditionalParts([]);
+  };
+ 
+  const handleORTSubmit = () => {
+    if (!selectedRecord) return;
+ 
+    const requiredQuantity = selectedRecord.quantity;
+ 
+    // In reload mode, just need at least one part
+    // In normal mode, need all required parts
+    if (!isReloadMode && scannedParts.length < requiredQuantity) {
       toast({
         variant: "destructive",
-        title: "No Part Numbers",
-        description: "Please scan and select parts.",
-        duration: 2000,
-      });
-      return;
-    }
-
-    const invalidRows = splitRows.filter(row =>
-      !row.quantity || !row.buildProject || !row.line || !row.color || row.assignedParts.length === 0
-    );
-
-    if (invalidRows.length > 0) {
-      toast({
-        variant: "destructive",
-        title: "Incomplete Split Rows",
-        description: "Please complete all rows and assign parts.",
+        title: "Incomplete Scanning",
+        description: `Only ${scannedParts.length} of ${requiredQuantity} parts scanned. Please scan all required parts.`,
         duration: 3000,
       });
       return;
     }
-
+ 
+    if (isReloadMode && scannedParts.length === existingORTRecord?.ortLab?.scannedParts?.length) {
+      toast({
+        variant: "destructive",
+        title: "No New Parts Added",
+        description: "Please scan at least one new part before submitting.",
+        duration: 3000,
+      });
+      return;
+    }
+ 
     try {
-      const ortLabId = Date.now();
-      let ortLabData;
-
-      if (isReloadMode && existingRecord) {
-        // [Keep existing reload mode logic]
-        const mergedPartNumbers = [...new Set([...existingRecord.ortLab.partNumbers, ...selectedPartNumbers])];
-        const mergedScannedParts = [...new Set([...existingRecord.ortLab.scannedPartNumbers, ...scannedPartNumbers])];
-        const mergedSplitRows = [...existingRecord.ortLab.splitRows, ...splitRows.map(row => ({
-          quantity: row.quantity,
-          buildProject: row.buildProject,
-          line: row.line,
-          color: row.color,
-          remark: row.remark,
-          assignedParts: row.assignedParts
-        }))];
-
-        ortLabData = {
-          ...existingRecord,
+      // Retrieve existing ORT records
+      const existingORTData = localStorage.getItem("ortLabRecords");
+      const ortRecords = existingORTData ? JSON.parse(existingORTData) : [];
+ 
+      if (isReloadMode && existingORTRecord) {
+        // UPDATE existing record
+        const updatedORTData = {
+          ...existingORTRecord,
+          ortLab: {
+            ...existingORTRecord.ortLab,
+            serialNumber: serialNumber,
+            scannedParts: scannedParts,
+            totalParts: scannedParts.length,
+            lastUpdatedAt: new Date().toISOString(),
+            updateCount: (existingORTRecord.ortLab?.updateCount || 0) + 1
+          }
+        };
+ 
+        // Find and update the existing record
+        const updatedRecords = ortRecords.map((record: any) =>
+          record.ortLabId === existingORTRecord.ortLabId ? updatedORTData : record
+        );
+ 
+        localStorage.setItem("ortLabRecords", JSON.stringify(updatedRecords));
+ 
+        toast({
+          title: "ORT Lab Updated!",
+          description: `Record updated with ${scannedParts.length} total parts (added ${scannedParts.length - (existingORTRecord.ortLab?.scannedParts?.length || 0)} new parts).`,
+          duration: 4000,
+        });
+ 
+        // Navigate back to QRT checklist
+        navigate("/qrtchecklist", {
+          state: {
+            record: selectedRecord,
+            ortData: updatedORTData
+          }
+        });
+ 
+      } else {
+        // CREATE new record (existing logic)
+        const ortLabId = Date.now();
+        const ortLabData = {
+          ...selectedRecord,
           ortLabId: ortLabId,
           ortLab: {
             submissionId: ortLabId,
             date: new Date().toISOString().split('T')[0],
             serialNumber: serialNumber,
-            partNumbers: mergedPartNumbers,
-            scannedPartNumbers: mergedScannedParts,
-            splitRows: mergedSplitRows,
-            remark: ortForm.remark || existingRecord.ortLab.remark,
-            submittedAt: new Date().toISOString()
+            scannedParts: scannedParts,
+            totalParts: scannedParts.length,
+            requiredQuantity: requiredQuantity,
+            submittedAt: new Date().toISOString(),
+            updateCount: 0
           }
         };
-
-        const existingORTData = localStorage.getItem("ortLabRecords");
-        const ortRecords = existingORTData ? JSON.parse(existingORTData) : [];
-        const updatedRecords = ortRecords.filter((record: any) =>
-          record.ortLabId !== existingRecord.ortLabId
-        );
-        updatedRecords.push(ortLabData);
-        localStorage.setItem("ortLabRecords", JSON.stringify(updatedRecords));
-
-      } else {
-        // [Keep existing normal mode logic]
-        ortLabData = {
-          ...selectedRecord!,
-          ortLabId: ortLabId,
-          ortLab: {
-            submissionId: ortLabId,
-            date: ortForm.date,
-            serialNumber: serialNumber,
-            partNumbers: selectedPartNumbers,
-            scannedPartNumbers: scannedPartNumbers,
-            splitRows: splitRows.map(row => ({
-              quantity: row.quantity,
-              buildProject: row.buildProject,
-              line: row.line,
-              color: row.color,
-              remark: row.remark,
-              assignedParts: row.assignedParts
-            })),
-            remark: ortForm.remark,
-            submittedAt: new Date().toISOString()
-          }
-        };
-
-        const existingORTData = localStorage.getItem("ortLabRecords");
-        const ortRecords = existingORTData ? JSON.parse(existingORTData) : [];
+ 
         ortRecords.push(ortLabData);
         localStorage.setItem("ortLabRecords", JSON.stringify(ortRecords));
+ 
+        toast({
+          title: "ORT Lab Completed!",
+          description: `${scannedParts.length} parts scanned and assigned successfully.`,
+          duration: 4000,
+        });
+ 
+        navigate("/qrtchecklist", {
+          state: {
+            record: selectedRecord,
+            ortData: ortLabData
+          }
+        });
       }
-
-      // ⭐ CRITICAL FIX: Reload data from localStorage to recalculate aggregated summary
-      const reloadData = () => {
-        const existingORTData = localStorage.getItem("ortLabRecords");
-        if (existingORTData) {
-          const ortRecords = JSON.parse(existingORTData);
-          const usedPartsMap: UsedParts = {};
-          const serialGroupMap = new Map<string, any[]>();
-
-          ortRecords.forEach((record: any) => {
-            if (record.ortLab && record.ortLab.serialNumber && record.ortLab.partNumbers) {
-              const serial = record.ortLab.serialNumber;
-              if (!serialGroupMap.has(serial)) {
-                serialGroupMap.set(serial, []);
-              }
-              serialGroupMap.get(serial)!.push(record);
-            }
-          });
-
-          const summary: PartsSummary[] = [];
-
-          serialGroupMap.forEach((records, serial) => {
-            const allPartsSet = new Set<string>();
-            const allAssignedPartsSet = new Set<string>();
-            let recordId = 0;
-
-            records.forEach((record: any) => {
-              record.ortLab.partNumbers.forEach((part: string) => allPartsSet.add(part));
-              const assignedInRecord = record.ortLab.splitRows?.flatMap((row: any) => row.assignedParts) || [];
-              assignedInRecord.forEach((part: string) => allAssignedPartsSet.add(part));
-              recordId = record.ortLabId || record.id;
-            });
-
-            const allParts = Array.from(allPartsSet);
-            const allAssignedParts = Array.from(allAssignedPartsSet);
-            const unassignedParts = allParts.filter(part => !allAssignedPartsSet.has(part));
-
-            if (!usedPartsMap[serial]) {
-              usedPartsMap[serial] = [];
-            }
-            usedPartsMap[serial] = allParts;
-
-            summary.push({
-              serialNumber: serial,
-              availableParts: allParts,
-              assignedParts: allAssignedParts,
-              unassignedParts: unassignedParts,
-              recordId: recordId
-            });
-          });
-
-          setUsedParts(usedPartsMap);
-          setPartsSummary(summary);
-        }
-      };
-
-      // ⭐ Reload and recalculate summary
-      reloadData();
-
-      toast({
-        title: isReloadMode ? "✅ Parts Reloaded Successfully" : "✅ ORT Lab Submitted",
-        description: isReloadMode
-          ? `Added ${selectedPartNumbers.length} new parts to document ${existingRecord?.documentNumber}`
-          : `ORT Lab data with ${splitRows.length} split(s) has been saved successfully!`,
-        duration: 4000,
-      });
-
-      // Clear form
-      setSerialNumber("");
-      setScannedPartNumbers([]);
-      setSelectedPartNumbers([]);
-      setSplitRows([{
-        id: '1',
-        quantity: '',
-        buildProject: '',
-        line: '',
-        color: '',
-        remark: '',
-        assignedParts: []
-      }]);
-      setBarcodeInput("");
-      setManualPartInput("");
-      setIsReloadMode(false);
-
-      setShowSummaryTable(true);
-
+ 
     } catch (error) {
       toast({
         variant: "destructive",
-        title: isReloadMode ? "Reload Failed" : "Submission Failed",
+        title: "Submission Failed",
         description: "There was an error processing the request. Please try again.",
         duration: 3000,
       });
       console.error("Error:", error);
     }
   };
-
-  // Handle proceed action - navigate to QRT checklist
-  const handleProceed = () => {
-    navigate("/qrtchecklist");
-  };
-
-  // Handle edit action - reset form with selected parts
-  const handleEdit = (summary: PartsSummary) => {
-    setSerialNumber(summary.serialNumber);
-    setSelectedPartNumbers(summary.availableParts);
-    setScannedPartNumbers(summary.availableParts);
-    setShowSummaryTable(false);
-
-    // Auto-focus on barcode input
-    setTimeout(() => {
-      if (barcodeInputRef.current) {
-        barcodeInputRef.current.focus();
-      }
-    }, 100);
-
-    toast({
-      title: "Edit Mode",
-      description: `Now editing parts for serial ${summary.serialNumber}`,
-      duration: 2000,
-    });
-  };
-
-  // Handle delete action
-  const handleDelete = (serialNumber: string) => {
-    try {
-      const existingORTData = localStorage.getItem("ortLabRecords");
-      if (existingORTData) {
-        const ortRecords = JSON.parse(existingORTData);
-        const updatedRecords = ortRecords.filter((record: any) =>
-          !record.ortLab || record.ortLab.serialNumber !== serialNumber
-        );
-        localStorage.setItem("ortLabRecords", JSON.stringify(updatedRecords));
-
-        // Update parts summary
-        setPartsSummary(prev => prev.filter(summary => summary.serialNumber !== serialNumber));
-
-        // Update used parts
-        setUsedParts(prev => {
-          const newUsedParts = { ...prev };
-          delete newUsedParts[serialNumber];
-          return newUsedParts;
-        });
-
-        toast({
-          title: "✅ Record Deleted",
-          description: `Record for serial ${serialNumber} has been deleted`,
-          duration: 3000,
-        });
-      }
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Delete Failed",
-        description: "There was an error deleting the record",
-        duration: 3000,
-      });
-    }
-  };
-
-  const isORTSubmitEnabled = () => {
-    const allRowsValid = splitRows.every(row =>
-      row.quantity && row.buildProject && row.line && row.color && row.assignedParts.length > 0
-    );
-
+ 
+  if (!selectedRecord) {
     return (
-      ortForm.date &&
-      serialNumber &&
-      selectedPartNumbers.length > 0 &&
-      allRowsValid
-    );
-  };
-
-  if (!selectedRecord && !isReloadMode) {
-    return (
-      <div className="container mx-auto p-6 max-w-6xl">
+      <div className="mx-auto p-6">
         <Card>
           <CardContent className="p-6">
             <div className="text-center text-gray-500">No record selected. Please go back and select a record.</div>
-            <Button
+            {/* <Button
               variant="outline"
               onClick={() => navigate("/")}
               className="mt-4"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Dashboard
-            </Button>
+            </Button> */}
           </CardContent>
         </Card>
       </div>
     );
   }
-
-  const unassignedParts = getUnassignedPartNumbers();
-
+ 
+  const requiredQuantity = selectedRecord.quantity || 0;
+  const scannedCount = scannedParts.length;
+  const remainingCount = isReloadMode ? 0 : Math.max(0, requiredQuantity - scannedCount);
+  const isComplete = isReloadMode
+    ? scannedCount > (existingORTRecord?.ortLab?.scannedParts?.length || 0)
+    : scannedCount >= requiredQuantity;
+ 
   return (
-    <div className="container mx-auto p-6 max-w-6xl">
+    <div className="mx-auto p-6 ">
       <Button
         variant="ghost"
         onClick={() => navigate("/")}
         className="mb-4 hover:bg-gray-100"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to {isReloadMode ? "ORT Lab Records" : "Live Test Checklist"}
+        Back to Live Test Checklist
       </Button>
-
+ 
       <Card>
-        <CardHeader className={`${isReloadMode ? 'bg-green-600' : 'bg-blue-600'} text-white`}>
-          <CardTitle className="text-2xl">
-            {isReloadMode ? '🔄 Reload Parts - ORT Lab Form' : 'ORT Lab Form - Part Splitting'}
-            {isReloadMode && existingRecord && (
-              <div className="text-sm font-normal mt-2">
-                Document: {existingRecord.documentNumber} | Project: {existingRecord.projectName}
-              </div>
-            )}
+        <CardHeader>
+          <CardTitle className="text-xl">
+            ORT Lab - Part Scanning
           </CardTitle>
         </CardHeader>
-        <CardContent className="pt-6">
-          {/* Record Information */}
+        <CardContent className="pt-1">
+ 
+          {/* Serial Number Input - Show in reload mode */}
+          {isReloadMode && (
+            <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <h3 className="font-semibold text-lg text-purple-800 mb-3 flex items-center gap-2">
+                <Barcode className="h-5 w-5" />
+                Serial Number
+              </h3>
+              <div className="space-y-2">
+                <Label htmlFor="serialNumberInput" className="text-base font-medium">
+                  Serial Number {!serialNumber && <span className="text-red-600">*</span>}
+                </Label>
+                <Input
+                  id="serialNumberInput"
+                  value={serialNumber}
+                  onChange={(e) => setSerialNumber(e.target.value.toUpperCase())}
+                  placeholder="Enter serial number (e.g., SN001)"
+                  className="h-12 font-mono text-lg border-2 border-purple-300 focus:border-purple-500"
+                />
+                {serialNumber && (
+                  <p className="text-sm text-green-600 font-medium">
+                    ✓ Serial Number: {serialNumber}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+ 
+          {/* OQC Form Data Display */}
           <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
             <h3 className="font-semibold text-lg mb-3 text-gray-700">
-              {isReloadMode ? 'Existing Record Information' : 'Selected Record Information'}
+              OQC Form Data
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="font-medium text-gray-600">Document Number:</span>
-                <p className="text-gray-800">
-                  {isReloadMode ? existingRecord?.documentNumber : selectedRecord?.documentNumber}
-                </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-1">
+                <Label className="text-sm font-medium text-gray-500">Quantity Required</Label>
+                <div className="text-xl font-bold">{selectedRecord.quantity}</div>
               </div>
-              <div>
-                <span className="font-medium text-gray-600">Project Name:</span>
-                <p className="text-gray-800">
-                  {isReloadMode ? existingRecord?.projectName : selectedRecord?.projectName}
-                </p>
+ 
+              <div className="space-y-1">
+                <Label className="text-sm font-medium text-gray-500">Project(s)</Label>
+                <div className="flex flex-wrap gap-1">
+                  {Array.isArray(selectedRecord.project) && selectedRecord.project.length > 0 ? (
+                    selectedRecord.project.map((proj, index) => (
+                      <div key={index} className="text-sm font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                        {proj}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm font-medium">{selectedRecord.projectName}</div>
+                  )}
+                </div>
               </div>
-              <div>
-                <span className="font-medium text-gray-600">Test Location:</span>
-                <p className="text-gray-800">
-                  {isReloadMode ? existingRecord?.testLocation : selectedRecord?.testLocation}
-                </p>
+ 
+              <div className="space-y-1">
+                <Label className="text-sm font-medium text-gray-500">Line</Label>
+                <div className="text-sm font-medium">{selectedRecord.line || "N/A"}</div>
+              </div>
+ 
+              <div className="space-y-1">
+                <Label className="text-sm font-medium text-gray-500">Colour</Label>
+                <div className="flex items-center">
+                  <div
+                    className="w-4 h-4 rounded-full mr-2 border"
+                    style={{
+                      backgroundColor: selectedRecord.colour === "N/A" ? "#ccc" :
+                        selectedRecord.colour?.includes("NDA") ? "#4f46e5" :
+                          selectedRecord.colour?.includes("LB") ? "#10b981" :
+                            selectedRecord.colour?.includes("SD") ? "#f59e0b" : selectedRecord.color || "#ccc"
+                    }}
+                  />
+                  <span className="text-sm font-medium">{selectedRecord.colour || selectedRecord.color || "N/A"}</span>
+                </div>
               </div>
             </div>
           </div>
-
+ 
           {/* Completion Status Banner */}
-          {serialNumber && isSerialComplete(serialNumber) && (
+          {/* {isComplete && !isReloadMode && (
             <div className="mb-6 p-4 bg-green-100 border border-green-400 rounded-lg">
               <div className="flex items-center gap-3">
                 <CheckCircle className="h-6 w-6 text-green-600" />
                 <div>
-                  <h3 className="font-semibold text-green-800">Serial Complete!</h3>
+                  <h3 className="font-semibold text-green-800">All Parts Scanned!</h3>
                   <p className="text-green-700 text-sm">
-                    Serial {serialNumber} has all parts assigned. No further action needed.
+                    {scannedCount} parts have been scanned. Ready to submit.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )} */}
+ 
+          {/* Reload Mode - Ready to Update Banner */}
+          {isReloadMode && scannedCount > (existingORTRecord?.ortLab?.scannedParts?.length || 0) && (
+            <div className="mb-6 p-4 bg-blue-100 border border-blue-400 rounded-lg">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="h-6 w-6 text-blue-600" />
+                <div>
+                  <h3 className="font-semibold text-blue-800">Additional Parts Added!</h3>
+                  <p className="text-blue-700 text-sm">
+                    {scannedCount - (existingORTRecord?.ortLab?.scannedParts?.length || 0)} new part(s) added.
+                    Total: {scannedCount} parts. Ready to update.
                   </p>
                 </div>
               </div>
             </div>
           )}
-
-          {/* Parts Summary Table */}
-          {showSummaryTable && partsSummary.length > 0 && (
-            <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
-              <h3 className="font-semibold text-lg mb-4 text-green-800">Parts Summary - Unassigned Parts Remain</h3>
-              <p className="text-sm text-green-700 mb-4">
-                ⚠️ Some parts are still unassigned. Please assign all parts before proceeding to QRT Checklist.
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse border border-gray-300">
-                  <thead>
-                    <tr className="bg-green-100">
-                      <th className="border border-gray-300 px-4 py-2 text-left">Serial Number</th>
-                      <th className="border border-gray-300 px-4 py-2 text-left">Available Parts</th>
-                      <th className="border border-gray-300 px-4 py-2 text-left">Assigned Parts</th>
-                      <th className="border border-gray-300 px-4 py-2 text-left">Unassigned Parts</th>
-                      <th className="border border-gray-300 px-4 py-2 text-left">Status</th>
-                      <th className="border border-gray-300 px-4 py-2 text-left">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {partsSummary.map((summary) => {
-                      const isComplete = summary.unassignedParts.length === 0;
-                      const uniqueKey = `${summary.serialNumber}-${summary.recordId}`;
-
-                      return (
-                        <tr key={uniqueKey} className="bg-white">
-                          <td className="border border-gray-300 px-4 py-2 font-mono">
-                            <div className="flex items-center gap-2">
-                              {summary.serialNumber}
-                              {isComplete && <CheckCircle className="h-4 w-4 text-green-600" />}
-                            </div>
-                          </td>
-                          <td className="border border-gray-300 px-4 py-2">
-                            <div className="flex flex-wrap gap-1">
-                              {summary.availableParts.map((part, idx) => (
-                                <span key={`${part}-${idx}`} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                  {part}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="border border-gray-300 px-4 py-2">
-                            <div className="flex flex-wrap gap-1">
-                              {summary.assignedParts.map((part, idx) => (
-                                <span key={`assigned-${part}-${idx}`} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                                  {part}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="border border-gray-300 px-4 py-2">
-                            <div className="flex flex-wrap gap-1">
-                              {summary.unassignedParts.map((part, idx) => (
-                                <span key={`unassigned-${part}-${idx}`} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                                  {part}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="border border-gray-300 px-4 py-2">
-                            {isComplete ? (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Complete
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                                {summary.assignedParts.length}/{summary.availableParts.length} Assigned
-                              </span>
-                            )}
-                          </td>
-                          <td className="border border-gray-300 px-4 py-2">
-                            <div className="flex gap-2">
-                              {!isComplete && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleEdit(summary)}
-                                  className="bg-blue-500 text-white hover:bg-blue-600"
-                                >
-                                  <Edit className="h-3 w-3 mr-1" />
-                                  Edit
-                                </Button>
-                              )}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDelete(summary.serialNumber)}
-                                className="bg-red-500 text-white hover:bg-red-600"
-                              >
-                                <Trash2 className="h-3 w-3 mr-1" />
-                                Delete
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleProceed}
-                                className="bg-green-500 text-white hover:bg-green-600"
-                              >
-                                <Play className="h-3 w-3 mr-1" />
-                                Proceed
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Physical Barcode Scanner Section */}
-          {!showSummaryTable && (
-            <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-lg text-blue-800 flex items-center gap-2">
-                  <Scan className="h-5 w-5" />
-                  {isReloadMode ? 'Manual Parts Entry' : 'Barcode Scanner'}
-                </h3>
-                <Button
-                  variant="outline"
-                  onClick={clearScannedData}
-                  disabled={!serialNumber && scannedPartNumbers.length === 0}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Clear All
-                </Button>
-              </div>
-
-              <div className="space-y-4">
-                {/* Barcode Input for Normal Mode */}
-                {!isReloadMode && (
-                  <div className="space-y-2">
-                    <Label htmlFor="barcodeInput" className="text-base font-medium">
-                      Scanner Input <span className="text-red-600">*</span>
-                    </Label>
-                    <Input
-                      ref={barcodeInputRef}
-                      id="barcodeInput"
-                      value={barcodeInput}
-                      onChange={(e) => setBarcodeInput(e.target.value)}
-                      onKeyDown={handleBarcodeInput}
-                      placeholder="Enter barcode manually or click test buttons below (Press Enter to scan)"
-                      className="h-12 font-mono text-lg border-2 border-blue-300 focus:border-blue-500"
-                      autoFocus
-                      disabled={serialNumber && isSerialComplete(serialNumber)} // ⭐ Disable when complete
-                    />
-                    {serialNumber && isSerialComplete(serialNumber) && (
-                      <p className="text-sm text-green-600 font-medium">
-                        ✅ This serial is complete. Clear the form to scan a new serial.
-                      </p>
-                    )}
-                    <p className="text-sm text-blue-700">
-                      💡 <strong>Smart Scanning:</strong> Only shows unused parts for each serial number across all records.
-                    </p>
-                  </div>
-                )}
-
-                {/* Manual Parts Entry for Reload Mode */}
-                {isReloadMode && (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="manualPartInput" className="text-base font-medium">
-                        Manual Part Entry <span className="text-red-600">*</span>
-                      </Label>
-                      <Input
-                        id="manualPartInput"
-                        value={manualPartInput}
-                        onChange={(e) => setManualPartInput(e.target.value)}
-                        onKeyDown={handleManualPartInput}
-                        placeholder="Enter part number manually (Press Enter to add)"
-                        className="h-12 font-mono text-lg border-2 border-green-300 focus:border-green-500"
-                        autoFocus
-                      />
-                      <p className="text-sm text-green-700">
-                        💡 <strong>Manual Entry:</strong> Enter part numbers manually and press Enter to add them.
-                      </p>
-                    </div>
-
-                    {/* Sample Parts Section */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-gray-700">
-                        Quick Add Sample Parts:
-                      </Label>
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        {availableSampleParts.slice(0, 5).map((part) => (
-                          <Button
-                            key={part}
-                            variant="outline"
-                            size="sm"
-                            onClick={() => addSamplePart(part)}
-                            className="text-xs font-mono bg-green-100 hover:bg-green-200"
-                          >
-                            <Barcode className="h-3 w-3 mr-1" />
-                            {part}
-                          </Button>
-                        ))}
-                      </div>
-
-                      {/* Bulk Add Buttons */}
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => addMultipleSampleParts(3)}
-                          className="text-xs bg-blue-100 hover:bg-blue-200"
-                        >
-                          Add 3 Sample Parts
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => addMultipleSampleParts(5)}
-                          className="text-xs bg-blue-100 hover:bg-blue-200"
-                        >
-                          Add 5 Sample Parts
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => addMultipleSampleParts(availableSampleParts.length)}
-                          className="text-xs bg-blue-100 hover:bg-blue-200"
-                        >
-                          Add All ({availableSampleParts.length}) Parts
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Test Barcode Buttons (Only show in normal mode) */}
-                {!isReloadMode && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-gray-700">
-                      Test Barcodes (Click to simulate scan):
-                    </Label>
-                    <div className="flex flex-wrap gap-2">
-                      {STATIC_BARCODE_DATA.map((barcode, index) => (
-                        <Button
-                          key={`test-barcode-${barcode}-${index}`}
-                          variant="outline"
-                          size="sm"
-                          onClick={() => testWithStaticBarcode(barcode.split(':')[0])}
-                          className="text-xs font-mono"
-                        >
-                          {barcode.split(':')[0]}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Scanner Status */}
-                <div className="p-3 bg-white rounded border">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-600">Serial Number:</span>
-                      <p className="font-mono text-blue-700">{serialNumber || "Not scanned"}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600">Total Parts Available:</span>
-                      <p className="text-blue-700">
-                        {selectedPartNumbers.length} parts
-                        {serialNumber && usedParts[serialNumber] && (
-                          <span className="text-orange-600"> ({usedParts[serialNumber]?.length || 0} already used)</span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
+ 
+          {/* Progress Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Required</p>
+                  <p className="text-3xl font-bold">{requiredQuantity}</p>
                 </div>
-              </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Scanned</p>
+                  <p className={`text-3xl font-bold ${isComplete ? 'text-green-600' : 'text-blue-600'}`}>
+                    {scannedCount}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Remaining</p>
+                  <p className={`text-3xl font-bold ${remainingCount === 0 ? 'text-green-600' : 'text-yellow-600'}`}>
+                    {remainingCount}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+ 
+          {/* Barcode Scanner Section */}
+          <div className="mb-6 p-4 rounded-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-lg text-blue-800 flex items-center gap-2">
+                <Scan className="h-5 w-5" />
+                Barcode Scanner
+              </h3>
+              <Button
+                variant="outline"
+                onClick={clearScannedData}
+                disabled={!serialNumber && scannedParts.length === 0}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Clear All
+              </Button>
             </div>
-          )}
-
-          {/* Rest of the form remains the same */}
-          {/* Form Fields (only show when not in summary table view) */}
-          {!showSummaryTable && (
-            <>
-              {/* Date Field */}
-              <div className="mb-6 space-y-2">
-                <Label htmlFor="date" className="text-base">
-                  Date <span className="text-red-600">*</span>
+ 
+            <div className="space-y-4">
+              {/* Barcode Input */}
+              <div className="space-y-2">
+                <Label htmlFor="barcodeInput" className="text-base font-medium">
+                  Scanner Input <span className="text-red-600">*</span>
                 </Label>
                 <Input
-                  id="date"
-                  type="date"
-                  value={ortForm.date}
-                  onChange={(e) => handleORTInputChange('date', e.target.value)}
-                  className="h-11 max-w-xs"
+                  ref={barcodeInputRef}
+                  id="barcodeInput"
+                  value={barcodeInput}
+                  onChange={(e) => setBarcodeInput(e.target.value)}
+                  onKeyDown={handleBarcodeInput}
+                  placeholder="Enter barcode manually or click test buttons below (Press Enter to scan)"
+                  className="h-12 font-mono text-lg border-2 border-blue-300 focus:border-blue-500"
+                  autoFocus
+                  disabled={isComplete}
                 />
+                {/* {isComplete && (
+                  <p className="text-sm text-green-600 font-medium">
+                    All parts scanned. Ready to submit.
+                  </p>
+                )} */}
               </div>
-
-              {/* Serial Number Display */}
-              <div className="mb-6 space-y-2">
-                <Label htmlFor="serialNumber" className="text-base">
-                  Serial Number <span className="text-red-600">*</span>
+ 
+              {/* Test Barcode Buttons */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">
+                  Test Barcodes (Click to simulate scan):
                 </Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="serialNumber"
-                    value={serialNumber}
-                    onChange={(e) => handleManualSerialInput(e.target.value)}
-                    placeholder="Will auto-fill from scanner"
-                    className="h-11 font-mono flex-1 max-w-md bg-blue-50"
-                  />
-                  {serialNumber && (
+                <div className="flex flex-wrap gap-2">
+                  {STATIC_BARCODE_DATA.map((barcode, index) => (
                     <Button
+                      key={`test-barcode-${barcode}-${index}`}
                       variant="outline"
                       size="sm"
-                      onClick={() => setSerialNumber("")}
-                      className="h-11"
+                      onClick={() => testWithStaticBarcode(barcode.split(':')[0])}
+                      className="text-xs font-mono"
+                      disabled={isComplete}
                     >
-                      <X size={16} />
+                      {barcode.split(':')[0]}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+ 
+              {/* Camera Scanner */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">
+                  Camera Scanner:
+                </Label>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={startScanner}
+                    disabled={showScanner || isComplete}
+                  >
+                    <Scan className="mr-2 h-4 w-4" />
+                    Start Camera Scanner
+                  </Button>
+                  {showScanner && (
+                    <Button
+                      variant="destructive"
+                      onClick={stopScanner}
+                    >
+                      Stop Scanner
                     </Button>
                   )}
                 </div>
               </div>
-
-              {/* Parts Summary */}
-              {selectedPartNumbers.length > 0 && (
-                <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold text-green-800">Available Parts Summary</h3>
-                    <div className="text-sm text-green-700">
-                      Total: <span className="font-bold">{selectedPartNumbers.length}</span> parts
-                    </div>
+ 
+              {/* Scanner Status */}
+              {/* <div className="p-3 bg-white rounded border">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium text-gray-600">Serial Number: {serialNumber}</span>
                   </div>
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {selectedPartNumbers.map((part, index) => (
-                      <span key={index} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-mono">
-                        {part}
-                      </span>
-                    ))}
+                  <div>
+                    <span className="font-medium text-gray-600">Status:</span>
+                    <p className={`font-medium ${isComplete ? 'text-green-600' : 'text-yellow-600'}`}>
+                      {isComplete ? 'Complete' : `${scannedCount}/${requiredQuantity} parts scanned`}
+                    </p>
                   </div>
                 </div>
+              </div> */}
+            </div>
+          </div>
+ 
+          {/* Camera Preview */}
+          {showScanner && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                Camera Preview:
+              </Label>
+              <div className="relative rounded-lg overflow-hidden bg-black">
+                <video
+                  ref={videoRef}
+                  className="w-full h-auto"
+                  autoPlay
+                  playsInline
+                />
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                  <div className="w-64 h-32 border-2 border-green-400 rounded-lg"></div>
+                </div>
+              </div>
+            </div>
+          )}
+ 
+ 
+          {/* Additional Parts Section - Only show in reload mode */}
+          {isReloadMode && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border-2 border-green-300">
+              <div className="mb-4">
+                <h3 className="font-semibold text-lg text-green-800 flex items-center gap-2">
+                  <Barcode className="h-5 w-5" />
+                  Add Additional Parts (PART006 - PART010)
+                </h3>
+                <p className="text-sm text-green-700 mt-1">
+                  Click to select additional parts to add to existing record
+                </p>
+              </div>
+ 
+              {!serialNumber && (
+                <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg">
+                  <p className="text-sm text-yellow-800 font-medium">
+                    ⚠️ Please enter or scan a serial number first before selecting additional parts
+                  </p>
+                </div>
               )}
-
-              {/* Split Rows Section */}
-              {selectedPartNumbers.length > 0 && (
-                <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-lg text-yellow-800">Split Parts Assignment</h3>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={autoAssignParts}
-                        className="bg-green-600 text-white hover:bg-green-700"
-                      >
-                        Auto-Assign Parts
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={addSplitRow}
-                      >
-                        <Plus className="mr-1 h-4 w-4" />
-                        Add Row
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    {splitRows.map((row, index) => (
-                      <div key={row.id} className="p-4 bg-white rounded-lg border border-gray-200">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold text-gray-700">Split #{index + 1}</h4>
-                          {splitRows.length > 1 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeSplitRow(row.id)}
-                              className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                            >
-                              <Minus className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
-                          <div className="space-y-2">
-                            <Label htmlFor={`quantity-${row.id}`}>
-                              Quantity <span className="text-red-600">*</span>
-                            </Label>
-                            <Input
-                              id={`quantity-${row.id}`}
-                              type="number"
-                              value={row.quantity}
-                              onChange={(e) => updateSplitRow(row.id, 'quantity', e.target.value)}
-                              placeholder="Enter qty"
-                              className="h-11"
-                              min="1"
-                              max={selectedPartNumbers.length}
-                            />
+ 
+              {/* Additional Parts Grid - 5 Buttons */}
+              <div className="grid grid-cols-5 gap-3 mb-4">
+                {ADDITIONAL_PARTS.map((part) => {
+                  const isSelected = selectedAdditionalParts.includes(part.partNumber);
+                  const alreadyScanned = isPartAlreadyScanned(part.partNumber);
+ 
+                  return (
+                    <button
+                      key={part.id}
+                      onClick={() => !alreadyScanned && serialNumber && toggleAdditionalPart(part.partNumber)}
+                      disabled={alreadyScanned || !serialNumber}
+                      className={`
+              p-4 rounded-lg border-2 transition-all text-center
+              ${alreadyScanned
+                          ? 'bg-gray-100 border-gray-300 cursor-not-allowed opacity-50'
+                          : isSelected
+                            ? 'bg-green-500 border-green-600 shadow-lg transform scale-105 cursor-pointer'
+                            : 'bg-white border-green-200 hover:border-green-400 hover:shadow-md hover:scale-102 cursor-pointer'
+                        }
+              ${!serialNumber && !alreadyScanned ? 'opacity-50 cursor-not-allowed' : ''}
+            `}
+                    >
+                      <div className="flex justify-center mb-2">
+                        {alreadyScanned ? (
+                          <CheckCircle className="h-6 w-6 text-green-600" />
+                        ) : isSelected ? (
+                          <div className="h-6 w-6 rounded-full bg-white flex items-center justify-center">
+                            <CheckCircle className="h-5 w-5 text-green-600" />
                           </div>
-
-                          <div className="space-y-2">
-                            <Label htmlFor={`buildProject-${row.id}`}>
-                              Build/Project <span className="text-red-600">*</span>
-                            </Label>
-                            <Select
-                              value={row.buildProject}
-                              onValueChange={(value) => updateSplitRow(row.id, 'buildProject', value)}
-                            >
-                              <SelectTrigger className="h-11">
-                                <SelectValue placeholder="Select" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {BUILD_PROJECT_OPTIONS.map((option) => (
-                                  <SelectItem key={option} value={option}>
-                                    {option}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label htmlFor={`line-${row.id}`}>
-                              Line <span className="text-red-600">*</span>
-                            </Label>
-                            <Select
-                              value={row.line}
-                              onValueChange={(value) => updateSplitRow(row.id, 'line', value)}
-                            >
-                              <SelectTrigger className="h-11">
-                                <SelectValue placeholder="Select" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {LINE_OPTIONS.map((option) => (
-                                  <SelectItem key={option} value={option}>
-                                    {option}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label htmlFor={`color-${row.id}`}>
-                              Color <span className="text-red-600">*</span>
-                            </Label>
-                            <Select
-                              value={row.color}
-                              onValueChange={(value) => updateSplitRow(row.id, 'color', value)}
-                            >
-                              <SelectTrigger className="h-11">
-                                <SelectValue placeholder="Select color" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {COLOR_OPTIONS.map((option) => (
-                                  <SelectItem key={option} value={option}>
-                                    {option}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label>Assigned Parts</Label>
-                            <div className="h-11 px-3 py-2 bg-gray-50 rounded border text-sm flex items-center">
-                              {row.assignedParts.length > 0 ? (
-                                <span className="text-green-600 font-medium">
-                                  {row.assignedParts.length} parts assigned
-                                </span>
-                              ) : (
-                                <span className="text-gray-400">No parts assigned</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Individual Remark for each split */}
-                        <div className="space-y-2">
-                          <Label htmlFor={`remark-${row.id}`}>
-                            Split Remark
-                          </Label>
-                          <Textarea
-                            id={`remark-${row.id}`}
-                            value={row.remark}
-                            onChange={(e) => updateSplitRow(row.id, 'remark', e.target.value)}
-                            placeholder="Enter remark for this split..."
-                            className="min-h-[60px] resize-vertical"
-                          />
-                        </div>
-
-                        {/* Show assigned parts */}
-                        {row.assignedParts.length > 0 && (
-                          <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200">
-                            <Label className="text-xs text-blue-700 mb-1">Assigned Part Numbers:</Label>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {row.assignedParts.map((part, idx) => (
-                                <span key={idx} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-mono">
-                                  {part}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
+                        ) : (
+                          <div className="h-6 w-6 rounded-full border-2 border-gray-300" />
                         )}
                       </div>
-                    ))}
+                      <div className={`font-mono text-sm font-bold mb-1 ${isSelected ? 'text-white' : 'text-gray-800'}`}>
+                        {part.partNumber}
+                      </div>
+                      <div className={`text-xs ${isSelected ? 'text-white' : 'text-gray-600'}`}>
+                        {part.description}
+                      </div>
+                      {alreadyScanned && (
+                        <div className="text-xs text-green-600 font-medium mt-2">
+                          Added
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+ 
+              {/* Selection Summary and Add Button */}
+              {selectedAdditionalParts.length > 0 && (
+                <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
+                  <div className="text-sm font-medium text-gray-700">
+                    Selected: <span className="text-green-700 font-bold">{selectedAdditionalParts.length}</span> part(s)
+                    <span className="text-gray-500 ml-2">
+                      ({selectedAdditionalParts.join(', ')})
+                    </span>
                   </div>
-
-                  {/* Assignment Summary */}
-                  <div className="mt-4 p-3 bg-white rounded border">
-                    <div className="grid grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium text-gray-600">Total Parts:</span>
-                        <p className="text-lg font-bold text-gray-800">{selectedPartNumbers.length}</p>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-600">Assigned:</span>
-                        <p className="text-lg font-bold text-green-600">
-                          {splitRows.reduce((sum, row) => sum + row.assignedParts.length, 0)}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-600">Unassigned:</span>
-                        <p className="text-lg font-bold text-orange-600">{unassignedParts.length}</p>
-                      </div>
-                    </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedAdditionalParts([])}
+                    >
+                      Clear Selection
+                    </Button>
+                    <Button
+                      onClick={addSelectedAdditionalParts}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Add {selectedAdditionalParts.length} Part(s)
+                    </Button>
                   </div>
                 </div>
               )}
-
-              {/* Action Buttons */}
-              <div className="flex justify-end gap-4 pt-6 border-t">
-                <Button
-                  variant="outline"
-                  onClick={() => navigate(isReloadMode ? "/ortlab-details" : "/")}
-                  className="px-6"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleORTSubmit}
-                  disabled={!isORTSubmitEnabled()}
-                  className={`${isReloadMode ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'} text-white px-6`}
-                >
-                  {isReloadMode ? 'Reload Parts' : 'Submit ORT Lab'}
-                </Button>
+ 
+              {/* Quick Stats */}
+              <div className="mt-3 pt-3 border-t border-green-200">
+                <div className="grid grid-cols-3 gap-4 text-center text-sm">
+                  <div>
+                    <div className="text-gray-500">Available</div>
+                    <div className="text-lg font-bold text-green-700">
+                      {ADDITIONAL_PARTS.length - scannedParts.filter(p =>
+                        ADDITIONAL_PARTS.some(ap => ap.partNumber === p.partNumber)
+                      ).length}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">Selected</div>
+                    <div className="text-lg font-bold text-blue-700">
+                      {selectedAdditionalParts.length}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">Already Added</div>
+                    <div className="text-lg font-bold text-gray-700">
+                      {scannedParts.filter(p =>
+                        ADDITIONAL_PARTS.some(ap => ap.partNumber === p.partNumber)
+                      ).length}
+                    </div>
+                  </div>
+                </div>
               </div>
-            </>
+            </div>
           )}
+ 
+          {/* Simple Scanned Parts Display */}
+          {scannedParts.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-lg text-gray-700">
+                  Scanned Parts ({scannedParts.length} {isReloadMode ? 'total' : `of ${requiredQuantity}`})
+                </h3>
+              </div>
+ 
+              <div className="p-4 bg-white border rounded-lg">
+                <div className="mb-3">
+                  <div className="text-sm font-medium text-gray-500">Serial Number</div>
+                  <div className="font-mono text-lg font-bold">{serialNumber}</div>
+                </div>
+ 
+                <div>
+                  <div className="text-sm font-medium text-gray-500 mb-2">Parts</div>
+                  <div className="font-mono p-3 bg-gray-50 rounded border text-gray-800">
+                    {scannedParts.map(part => part.partNumber).join(', ')}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+ 
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-4 pt-6 border-t">
+            <Button
+              variant="outline"
+              onClick={() => navigate("/")}
+              className="px-6"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleORTSubmit}
+              disabled={!isComplete}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+            >
+              <CheckCircle className="mr-2 h-4 w-4" />
+              {isReloadMode ? "Update ORT Lab" : "Submit ORT Lab"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
   );
 };
-
+ 
 export default ORTLabPage;
+ 

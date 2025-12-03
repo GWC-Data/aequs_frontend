@@ -10,7 +10,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Edit, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Edit, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -34,14 +34,21 @@ interface TestRecord {
   documentNumber: string;
   documentTitle: string;
   projectName: string;
-  color: string;
   testLocation: string;
   submissionPartDate: string;
   sampleConfig: string;
   status: string;
   id: number;
   createdAt: string;
+  quantity: number;
+  project: string;
+  line: string;
+  colour: string;
 }
+
+const PROJECT_OPTIONS = ["Project AA", "Project BB", "Project CC"];
+const LINE_OPTIONS = ["Line 1", "Line 2", "Line 3"];
+const COLOUR_OPTIONS = ["NDA- XX", "LB- XX", "SD XX"];
 
 const LiveTestProgress: React.FC = () => {
   const [testRecords, setTestRecords] = React.useState<TestRecord[]>([]);
@@ -49,12 +56,14 @@ const LiveTestProgress: React.FC = () => {
   const [checkedItems, setCheckedItems] = React.useState<{ [key: number]: boolean }>({});
   const [editingRecord, setEditingRecord] = React.useState<TestRecord | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = React.useState(false);
   const navigate = useNavigate();
 
   React.useEffect(() => {
     const loadTestRecords = () => {
       try {
         const storedRecords = localStorage.getItem("testRecords");
+        console.log("Stored records:", storedRecords);
         if (storedRecords) {
           const records = JSON.parse(storedRecords);
           setTestRecords(Array.isArray(records) ? records : []);
@@ -106,7 +115,7 @@ const LiveTestProgress: React.FC = () => {
       setEditingRecord(null);
 
       toast({
-        title: "✅ Record Updated",
+        title: "Record Updated",
         description: `Record has been updated successfully!`,
         duration: 3000,
       });
@@ -127,10 +136,42 @@ const LiveTestProgress: React.FC = () => {
     setEditingRecord(null);
   };
 
-  const handleInputChange = (field: keyof TestRecord, value: string) => {
+  const handleInputChange = (field: keyof TestRecord, value: string | number) => {
     if (!editingRecord) return;
     setEditingRecord(prev => prev ? { ...prev, [field]: value } : null);
   };
+
+  // const handleProjectSelect = (project: string) => {
+  //   if (!editingRecord) return;
+
+  //   setEditingRecord(prev => {
+  //     if (!prev) return prev;
+
+  //     const isSelected = prev.project?.includes(project) || false;
+  //     let updatedProjects: string[];
+
+  //     if (isSelected) {
+  //       updatedProjects = prev.project?.filter(p => p !== project) || [];
+  //     } else {
+  //       updatedProjects = [...(prev.project || []), project];
+  //     }
+
+  //     return { ...prev, project: updatedProjects };
+  //   });
+  // };
+
+  // const handleProjectMultiSelect = (selectAll: boolean) => {
+  //   if (!editingRecord) return;
+
+  //   setEditingRecord(prev => {
+  //     if (!prev) return prev;
+
+  //     return {
+  //       ...prev,
+  //       project: selectAll ? [...PROJECT_OPTIONS] : []
+  //     };
+  //   });
+  // };
 
   const handleStage2Click = (record: TestRecord) => {
     // Navigate to Stage 2 page with record data
@@ -165,7 +206,7 @@ const LiveTestProgress: React.FC = () => {
 
   return (
     <>
-      <Card className="mt-6 max-w-6xl mx-auto">
+      <Card className="mt-6 w-full mx-auto">
         <CardHeader>
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -173,7 +214,7 @@ const LiveTestProgress: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border h-[300px] overflow-y-auto">
+          <div className="rounded-md border h-[500px] overflow-y-auto">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader className="sticky top-0 bg-white">
@@ -186,7 +227,6 @@ const LiveTestProgress: React.FC = () => {
                     <TableHead className="font-semibold text-center w-[120px]">Action</TableHead>
                     {hasReceivedStatus && (
                       <>
-                        <TableHead className="font-semibold text-center w-[120px]">ORT Lab</TableHead>
                         <TableHead className="font-semibold text-center w-[120px]">Stage 2</TableHead>
                       </>
                     )}
@@ -219,13 +259,6 @@ const LiveTestProgress: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div
-                              className="h-3 w-3 rounded-full flex-shrink-0"
-                              style={{
-                                backgroundColor:
-                                  record.color === "white" ? "#e5e5e5" : record.color || "#6b7280",
-                              }}
-                            ></div>
                             <div>
                               <div className="text-xs text-gray-500">
                                 Doc: {record.documentNumber} • {record.testLocation}
@@ -235,7 +268,7 @@ const LiveTestProgress: React.FC = () => {
                         </TableCell>
                         <TableCell className="text-sm">{record.projectName}</TableCell>
                         <TableCell className="text-xs">
-                          <div>Submission part date: {new Date(record.submissionDate).toLocaleDateString()}</div>
+                          <div>Submission part date: {new Date(record.submissionPartDate).toLocaleDateString()}</div>
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-3">
@@ -255,7 +288,7 @@ const LiveTestProgress: React.FC = () => {
                         </TableCell>
                         {hasReceivedStatus && (
                           <>
-                            <TableCell className="text-center">
+                            {/* <TableCell className="text-center">
                               {record.status === "Received" && (
                                 <Button
                                   variant="outline"
@@ -266,7 +299,7 @@ const LiveTestProgress: React.FC = () => {
                                   ORT Lab
                                 </Button>
                               )}
-                            </TableCell>
+                            </TableCell> */}
                             <TableCell className="text-center">
                               {record.status === "Received" && (
                                 <Button
@@ -327,14 +360,14 @@ const LiveTestProgress: React.FC = () => {
                 />
               </div>
 
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label htmlFor="color">Color</Label>
                 <Input
                   id="color"
                   value={editingRecord.color}
                   onChange={(e) => handleInputChange('color', e.target.value)}
                 />
-              </div>
+              </div> */}
 
               <div className="space-y-2">
                 <Label htmlFor="testLocation">Test Location</Label>
@@ -363,6 +396,151 @@ const LiveTestProgress: React.FC = () => {
                   onChange={(e) => handleInputChange('sampleConfig', e.target.value)}
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="quantity">Quantity</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  value={editingRecord.quantity || ''}
+                  onChange={(e) => handleInputChange('quantity', e.target.value)}
+                  min="1"
+                />
+              </div>
+
+              {/* <div className="space-y-2">
+                <Label htmlFor="project">Project (Multi-select)</Label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
+                    className="w-full h-10 px-3 border rounded-md text-left flex items-center justify-between"
+                  >
+                    <span className="truncate">
+                      {editingRecord.project && editingRecord.project.length > 0
+                        ? editingRecord.project.join(", ")
+                        : "Select project(s)"}
+                    </span>
+                    {isProjectDropdownOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
+
+                  {isProjectDropdownOpen && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg">
+                      <div className="p-2 border-b">
+                        <button
+                          type="button"
+                          onClick={() => handleProjectMultiSelect(true)}
+                          className="text-sm text-blue-600 hover:text-blue-800 font-medium px-2 py-1"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleProjectMultiSelect(false)}
+                          className="text-sm text-red-600 hover:text-red-800 font-medium px-2 py-1 ml-4"
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto">
+                        {PROJECT_OPTIONS.map((option) => (
+                          <label
+                            key={option}
+                            className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={editingRecord.project?.includes(option) || false}
+                              onChange={() => handleProjectSelect(option)}
+                              className="rounded border-gray-300 text-blue-600"
+                            />
+                            <span className="ml-2 text-sm">{option}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div> */}
+
+              <div className="space-y-2">
+                <Label htmlFor="project">Project</Label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
+                    className="w-full h-10 px-3 border rounded-md text-left flex items-center justify-between"
+                  >
+                    <span className="truncate">
+                      {editingRecord.project ? editingRecord.project : "Select project"}
+                    </span>
+                    {isProjectDropdownOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
+
+                  {isProjectDropdownOpen && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
+
+                      {PROJECT_OPTIONS.map((option) => (
+                        <label
+                          key={option}
+                          className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                        >
+                          <input
+                            type="radio"
+                            name="project-select"
+                            value={option}
+                            checked={editingRecord.project === option}
+                            onChange={() => handleInputChange("project", option)}
+                            className="border-gray-300 text-blue-600"
+                          />
+                          <span className="ml-2 text-sm">{option}</span>
+                        </label>
+                      ))}
+
+                    </div>
+                  )}
+                </div>
+              </div>
+
+
+              <div className="space-y-2">
+                <Label htmlFor="line">Line</Label>
+                <Select
+                  value={editingRecord.line || ''}
+                  onValueChange={(value) => handleInputChange('line', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select line" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LINE_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="colour">Colour</Label>
+                <Select
+                  value={editingRecord.colour || ''}
+                  onValueChange={(value) => handleInputChange('colour', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select colour" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COLOUR_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
 
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
