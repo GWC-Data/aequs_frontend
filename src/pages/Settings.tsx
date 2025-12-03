@@ -715,74 +715,16 @@ const Dashboard = () => {
     };
   }, [allProducts]);
 
-  // // Calculate quantity statistics
-  // const quantityStats = useMemo(() => {
-  //   const ortLabRecords = JSON.parse(localStorage.getItem('ortLabRecords') || '[]');
-
-  //   const totalScannedParts = ortLabRecords.reduce((total: number, record: any) => {
-  //     if (record.ortLab && record.ortLab.scannedPartNumbers) {
-  //       return total + record.ortLab.scannedPartNumbers.length;
-  //     }
-  //     return total;
-  //   }, 0);
-
-  //   const totalSelectedParts = timeFilteredRecords.reduce((total: number, record: any) => {
-  //     if (record.stage2 && record.stage2.selectedParts) {
-  //       return total + record.stage2.selectedParts.length;
-  //     }
-  //     return total;
-  //   }, 0);
-
-  //   const totalQuantity = timeFilteredRecords.reduce((sum, record) => {
-  //     return sum + (parseInt(record.sampleQty) || 0);
-  //   }, 0);
-
-  //   const completedQuantity = timeFilteredRecords.reduce((sum, record) => {
-  //     if (record.status === "Completed") {
-  //       return sum + (parseInt(record.sampleQty) || 0);
-  //     }
-  //     return sum;
-  //   }, 0);
-
-  //   const testingQuantity = timeFilteredRecords.reduce((sum, record) => {
-  //     if (record.status === "Received" || record.status === "Under Testing") {
-  //       return sum + (parseInt(record.sampleQty) || 0);
-  //     }
-  //     return sum;
-  //   }, 0);
-
-  //   const scheduledQuantity = timeFilteredRecords.reduce((sum, record) => {
-  //     if (record.status === "Scheduled" || record.status === "In-progress") {
-  //       return sum + (parseInt(record.sampleQty) || 0);
-  //     }
-  //     return sum;
-  //   }, 0);
-
-  //   return {
-  //     total: totalQuantity,
-  //     completed: completedQuantity,
-  //     testing: testingQuantity,
-  //     scheduled: scheduledQuantity,
-  //     scannedParts: totalScannedParts,
-  //     selectedParts: totalSelectedParts
-  //   };
-  // }, [timeFilteredRecords]);
-
   // Calculate quantity statistics
   const quantityStats = useMemo(() => {
     const ortLabRecords = JSON.parse(localStorage.getItem('ortLabRecords') || '[]');
 
     // 🔹 Count Assigned Parts Across All Records
     const totalAssignedParts = ortLabRecords.reduce((total: number, record: any) => {
-      if (record.ortLab?.splitRows) {
-        return total + record.ortLab.splitRows.reduce(
-          (sum: number, row: any) =>
-            sum + (row.assignedParts?.length || 0),
-          0
-        );
-      }
-      return total;
+      const scannedParts = record.ortLab?.scannedParts || [];
+      return total + scannedParts.length;
     }, 0);
+
 
     const totalSelectedParts = timeFilteredRecords.reduce((total: number, record: any) => {
       if (record.stage2?.selectedParts) {

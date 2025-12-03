@@ -35,13 +35,13 @@ interface TestRecord {
   documentTitle: string;
   projectName: string;
   testLocation: string;
-  submissionDate: string;
+  submissionPartDate: string;
   sampleConfig: string;
   status: string;
   id: number;
   createdAt: string;
   quantity: number;
-  project: string[];
+  project: string;
   line: string;
   colour: string;
 }
@@ -115,7 +115,7 @@ const LiveTestProgress: React.FC = () => {
       setEditingRecord(null);
 
       toast({
-        title: "✅ Record Updated",
+        title: "Record Updated",
         description: `Record has been updated successfully!`,
         duration: 3000,
       });
@@ -141,37 +141,37 @@ const LiveTestProgress: React.FC = () => {
     setEditingRecord(prev => prev ? { ...prev, [field]: value } : null);
   };
 
-  const handleProjectSelect = (project: string) => {
-    if (!editingRecord) return;
+  // const handleProjectSelect = (project: string) => {
+  //   if (!editingRecord) return;
 
-    setEditingRecord(prev => {
-      if (!prev) return prev;
+  //   setEditingRecord(prev => {
+  //     if (!prev) return prev;
 
-      const isSelected = prev.project?.includes(project) || false;
-      let updatedProjects: string[];
+  //     const isSelected = prev.project?.includes(project) || false;
+  //     let updatedProjects: string[];
 
-      if (isSelected) {
-        updatedProjects = prev.project?.filter(p => p !== project) || [];
-      } else {
-        updatedProjects = [...(prev.project || []), project];
-      }
+  //     if (isSelected) {
+  //       updatedProjects = prev.project?.filter(p => p !== project) || [];
+  //     } else {
+  //       updatedProjects = [...(prev.project || []), project];
+  //     }
 
-      return { ...prev, project: updatedProjects };
-    });
-  };
+  //     return { ...prev, project: updatedProjects };
+  //   });
+  // };
 
-  const handleProjectMultiSelect = (selectAll: boolean) => {
-    if (!editingRecord) return;
+  // const handleProjectMultiSelect = (selectAll: boolean) => {
+  //   if (!editingRecord) return;
 
-    setEditingRecord(prev => {
-      if (!prev) return prev;
+  //   setEditingRecord(prev => {
+  //     if (!prev) return prev;
 
-      return {
-        ...prev,
-        project: selectAll ? [...PROJECT_OPTIONS] : []
-      };
-    });
-  };
+  //     return {
+  //       ...prev,
+  //       project: selectAll ? [...PROJECT_OPTIONS] : []
+  //     };
+  //   });
+  // };
 
   const handleStage2Click = (record: TestRecord) => {
     // Navigate to Stage 2 page with record data
@@ -227,7 +227,6 @@ const LiveTestProgress: React.FC = () => {
                     <TableHead className="font-semibold text-center w-[120px]">Action</TableHead>
                     {hasReceivedStatus && (
                       <>
-                        {/* <TableHead className="font-semibold text-center w-[120px]">ORT Lab</TableHead> */}
                         <TableHead className="font-semibold text-center w-[120px]">Stage 2</TableHead>
                       </>
                     )}
@@ -269,7 +268,7 @@ const LiveTestProgress: React.FC = () => {
                         </TableCell>
                         <TableCell className="text-sm">{record.projectName}</TableCell>
                         <TableCell className="text-xs">
-                          <div>Submission part date: {new Date(record.submissionDate).toLocaleDateString()}</div>
+                          <div>Submission part date: {new Date(record.submissionPartDate).toLocaleDateString()}</div>
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-3">
@@ -384,8 +383,8 @@ const LiveTestProgress: React.FC = () => {
                 <Input
                   id="submissionPartDate"
                   type="date"
-                  value={editingRecord.submissionDate}
-                  onChange={(e) => handleInputChange('submissionDate', e.target.value)}
+                  value={editingRecord.submissionPartDate}
+                  onChange={(e) => handleInputChange('submissionPartDate', e.target.value)}
                 />
               </div>
 
@@ -409,7 +408,7 @@ const LiveTestProgress: React.FC = () => {
                 />
               </div>
 
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label htmlFor="project">Project (Multi-select)</Label>
                 <div className="relative">
                   <button
@@ -462,7 +461,47 @@ const LiveTestProgress: React.FC = () => {
                     </div>
                   )}
                 </div>
+              </div> */}
+
+              <div className="space-y-2">
+                <Label htmlFor="project">Project</Label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
+                    className="w-full h-10 px-3 border rounded-md text-left flex items-center justify-between"
+                  >
+                    <span className="truncate">
+                      {editingRecord.project ? editingRecord.project : "Select project"}
+                    </span>
+                    {isProjectDropdownOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
+
+                  {isProjectDropdownOpen && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
+
+                      {PROJECT_OPTIONS.map((option) => (
+                        <label
+                          key={option}
+                          className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                        >
+                          <input
+                            type="radio"
+                            name="project-select"
+                            value={option}
+                            checked={editingRecord.project === option}
+                            onChange={() => handleInputChange("project", option)}
+                            className="border-gray-300 text-blue-600"
+                          />
+                          <span className="ml-2 text-sm">{option}</span>
+                        </label>
+                      ))}
+
+                    </div>
+                  )}
+                </div>
               </div>
+
 
               <div className="space-y-2">
                 <Label htmlFor="line">Line</Label>

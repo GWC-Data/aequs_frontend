@@ -26,14 +26,19 @@ interface Stage2Record {
   documentNumber: string;
   documentTitle: string;
   projectName: string;
-  color: string;
+  colour: string; // Changed from "color" to "colour"
   testLocation: string;
-  testStartDate: string;
-  testCompletionDate: string;
+  submissionPartDate: string; // Changed from testStartDate
   sampleConfig: string;
+  remarks: string; // Changed from "remark" to "remarks"
   status: string;
+  project: string; // Single project string, not array
+  line: string; // Single line string, not array
+  quantity: string;
   id: number;
   createdAt: string;
+  testStartDate?: string; // Optional now
+  testCompletionDate?: string; // Optional now
   stage2: {
     processStage: string;
     type: string;
@@ -41,9 +46,10 @@ interface Stage2Record {
     testCondition: string;
     requiredQty: string;
     equipment: string;
-    projects: string[];
-    lines: string[];
-    selectedParts: Array<{ part: string; color: string }> | string[];
+    checkpoint: number; // Added from JSON
+    project: string; // Single project
+    lines: string[]; // Array from JSON
+    selectedParts: string[];
     startTime: string;
     endTime: string;
     remark: string;
@@ -64,7 +70,7 @@ const Stage2Records: React.FC = () => {
     documentNumber: "",
     documentTitle: "",
     projectName: "",
-    color: "",
+    colour: "",
     testLocation: "",
     testStartDate: "",
     testCompletionDate: "",
@@ -83,13 +89,13 @@ const Stage2Records: React.FC = () => {
     endTime: "",
     remark: ""
   });
-  
+
   // ORT Lab data for edit modal
   const [ortLabRecords, setOrtLabRecords] = React.useState<any[]>([]);
   const [availableProjects, setAvailableProjects] = React.useState<string[]>([]);
   const [availableLines, setAvailableLines] = React.useState<string[]>([]);
   const [availableParts, setAvailableParts] = React.useState<string[]>([]);
-  
+
   const navigate = useNavigate();
 
   React.useEffect(() => {
@@ -100,30 +106,54 @@ const Stage2Records: React.FC = () => {
   const loadORTLabRecords = () => {
     try {
       const storedRecords = localStorage.getItem("ortLabRecords");
+
       if (storedRecords) {
         const records = JSON.parse(storedRecords);
         setOrtLabRecords(records);
-        
-        // Extract all unique projects
-        const projects = new Set<string>();
+
+        // Extract unique Projects from updated structure
+        const projectSet = new Set<string>();
+
         records.forEach((record: any) => {
-          record.ortLab.splitRows.forEach((row: any) => {
-            projects.add(row.buildProject);
-          });
+          if (record.project) {
+            projectSet.add(record.project);
+          }
         });
-        setAvailableProjects(Array.from(projects));
+
+        setAvailableProjects(Array.from(projectSet));
       }
     } catch (error) {
       console.error("Error loading ORT Lab records:", error);
     }
   };
 
+
   const loadStage2Records = () => {
     try {
       const storedRecords = localStorage.getItem("stage2Records");
       if (storedRecords) {
         const records = JSON.parse(storedRecords);
-        setStage2Records(Array.isArray(records) ? records : []);
+
+        // Transform records to match our interface
+        const transformedRecords = records.map((record: any) => ({
+          ...record,
+          // Ensure colour is properly mapped
+          colour: record.colour || record.color || "",
+          // Map single project to projectName
+          projectName: record.projectName || record.project || "",
+          // Map line to line (single)
+          line: record.line || "",
+          // Map projects array from stage2 if exists
+          stage2: {
+            ...record.stage2,
+            // Ensure lines is an array (from JSON it's already array)
+            lines: record.stage2?.lines || [],
+            // Ensure project is single string
+            project: record.stage2?.project || record.project || "",
+          }
+        }));
+
+        setStage2Records(Array.isArray(transformedRecords) ? transformedRecords : []);
       } else {
         setStage2Records([]);
       }
@@ -146,7 +176,7 @@ const Stage2Records: React.FC = () => {
       documentNumber: record.documentNumber,
       documentTitle: record.documentTitle,
       projectName: record.projectName,
-      color: record.color,
+      colour: record.colour,
       testLocation: record.testLocation,
       testStartDate: record.testStartDate,
       testCompletionDate: record.testCompletionDate,
@@ -158,7 +188,7 @@ const Stage2Records: React.FC = () => {
       testCondition: record.stage2.testCondition,
       requiredQty: record.stage2.requiredQty,
       equipment: record.stage2.equipment,
-      projects: Array.isArray(record.stage2.projects) ? record.stage2.projects : [],
+      projects: Array.isArray(record.stage2.project) ? record.stage2.project : [],
       lines: Array.isArray(record.stage2.lines) ? record.stage2.lines : [],
       selectedParts: Array.isArray(record.stage2.selectedParts)
         ? record.stage2.selectedParts.map((part: any) =>
@@ -169,46 +199,50 @@ const Stage2Records: React.FC = () => {
       endTime: record.stage2.endTime || "",
       remark: record.stage2.remark || ""
     });
-    
+
     // Update available lines and parts based on selected projects
     updateAvailableLinesAndParts(
-      Array.isArray(record.stage2.projects) ? record.stage2.projects : [],
+      Array.isArray(record.stage2.project) ? record.stage2.project : [],
       Array.isArray(record.stage2.lines) ? record.stage2.lines : []
     );
-    
+
     setIsEditModalOpen(true);
   };
 
   const updateAvailableLinesAndParts = (selectedProjects: string[], selectedLines: string[]) => {
     if (selectedProjects.length > 0) {
+
       const lines = new Set<string>();
       const parts: string[] = [];
 
       ortLabRecords.forEach((record: any) => {
-        record.ortLab.splitRows.forEach((row: any) => {
-          if (selectedProjects.includes(row.buildProject)) {
-            lines.add(row.line);
-            
-            // If specific lines are selected, filter parts by those lines
-            if (selectedLines.length > 0) {
-              if (selectedLines.includes(row.line)) {
-                parts.push(...row.assignedParts);
-              }
-            } else {
-              // Otherwise, show all parts from selected projects
-              parts.push(...row.assignedParts);
-            }
+
+        if (selectedProjects.includes(record.project)) {
+          if (record.line) {
+            lines.add(record.line);
           }
-        });
+
+          if (record.ortLab?.scannedParts) {
+            const filteredParts = record.ortLab.scannedParts
+              .filter((sp: any) =>
+                selectedLines.length === 0 || selectedLines.includes(record.line)
+              )
+              .map((sp: any) => sp.partNumber);
+
+            parts.push(...filteredParts);
+          }
+        }
       });
 
       setAvailableLines(Array.from(lines));
       setAvailableParts(parts);
+
     } else {
       setAvailableLines([]);
       setAvailableParts([]);
     }
   };
+
 
   const handleEditInputChange = (field: keyof typeof editForm, value: string | string[]) => {
     setEditForm(prev => ({
@@ -223,10 +257,10 @@ const Stage2Records: React.FC = () => {
       const newProjects = isSelected
         ? prev.projects.filter(p => p !== project)
         : [...prev.projects, project];
-      
+
       // Update available lines and parts when projects change
       updateAvailableLinesAndParts(newProjects, prev.lines);
-      
+
       return {
         ...prev,
         projects: newProjects
@@ -240,10 +274,10 @@ const Stage2Records: React.FC = () => {
       const newLines = isSelected
         ? prev.lines.filter(l => l !== line)
         : [...prev.lines, line];
-      
+
       // Update available parts when lines change
       updateAvailableLinesAndParts(prev.projects, newLines);
-      
+
       return {
         ...prev,
         lines: newLines
@@ -312,7 +346,7 @@ const Stage2Records: React.FC = () => {
         documentNumber: editForm.documentNumber,
         documentTitle: editForm.documentTitle,
         projectName: editForm.projectName,
-        color: editForm.color,
+        colour: editForm.colour,
         testLocation: editForm.testLocation,
         testStartDate: editForm.testStartDate,
         testCompletionDate: editForm.testCompletionDate,
@@ -326,7 +360,7 @@ const Stage2Records: React.FC = () => {
           testCondition: editForm.testCondition,
           requiredQty: editForm.requiredQty,
           equipment: editForm.equipment,
-          projects: editForm.projects,
+          project: editForm.projectName,
           lines: editForm.lines,
           selectedParts: editForm.selectedParts,
           startTime: editForm.startTime,
@@ -480,8 +514,7 @@ const Stage2Records: React.FC = () => {
                             <div
                               className="h-3 w-3 rounded-full flex-shrink-0"
                               style={{
-                                backgroundColor:
-                                  record.color === "white" ? "#e5e5e5" : record.color || "#6b7280",
+                                backgroundColor: record.colour || "#6b7280", // Changed from record.color
                               }}
                             ></div>
                             <div>
@@ -490,6 +523,10 @@ const Stage2Records: React.FC = () => {
                               </div>
                               <div className="text-xs text-gray-500">
                                 {record.documentTitle}
+                              </div>
+                              {/* Show colour text */}
+                              <div className="text-xs text-gray-500">
+                                Colour: {record.colour}
                               </div>
                             </div>
                           </div>
@@ -588,15 +625,15 @@ const Stage2Records: React.FC = () => {
                     <p className="text-sm">{selectedRecord.projectName}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Color</label>
+                    <label className="text-sm font-medium text-gray-600">Colour</label>
                     <div className="flex items-center gap-2">
                       <div
                         className="h-4 w-4 rounded-full border border-gray-400"
                         style={{
-                          backgroundColor: selectedRecord.color,
+                          backgroundColor: selectedRecord.colour, // Changed from color
                         }}
                       ></div>
-                      <p className="text-sm">{selectedRecord.color}</p>
+                      <p className="text-sm">{selectedRecord.colour}</p>
                     </div>
                   </div>
                   <div>
@@ -616,23 +653,18 @@ const Stage2Records: React.FC = () => {
                 </div>
               </div>
 
+
               {/* ORT Lab Data Selection */}
               <div className="p-4 border rounded-lg bg-blue-50">
                 <h3 className="font-semibold text-lg mb-4 text-blue-800">ORT Lab Data Selection</h3>
 
-                {/* Selected Projects */}
+                {/* Selected Project (single) */}
                 <div className="mb-4">
-                  <label className="text-sm font-medium text-gray-600 mb-2 block">Selected Projects</label>
+                  <label className="text-sm font-medium text-gray-600 mb-2 block">Selected Project</label>
                   <div className="flex flex-wrap gap-2">
-                    {Array.isArray(selectedRecord.stage2.projects) && selectedRecord.stage2.projects.length > 0 ? (
-                      selectedRecord.stage2.projects.map((project, index) => (
-                        <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-800">
-                          {project}
-                        </Badge>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-500">No projects selected</p>
-                    )}
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                      {selectedRecord.project}
+                    </Badge>
                   </div>
                 </div>
 
@@ -659,7 +691,7 @@ const Stage2Records: React.FC = () => {
                     {Array.isArray(selectedRecord.stage2.selectedParts) && selectedRecord.stage2.selectedParts.length > 0 ? (
                       selectedRecord.stage2.selectedParts.map((part, index) => (
                         <Badge key={index} variant="secondary" className="bg-purple-100 text-purple-800 font-mono">
-                          {typeof part === 'string' ? part : part.part}
+                          {part}
                         </Badge>
                       ))
                     ) : (
@@ -785,11 +817,11 @@ const Stage2Records: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-500">Color</label>
+                  <label className="text-sm font-medium text-gray-500">Colour</label>
                   <input
                     type="text"
-                    value={editForm.color}
-                    onChange={(e) => handleEditInputChange('color', e.target.value)}
+                    value={editForm.colour}
+                    onChange={(e) => handleEditInputChange('colour', e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md text-sm"
                   />
                 </div>
@@ -877,7 +909,7 @@ const Stage2Records: React.FC = () => {
                       Projects ({editForm.projects.length} selected)
                     </label>
                   </div>
-                  
+
                   {/* Available Projects to Add */}
                   {availableProjects.filter(p => !editForm.projects.includes(p)).length > 0 && (
                     <div className="space-y-2">
@@ -897,7 +929,7 @@ const Stage2Records: React.FC = () => {
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Selected Projects */}
                   <div className="space-y-2">
                     <label className="text-xs text-gray-500">Selected Projects:</label>
@@ -933,7 +965,7 @@ const Stage2Records: React.FC = () => {
                         Lines ({editForm.lines.length} selected)
                       </label>
                     </div>
-                    
+
                     {/* Available Lines to Add */}
                     {availableLines.filter(l => !editForm.lines.includes(l)).length > 0 && (
                       <div className="space-y-2">
@@ -953,7 +985,7 @@ const Stage2Records: React.FC = () => {
                         </div>
                       </div>
                     )}
-                    
+
                     {/* Selected Lines */}
                     <div className="space-y-2">
                       <label className="text-xs text-gray-500">Selected Lines:</label>
@@ -990,7 +1022,7 @@ const Stage2Records: React.FC = () => {
                         Parts ({editForm.selectedParts.length} selected) <span className="text-red-600">*</span>
                       </label>
                     </div>
-                    
+
                     {/* Available Parts to Add */}
                     {availableParts.filter(p => !editForm.selectedParts.includes(p)).length > 0 && (
                       <div className="space-y-2">
@@ -1010,7 +1042,7 @@ const Stage2Records: React.FC = () => {
                         </div>
                       </div>
                     )}
-                    
+
                     {/* Selected Parts */}
                     <div className="space-y-2">
                       <label className="text-xs text-gray-500">Selected Parts:</label>
@@ -1043,8 +1075,8 @@ const Stage2Records: React.FC = () => {
               {/* ORT Lab Data Selection in Edit Modal */}
               <div className="p-4 space-y-4">
                 {/* <h3 className="font-semibold text-lg text-blue-800">ORT Lab Data Selection</h3> */}
-                
-                
+
+
               </div>
             </div>
           )}

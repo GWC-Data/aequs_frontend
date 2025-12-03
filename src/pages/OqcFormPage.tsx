@@ -1,8 +1,9 @@
+
 // import { Input } from "@/components/ui/input";
 // import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
 // import React from "react";
 // import { toast } from "@/components/ui/use-toast";
-
+// import { useNavigate } from "react-router-dom";
 
 // // Form Component
 // interface TestData {
@@ -14,7 +15,7 @@
 //   sampleConfig: string;
 //   remarks: string;
 //   status: string;
-//   project: string[];
+//   project: string;
 //   colour: string;
 //   line: string;
 //   quantity: number;
@@ -34,6 +35,7 @@
 // const COLOUR_OPTIONS = ["NDA- XX", "LB- XX", "SD XX"];
 
 // const TestForm: React.FC = () => {
+//   const navigate = useNavigate();
 //   const [formData, setFormData] = React.useState<TestData>({
 //     documentNumber: "",
 //     documentTitle: "",
@@ -43,7 +45,7 @@
 //     sampleConfig: "",
 //     remarks: "",
 //     status: "",
-//     project: [],
+//     project: "",
 //     line: "",
 //     colour: "",
 //     quantity: 0
@@ -60,36 +62,6 @@
 //     }
 //   }, []);
 
-//   const selectAllProjects = () => {
-//     setFormData(prev => ({
-//       ...prev,
-//       project: [...PROJECT_OPTIONS]
-//     }));
-//   };
-
-//   const clearAllProjects = () => {
-//     setFormData(prev => ({
-//       ...prev,
-//       project: []
-//     }));
-//   };
-
-//   const handleProjectSelect = (project: string) => {
-//     setFormData(prev => {
-//       const isSelected = prev.project.includes(project);
-//       if (isSelected) {
-//         return {
-//           ...prev,
-//           project: prev.project.filter(p => p !== project)
-//         };
-//       } else {
-//         return {
-//           ...prev,
-//           project: [...prev.project, project]
-//         };
-//       }
-//     });
-//   };
 
 //   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 //     const { name, value } = e.target;
@@ -101,20 +73,6 @@
 
 //   const toggleDropdown = () => {
 //     setIsDropdownOpen(!isDropdownOpen);
-//   };
-
-//   const selectAllTests = () => {
-//     setFormData(prev => ({
-//       ...prev,
-//       testName: TEST_NAME_OPTIONS.map(test => test.id)
-//     }));
-//   };
-
-//   const clearAllTests = () => {
-//     setFormData(prev => ({
-//       ...prev,
-//       testName: []
-//     }));
 //   };
 
 
@@ -148,7 +106,7 @@
 //         sampleConfig: "",
 //         remarks: "",
 //         status: "",
-//         project: [],
+//         project: "",
 //         colour: "",
 //         line: "",
 //         quantity: 0
@@ -162,6 +120,17 @@
 //         description: `Record has been saved successfully!`,
 //         duration: 3000,
 //       });
+
+//       // Navigate to ort-lab-form after a short delay
+//       // Log current records
+//       setTimeout(() => {
+//         console.log("All records:", records);
+//         navigate("/ort-lab-form", {
+//           state: {
+//             record: newRecord // Pass the complete record data
+//           }
+//         });
+//       }, 500);
 
 //       // Log current records
 //       console.log("All records:", records);
@@ -325,6 +294,7 @@
 //               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
 //                 Project <span className="text-red-600">*</span>
 //               </label>
+
 //               <div className="relative">
 //                 <button
 //                   type="button"
@@ -332,9 +302,7 @@
 //                   className="h-14 w-full px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 flex items-center justify-between focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm text-left"
 //                 >
 //                   <span className="truncate">
-//                     {formData.project && formData.project.length > 0
-//                       ? formData.project.join(", ")
-//                       : "Select project(s)"}
+//                     {formData.project ? formData.project : "Select project"}
 //                   </span>
 //                   {isProjectDropdownOpen ? (
 //                     <ChevronUp className="flex-shrink-0 ml-2" />
@@ -345,23 +313,7 @@
 
 //                 {isProjectDropdownOpen && (
 //                   <div className="absolute z-10 w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-lg">
-//                     <div className="p-2 border-b flex justify-between items-center">
-//                       <div>
-//                         <button
-//                           type="button"
-//                           onClick={selectAllProjects}
-//                           className="text-sm text-blue-600 hover:text-blue-800 font-medium px-2 py-1"
-//                         >
-//                           Select All
-//                         </button>
-//                         <button
-//                           type="button"
-//                           onClick={clearAllProjects}
-//                           className="text-sm text-red-600 hover:text-red-800 font-medium px-2 py-1 ml-4"
-//                         >
-//                           Clear All
-//                         </button>
-//                       </div>
+//                     <div className="p-2 border-b flex justify-end">
 //                       <button
 //                         type="button"
 //                         onClick={() => setIsProjectDropdownOpen(false)}
@@ -377,9 +329,13 @@
 //                           className="flex items-center px-4 py-3 hover:bg-slate-100 cursor-pointer"
 //                         >
 //                           <input
-//                             type="checkbox"
-//                             checked={formData.project?.includes(option) || false}
-//                             onChange={() => handleProjectSelect(option)}
+//                             type="radio"
+//                             name="project-single"
+//                             value={option}
+//                             checked={formData.project === option}
+//                             onChange={() =>
+//                               setFormData((prev) => ({ ...prev, project: option }))
+//                             }
 //                             className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
 //                           />
 //                           <span className="ml-3 font-medium text-slate-700">{option}</span>
@@ -390,6 +346,7 @@
 //                 )}
 //               </div>
 //             </div>
+
 
 //             <div className="space-y-2">
 //               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
@@ -438,15 +395,15 @@
 //             </div>
 
 //             <div className="space-y-2">
-//               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+//               <label className="block text-sm font-bold text-slate-800 mb-1 uppercase tracking-wide">
 //                 Status <span className="text-red-600">*</span>
 //               </label>
-
 //               <select
+//                 type="text"
 //                 name="status"
 //                 value={formData.status}
 //                 onChange={handleInputChange}
-//                 className="h-14 w-full px-5 border-2 border-slate-500 rounded-xl font-medium text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm bg-white appearance-none pr-10"
+//                 className="h-14 w-full px-5 border-2 border-slate-500 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm bg-white appearance-none pr-10"
 //                 required
 //               >
 //                 <option value="">-- Select Status --</option>
@@ -466,8 +423,8 @@
 //             </button>
 //           </div>
 //         </form>
-//       </div>
-//     </div>
+//       </div >
+//     </div >
 //   );
 // };
 
@@ -478,7 +435,8 @@ import { Input } from "@/components/ui/input";
 import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
 import React from "react";
 import { toast } from "@/components/ui/use-toast";
-import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { useNavigate } from "react-router-dom";
+import { Textarea } from "@/components/ui/textarea";
 
 // Form Component
 interface TestData {
@@ -490,7 +448,7 @@ interface TestData {
   sampleConfig: string;
   remarks: string;
   status: string;
-  project: string[];
+  project: string;
   colour: string;
   line: string;
   quantity: number;
@@ -510,8 +468,7 @@ const LINE_OPTIONS = ["Line 1", "Line 2", "Line 3"];
 const COLOUR_OPTIONS = ["NDA- XX", "LB- XX", "SD XX"];
 
 const TestForm: React.FC = () => {
-  const navigate = useNavigate(); // Initialize navigate
-
+  const navigate = useNavigate();
   const [formData, setFormData] = React.useState<TestData>({
     documentNumber: "",
     documentTitle: "",
@@ -521,15 +478,15 @@ const TestForm: React.FC = () => {
     sampleConfig: "",
     remarks: "",
     status: "",
-    project: [],
+    project: "",
     line: "",
     colour: "",
     quantity: 0
+
   });
 
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = React.useState(false);
-
   // Load existing data from localStorage on component mount
   React.useEffect(() => {
     const storedData = localStorage.getItem("testRecords");
@@ -538,38 +495,8 @@ const TestForm: React.FC = () => {
     }
   }, []);
 
-  const selectAllProjects = () => {
-    setFormData(prev => ({
-      ...prev,
-      project: [...PROJECT_OPTIONS]
-    }));
-  };
 
-  const clearAllProjects = () => {
-    setFormData(prev => ({
-      ...prev,
-      project: []
-    }));
-  };
-
-  const handleProjectSelect = (project: string) => {
-    setFormData(prev => {
-      const isSelected = prev.project.includes(project);
-      if (isSelected) {
-        return {
-          ...prev,
-          project: prev.project.filter(p => p !== project)
-        };
-      } else {
-        return {
-          ...prev,
-          project: [...prev.project, project]
-        };
-      }
-    });
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -581,30 +508,56 @@ const TestForm: React.FC = () => {
     setIsDropdownOpen(!isDropdownOpen);
   };
 
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
-      // Create record with ID and timestamp
+      // Get existing data from localStorage
+      const existingData = localStorage.getItem("testRecords");
+      const records = existingData ? JSON.parse(existingData) : [];
+
+      // Add new record
       const newRecord = {
         ...formData,
         id: Date.now(), // Add unique ID
-        createdAt: new Date().toISOString(),
-        testStartDate: "",
-        testCompletionDate: "",
-        color: formData.colour, // Map colour to color for compatibility
-        ortLabId: null // Will be set when ORT is completed
+        createdAt: new Date().toISOString()
       };
+
+      records.push(newRecord);
+
+      // Save back to localStorage
+      localStorage.setItem("testRecords", JSON.stringify(records));
+
+      // Reset form
+      setFormData({
+        documentNumber: "",
+        documentTitle: "",
+        projectName: "",
+        testLocation: "",
+        submissionPartDate: "",
+        sampleConfig: "",
+        remarks: "",
+        status: "",
+        project: "",
+        colour: "",
+        line: "",
+        quantity: 0
+      });
+
+      setIsDropdownOpen(false);
 
       // Success toast with more details
       toast({
-        title: "✅ Record Created Successfully",
-        description: `Document ${formData.documentNumber} has been saved. Navigating to ORT Lab...`,
+        title: "Record Created",
+        description: `Record has been saved successfully!`,
         duration: 3000,
       });
 
       // Navigate to ort-lab-form after a short delay
+      // Log current records
       setTimeout(() => {
+        console.log("All records:", records);
         navigate("/ort-lab-form", {
           state: {
             record: newRecord // Pass the complete record data
@@ -612,21 +565,8 @@ const TestForm: React.FC = () => {
         });
       }, 500);
 
-      // Optionally reset form (if you want to keep form data after navigation)
-      // setFormData({
-      //   documentNumber: "",
-      //   documentTitle: "",
-      //   projectName: "",
-      //   testLocation: "",
-      //   submissionPartDate: "",
-      //   sampleConfig: "",
-      //   remarks: "",
-      //   status: "",
-      //   project: [],
-      //   colour: "",
-      //   line: "",
-      //   quantity: 0
-      // });
+      // Log current records
+      console.log("All records:", records);
 
     } catch (error) {
       toast({
@@ -645,6 +585,7 @@ const TestForm: React.FC = () => {
         <h1 className="text-2xl font-bold mb-6">Test Data Form</h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
@@ -691,6 +632,21 @@ const TestForm: React.FC = () => {
               />
             </div>
 
+            {/* <div className="space-y-2">
+              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                Color <span className="text-red-600">*</span>
+              </label>
+              <Input
+                type="text"
+                name="color"
+                value={formData.color}
+                onChange={handleInputChange}
+                placeholder="Enter color"
+                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
+                required
+              />
+            </div> */}
+
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
                 Test Location <span className="text-red-600">*</span>
@@ -720,6 +676,7 @@ const TestForm: React.FC = () => {
               />
             </div>
 
+
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
                 Sample Configuration Overview <span className="text-red-600">*</span>
@@ -735,20 +692,6 @@ const TestForm: React.FC = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
-                Remarks <span className="text-red-600">*</span>
-              </label>
-              <Input
-                type="text"
-                name="remarks"
-                value={formData.remarks}
-                onChange={handleInputChange}
-                placeholder="Enter any remarks"
-                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
-                required
-              />
-            </div>
 
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
@@ -770,6 +713,7 @@ const TestForm: React.FC = () => {
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
                 Project <span className="text-red-600">*</span>
               </label>
+
               <div className="relative">
                 <button
                   type="button"
@@ -777,9 +721,7 @@ const TestForm: React.FC = () => {
                   className="h-14 w-full px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 flex items-center justify-between focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm text-left"
                 >
                   <span className="truncate">
-                    {formData.project && formData.project.length > 0
-                      ? formData.project.join(", ")
-                      : "Select project(s)"}
+                    {formData.project ? formData.project : "Select project"}
                   </span>
                   {isProjectDropdownOpen ? (
                     <ChevronUp className="flex-shrink-0 ml-2" />
@@ -790,23 +732,7 @@ const TestForm: React.FC = () => {
 
                 {isProjectDropdownOpen && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-lg">
-                    <div className="p-2 border-b flex justify-between items-center">
-                      <div>
-                        <button
-                          type="button"
-                          onClick={selectAllProjects}
-                          className="text-sm text-blue-600 hover:text-blue-800 font-medium px-2 py-1"
-                        >
-                          Select All
-                        </button>
-                        <button
-                          type="button"
-                          onClick={clearAllProjects}
-                          className="text-sm text-red-600 hover:text-red-800 font-medium px-2 py-1 ml-4"
-                        >
-                          Clear All
-                        </button>
-                      </div>
+                    <div className="p-2 border-b flex justify-end">
                       <button
                         type="button"
                         onClick={() => setIsProjectDropdownOpen(false)}
@@ -822,9 +748,13 @@ const TestForm: React.FC = () => {
                           className="flex items-center px-4 py-3 hover:bg-slate-100 cursor-pointer"
                         >
                           <input
-                            type="checkbox"
-                            checked={formData.project?.includes(option) || false}
-                            onChange={() => handleProjectSelect(option)}
+                            type="radio"
+                            name="project-single"
+                            value={option}
+                            checked={formData.project === option}
+                            onChange={() =>
+                              setFormData((prev) => ({ ...prev, project: option }))
+                            }
                             className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                           />
                           <span className="ml-3 font-medium text-slate-700">{option}</span>
@@ -835,6 +765,7 @@ const TestForm: React.FC = () => {
                 )}
               </div>
             </div>
+
 
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
@@ -883,20 +814,36 @@ const TestForm: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+              <label className="block text-sm font-bold text-slate-800 mb-1 uppercase tracking-wide">
                 Status <span className="text-red-600">*</span>
               </label>
               <select
+                type="text"
                 name="status"
                 value={formData.status}
                 onChange={handleInputChange}
-                className="h-14 w-full px-5 border-2 border-slate-500 rounded-xl font-medium text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm bg-white appearance-none pr-10"
+                className="h-14 w-full px-5 border-2 border-slate-500 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm bg-white appearance-none pr-10"
                 required
               >
                 <option value="">-- Select Status --</option>
                 <option value="Received">Received</option>
                 <option value="Completed">Completed</option>
               </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                Remarks <span className="text-red-600">*</span>
+              </label>
+              <Textarea
+                type="text"
+                name="remarks"
+                value={formData.remarks}
+                onChange={handleInputChange}
+                placeholder="Enter any remarks"
+                className="h- px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
+                required
+              />
             </div>
           </div>
 
@@ -910,8 +857,8 @@ const TestForm: React.FC = () => {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 };
 

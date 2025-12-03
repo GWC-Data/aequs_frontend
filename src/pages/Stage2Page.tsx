@@ -2241,7 +2241,6 @@
 
 // export default Stage2Page;
 
-
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -2284,7 +2283,7 @@ interface ORTLabRecord {
   sampleConfig: string;
   remarks: string;
   status: string;
-  project: string[];
+  project: string; // Changed from string[] to string
   line: string;
   colour: string;
   quantity: string;
@@ -2324,7 +2323,7 @@ const Stage2Page: React.FC = () => {
     startDateTime: "",
     endDateTime: "",
     remark: "",
-    projects: [] as string[],
+    project: "", // Changed from projects[] to single string
     lines: [] as string[],
     selectedParts: [] as string[]
   });
@@ -2362,15 +2361,11 @@ const Stage2Page: React.FC = () => {
         const records: ORTLabRecord[] = JSON.parse(storedRecords);
         setOrtLabRecords(records);
 
-        // Extract unique projects from the project array
+        // Extract unique projects - now single strings
         const projects = new Set<string>();
         records.forEach(record => {
-          if (record.project && Array.isArray(record.project)) {
-            record.project.forEach(proj => {
-              if (proj && proj.trim() !== '') {
-                projects.add(proj);
-              }
-            });
+          if (record.project && typeof record.project === 'string' && record.project.trim() !== '') {
+            projects.add(record.project.trim());
           }
         });
         setAvailableProjects(Array.from(projects));
@@ -2380,19 +2375,15 @@ const Stage2Page: React.FC = () => {
     }
   };
 
-  // Update lines and parts when projects change
+  // Update lines and parts when project changes
   useEffect(() => {
-    if (stage2Form.projects.length > 0) {
+    if (stage2Form.project) {
       const lines = new Set<string>();
       const parts: string[] = [];
 
       ortLabRecords.forEach(record => {
-        // Check if record has any of the selected projects
-        const hasSelectedProject = record.project?.some(proj =>
-          stage2Form.projects.includes(proj)
-        );
-
-        if (hasSelectedProject) {
+        // Check if record has the selected project
+        if (record.project === stage2Form.project) {
           // Add line if it exists
           if (record.line && record.line.trim() !== '') {
             lines.add(record.line);
@@ -2412,7 +2403,7 @@ const Stage2Page: React.FC = () => {
       setAvailableLines(Array.from(lines));
       setAvailableParts([...new Set(parts)]); // Remove duplicates
 
-      // Reset lines and parts when projects change
+      // Reset lines and parts when project changes
       setStage2Form(prev => ({
         ...prev,
         lines: [],
@@ -2427,31 +2418,29 @@ const Stage2Page: React.FC = () => {
         selectedParts: []
       }));
     }
-  }, [stage2Form.projects, ortLabRecords]);
+  }, [stage2Form.project, ortLabRecords]);
 
   // Update parts when lines change
   useEffect(() => {
-    if (stage2Form.projects.length > 0) {
+    if (stage2Form.project) {
       const parts: string[] = [];
 
       ortLabRecords.forEach(record => {
-        // Check if record has any of the selected projects
-        const hasSelectedProject = record.project?.some(proj =>
-          stage2Form.projects.includes(proj)
-        );
+        // Check if record has the selected project
+        if (record.project === stage2Form.project) {
+          // Check if line matches (if lines are selected)
+          const hasSelectedLine = stage2Form.lines.length === 0 ||
+            (record.line && stage2Form.lines.includes(record.line));
 
-        // Check if line matches (if lines are selected)
-        const hasSelectedLine = stage2Form.lines.length === 0 ||
-          (record.line && stage2Form.lines.includes(record.line));
-
-        if (hasSelectedProject && hasSelectedLine) {
-          // Add scanned parts
-          if (record.ortLab?.scannedParts) {
-            record.ortLab.scannedParts.forEach(part => {
-              if (part.partNumber && part.partNumber.trim() !== '') {
-                parts.push(part.partNumber);
-              }
-            });
+          if (hasSelectedLine) {
+            // Add scanned parts
+            if (record.ortLab?.scannedParts) {
+              record.ortLab.scannedParts.forEach(part => {
+                if (part.partNumber && part.partNumber.trim() !== '') {
+                  parts.push(part.partNumber);
+                }
+              });
+            }
           }
         }
       });
@@ -2460,7 +2449,7 @@ const Stage2Page: React.FC = () => {
       setAvailableParts(uniqueParts);
 
       // Reset selected parts when filter changes
-      if (stage2Form.lines.length > 0 || stage2Form.projects.length > 0) {
+      if (stage2Form.lines.length > 0) {
         setStage2Form(prev => ({
           ...prev,
           selectedParts: []
@@ -2469,19 +2458,17 @@ const Stage2Page: React.FC = () => {
     } else {
       setAvailableParts([]);
     }
-  }, [stage2Form.lines, stage2Form.projects, ortLabRecords]);
+  }, [stage2Form.lines, stage2Form.project, ortLabRecords]);
 
-  // Process Stage handlers
+  // Process Stage handlers (remain the same)
   const handleProcessStageSelection = (stage: string) => {
     setStage2Form(prev => {
       if (testMode === 'multi') {
-        // In multi-test mode, allow multiple selection
         const isSelected = prev.processStage.includes(stage);
         const newProcessStages = isSelected
           ? prev.processStage.filter(s => s !== stage)
           : [...prev.processStage, stage];
 
-        // If process stages change, reset dependent fields
         return {
           ...prev,
           processStage: newProcessStages,
@@ -2492,7 +2479,6 @@ const Stage2Page: React.FC = () => {
           requiredQty: ""
         };
       } else {
-        // In single-test mode, single selection
         return {
           ...prev,
           processStage: [stage],
@@ -2541,17 +2527,15 @@ const Stage2Page: React.FC = () => {
     setAvailableTestNames([]);
   };
 
-  // Type handlers
+  // Type handlers (remain the same)
   const handleTypeSelection = (type: string) => {
     setStage2Form(prev => {
       if (testMode === 'multi') {
-        // In multi-test mode, allow multiple selection
         const isSelected = prev.type.includes(type);
         const newTypes = isSelected
           ? prev.type.filter(t => t !== type)
           : [...prev.type, type];
 
-        // Filter data based on selected process stages and types
         const allSelectedProcessStages = prev.processStage;
         const filteredData = flaskData.filter(item =>
           allSelectedProcessStages.includes(item.processStage) &&
@@ -2570,7 +2554,6 @@ const Stage2Page: React.FC = () => {
           equipment: []
         };
       } else {
-        // In single-test mode, single selection
         const filteredData = flaskData.filter(item =>
           prev.processStage[0] === item.processStage && item.type === type
         );
@@ -2642,7 +2625,7 @@ const Stage2Page: React.FC = () => {
     setAvailableTestNames([]);
   };
 
-  // Test Name handlers
+  // Test Name handlers (remain the same)
   const handleTestNameSelection = (testName: string) => {
     if (testMode === 'single') {
       const selectedTest = filteredData.find(item => item.testName === testName);
@@ -2661,7 +2644,6 @@ const Stage2Page: React.FC = () => {
           ? prev.testName.filter(t => t !== testName)
           : [...prev.testName, testName];
 
-        // Auto-update equipment and test conditions
         const equipmentList: string[] = [];
         const conditionList: string[] = [];
 
@@ -2687,7 +2669,6 @@ const Stage2Page: React.FC = () => {
     setStage2Form(prev => {
       const newTestNames = prev.testName.filter(t => t !== testName);
 
-      // Auto-update equipment and test conditions
       const equipmentList: string[] = [];
       const conditionList: string[] = [];
 
@@ -2738,56 +2719,26 @@ const Stage2Page: React.FC = () => {
     }));
   };
 
-  // Project handlers
+  // Project handlers - SIMPLIFIED to single selection only
   const handleProjectSelection = (project: string) => {
-    setStage2Form(prev => {
-      if (testMode === 'multi') {
-        // In multi-test mode, only allow one project
-        return {
-          ...prev,
-          projects: [project],
-          lines: [],
-          selectedParts: []
-        };
-      } else {
-        // In single-test mode, allow multiple projects
-        const isSelected = prev.projects.includes(project);
-        return {
-          ...prev,
-          projects: isSelected
-            ? prev.projects.filter(p => p !== project)
-            : [...prev.projects, project]
-        };
-      }
-    });
-  };
-
-  const removeSelectedProject = (project: string) => {
     setStage2Form(prev => ({
       ...prev,
-      projects: prev.projects.filter(p => p !== project)
-    }));
-  };
-
-  const selectAllProjects = () => {
-    if (testMode === 'single') {
-      setStage2Form(prev => ({
-        ...prev,
-        projects: [...availableProjects]
-      }));
-    }
-  };
-
-  const clearAllProjects = () => {
-    setStage2Form(prev => ({
-      ...prev,
-      projects: [],
+      project,
       lines: [],
       selectedParts: []
     }));
   };
 
-  // Line handlers
+  const removeSelectedProject = () => {
+    setStage2Form(prev => ({
+      ...prev,
+      project: "",
+      lines: [],
+      selectedParts: []
+    }));
+  };
+
+  // Line handlers (remain the same)
   const handleLineSelection = (line: string) => {
     setStage2Form(prev => {
       const isSelected = prev.lines.includes(line);
@@ -2821,7 +2772,7 @@ const Stage2Page: React.FC = () => {
     }));
   };
 
-  // Part handlers
+  // Part handlers (remain the same)
   const handlePartSelection = (partNumber: string) => {
     setStage2Form(prev => {
       const isSelected = prev.selectedParts.includes(partNumber);
@@ -2857,19 +2808,17 @@ const Stage2Page: React.FC = () => {
 
   // Helper to get parts count
   const getAvailablePartsCount = () => {
-    if (stage2Form.projects.length === 0) return 0;
+    if (!stage2Form.project) return 0;
 
     let count = 0;
     ortLabRecords.forEach(record => {
-      const hasSelectedProject = record.project?.some(proj =>
-        stage2Form.projects.includes(proj)
-      );
+      if (record.project === stage2Form.project) {
+        const hasSelectedLine = stage2Form.lines.length === 0 ||
+          (record.line && stage2Form.lines.includes(record.line));
 
-      const hasSelectedLine = stage2Form.lines.length === 0 ||
-        (record.line && stage2Form.lines.includes(record.line));
-
-      if (hasSelectedProject && hasSelectedLine) {
-        count += record.ortLab?.scannedParts?.length || 0;
+        if (hasSelectedLine) {
+          count += record.ortLab?.scannedParts?.length || 0;
+        }
       }
     });
 
@@ -2890,11 +2839,11 @@ const Stage2Page: React.FC = () => {
       return;
     }
 
-    if (stage2Form.projects.length === 0) {
+    if (!stage2Form.project) {
       toast({
         variant: "destructive",
         title: "Missing Project",
-        description: "Please select at least one project from ORT Lab data.",
+        description: "Please select a project from ORT Lab data.",
         duration: 2000,
       });
       return;
@@ -2922,7 +2871,7 @@ const Stage2Page: React.FC = () => {
           requiredQty: stage2Form.requiredQty,
           equipment: stage2Form.equipment.join(', '),
           checkpoint: Number(stage2Form.checkpoint),
-          projects: stage2Form.projects,
+          project: stage2Form.project, // Single string
           lines: stage2Form.lines,
           selectedParts: stage2Form.selectedParts,
           startTime: stage2Form.startDateTime,
@@ -2974,7 +2923,7 @@ const Stage2Page: React.FC = () => {
       stage2Form.testCondition.length > 0 &&
       stage2Form.equipment.length > 0 &&
       stage2Form.checkpoint &&
-      stage2Form.projects.length > 0 &&
+      stage2Form.project &&
       stage2Form.selectedParts.length > 0;
   };
 
@@ -2982,8 +2931,12 @@ const Stage2Page: React.FC = () => {
     return null;
   }
 
-  const unselectedProjects = availableProjects.filter(
-    project => !stage2Form.projects.includes(project)
+  const unselectedProcessStages = processStages.filter(
+    stage => !stage2Form.processStage.includes(stage)
+  );
+
+  const unselectedTypes = types.filter(
+    type => !stage2Form.type.includes(type)
   );
 
   const unselectedLines = availableLines.filter(
@@ -2992,14 +2945,6 @@ const Stage2Page: React.FC = () => {
 
   const unselectedParts = availableParts.filter(
     part => !stage2Form.selectedParts.includes(part)
-  );
-
-  const unselectedProcessStages = processStages.filter(
-    stage => !stage2Form.processStage.includes(stage)
-  );
-
-  const unselectedTypes = types.filter(
-    type => !stage2Form.type.includes(type)
   );
 
   return (
@@ -3046,7 +2991,6 @@ const Stage2Page: React.FC = () => {
               value={testMode}
               onValueChange={(value: 'single' | 'multi') => {
                 setTestMode(value);
-                // Reset all fields when switching modes
                 setStage2Form({
                   processStage: [],
                   type: [],
@@ -3058,7 +3002,7 @@ const Stage2Page: React.FC = () => {
                   startDateTime: "",
                   endDateTime: "",
                   remark: "",
-                  projects: [],
+                  project: "",
                   lines: [],
                   selectedParts: []
                 });
@@ -3443,110 +3387,45 @@ const Stage2Page: React.FC = () => {
 
             {/* ORT Lab Data Selection Section */}
             <div className="space-y-2 md:col-span-2">
-              {/* Projects Selection */}
+              {/* Project Selection - SINGLE SELECTION ONLY */}
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between items-center">
-                  <Label htmlFor="projects" className="text-base">
-                    Projects <span className="text-red-600">*</span>
-                    {testMode === 'multi' && (
-                      <span className="text-sm font-normal text-gray-500 ml-2">
-                        (Single project only in multi-test mode)
-                      </span>
-                    )}
+                  <Label htmlFor="project" className="text-base">
+                    Project <span className="text-red-600">*</span>
                   </Label>
-                  {testMode === 'single' && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={selectAllProjects}
-                        disabled={stage2Form.projects.length === availableProjects.length}
-                      >
-                        Select All
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearAllProjects}
-                        disabled={stage2Form.projects.length === 0}
-                      >
-                        Clear All
-                      </Button>
-                    </div>
+                  {stage2Form.project && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={removeSelectedProject}
+                    >
+                      Clear
+                    </Button>
                   )}
                 </div>
 
                 <Select
+                  value={stage2Form.project}
                   onValueChange={handleProjectSelection}
-                  disabled={testMode === 'multi' && stage2Form.projects.length === 1}
-                  value={testMode === 'multi' ? stage2Form.projects[0] : undefined}
+                  disabled={availableProjects.length === 0}
                 >
                   <SelectTrigger className="h-11">
                     <SelectValue placeholder={
-                      testMode === 'multi'
-                        ? (stage2Form.projects.length === 1
-                          ? stage2Form.projects[0]
-                          : "Select one project")
-                        : (unselectedProjects.length === 0
-                          ? "All projects selected"
-                          : `Select from ${unselectedProjects.length} available project(s)`)
+                      stage2Form.project
+                        ? stage2Form.project
+                        : availableProjects.length === 0
+                          ? "No projects available"
+                          : "Select a project"
                     } />
                   </SelectTrigger>
                   <SelectContent>
-                    {testMode === 'multi' ? (
-                      // Multi-test mode: show all projects
-                      availableProjects.map((project) => (
-                        <SelectItem key={project} value={project}>
-                          {project}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      // Single-test mode: show only unselected projects
-                      unselectedProjects.map((project) => (
-                        <SelectItem key={project} value={project}>
-                          {project}
-                        </SelectItem>
-                      ))
-                    )}
+                    {availableProjects.map((project) => (
+                      <SelectItem key={project} value={project}>
+                        {project}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-
-                {testMode === 'single' && (
-                  <p className="text-xs text-gray-500">
-                    {stage2Form.projects.length} of {availableProjects.length} projects selected
-                  </p>
-                )}
-
-                {/* Selected Projects Display */}
-                {stage2Form.projects.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-base flex items-center gap-2">
-                      Selected Project{testMode === 'single' && 's'}
-                      {testMode === 'single' && (
-                        <span className="text-sm font-normal text-gray-500">
-                          ({stage2Form.projects.length} selected)
-                        </span>
-                      )}
-                    </Label>
-                    <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
-                      {stage2Form.projects.map((project) => (
-                        <div
-                          key={project}
-                          className="flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
-                        >
-                          <span>{project}</span>
-                          <button
-                            onClick={() => removeSelectedProject(project)}
-                            className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
-                            title="Remove project"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Lines Selection */}

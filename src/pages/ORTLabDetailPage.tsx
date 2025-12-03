@@ -437,7 +437,7 @@ interface ORTLabRecord {
   sampleConfig: string;
   remarks: string;
   status: string;
-  project: string[];
+  project: string;
   line: string;
   colour: string;
   quantity: string;
@@ -500,7 +500,7 @@ const ORTLabDetailsPage: React.FC = () => {
       localStorage.setItem("ortLabRecords", JSON.stringify(updatedRecords));
 
       toast({
-        title: "✅ Record Deleted",
+        title: "Record Deleted",
         description: "ORT Lab record has been deleted successfully",
         duration: 3000,
       });
@@ -587,11 +587,11 @@ const ORTLabDetailsPage: React.FC = () => {
       </Button>
 
       <Card>
-        <CardHeader className="bg-blue-600 text-white">
-          <CardTitle className="text-2xl">ORT Lab Records</CardTitle>
+        <CardHeader>
+          <CardTitle className="text-xl">ORT Lab Records</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="rounded-md border overflow-x-auto">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50">
@@ -622,7 +622,7 @@ const ORTLabDetailsPage: React.FC = () => {
                         {record.documentNumber}
                       </TableCell>
                       <TableCell className="text-sm">{record.projectName}</TableCell>
-                      <TableCell className="text-sm">
+                      {/* <TableCell className="text-sm">
                         <div className="flex flex-wrap gap-1 max-w-[200px]">
                           {record.project?.slice(0, 3).map((proj, idx) => (
                             <span
@@ -638,7 +638,14 @@ const ORTLabDetailsPage: React.FC = () => {
                             </span>
                           )}
                         </div>
+                      </TableCell> */}
+
+                      <TableCell className="text-sm">
+                        <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                          {record.project || "—"}
+                        </span>
                       </TableCell>
+
                       <TableCell className="font-mono text-sm">
                         {record.ortLab.serialNumber}
                       </TableCell>
@@ -755,20 +762,13 @@ const ORTLabDetailsPage: React.FC = () => {
 
               {/* Projects Information */}
               <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 className="font-semibold text-lg mb-3 text-blue-800">
-                  Projects ({selectedRecord.project?.length || 0})
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {selectedRecord.project?.map((project, index) => (
-                    <span
-                      key={index}
-                      className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
-                    >
-                      {project}
-                    </span>
-                  ))}
-                </div>
+                <h3 className="font-semibold text-lg mb-3 text-blue-800">Project</h3>
+
+                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                  {selectedRecord.project || "—"}
+                </span>
               </div>
+
 
               {/* ORT Lab Submission Details */}
               <div className="p-4 bg-green-50 rounded-lg border border-green-200">
