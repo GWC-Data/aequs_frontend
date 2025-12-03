@@ -57,7 +57,7 @@ interface Stage2Record {
   };
 }
 
-const Stage2Records: React.FC = () => {
+const Stage2DetailRecords: React.FC = () => {
   const [stage2Records, setStage2Records] = React.useState<Stage2Record[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedRecord, setSelectedRecord] = React.useState<Stage2Record | null>(null);
@@ -1116,4 +1116,4 @@ const Stage2Records: React.FC = () => {
   );
 };
 
-export default Stage2Records;
+export default Stage2DetailRecords;

@@ -1070,7 +1070,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { ArrowLeft, X, Scan, Trash2, CheckCircle, Barcode } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
- 
+
 interface TestRecord {
   documentNumber: string;
   documentTitle: string;
@@ -1089,18 +1089,18 @@ interface TestRecord {
   colour: string;
   remarks: string;
 }
- 
+
 interface ORTLabPageLocationState {
   record: TestRecord;
   reloadMode?: boolean;
   existingRecord?: any;
 }
- 
+
 // Static barcode data for testing
 const STATIC_BARCODE_DATA = [
   "SN001:PART001,PART002,PART003,PART004,PART005"
 ];
- 
+
 // Static additional parts for reload mode
 const ADDITIONAL_PARTS = [
   { id: 6, partNumber: "PART006" },
@@ -1109,13 +1109,13 @@ const ADDITIONAL_PARTS = [
   { id: 9, partNumber: "PART009" },
   { id: 10, partNumber: "PART010" },
 ];
- 
+
 interface ScannedPart {
   serialNumber: string;
   partNumber: string;
   scannedAt: Date;
 }
- 
+
 const ORTLabPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -1123,7 +1123,7 @@ const ORTLabPage: React.FC = () => {
   const selectedRecord = locationState?.record;
   const reloadMode = locationState?.reloadMode || false;
   const existingRecord = locationState?.existingRecord;
- 
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const [serialNumber, setSerialNumber] = useState("");
   const [scannedParts, setScannedParts] = useState<ScannedPart[]>([]);
@@ -1134,47 +1134,99 @@ const ORTLabPage: React.FC = () => {
   const [isReloadMode, setIsReloadMode] = useState(false);
   const [existingORTRecord, setExistingORTRecord] = useState<any>(null);
   const [selectedAdditionalParts, setSelectedAdditionalParts] = useState<string[]>([]);
- 
+  // Add this new state near the other useState declarations
+  const [assignedPartsBySerial, setAssignedPartsBySerial] = useState<Record<string, Set<string>>>({});
+
   // Auto-focus on barcode input
   useEffect(() => {
     if (barcodeInputRef.current) {
       barcodeInputRef.current.focus();
     }
   }, []);
- 
+
+  // Helper function to check if parts belong to a completed project
+  const checkIfPartsFromCompletedProject = (serial: string): boolean => {
+    try {
+      const existingORTData = localStorage.getItem("ortLabRecords");
+      if (!existingORTData) return false;
+
+      const ortRecords = JSON.parse(existingORTData);
+
+      // Find any record with this serial number
+      const recordWithSerial = ortRecords.find((record: any) =>
+        record.ortLab?.serialNumber === serial
+      );
+
+      if (!recordWithSerial) return false;
+
+      // Check if the project status is "Complete"
+      return recordWithSerial.status === "Complete";
+    } catch (error) {
+      console.error("Error checking project status:", error);
+      return false;
+    }
+  };
+
   // Load existing scanned parts if in reload mode
+  // Update the existing useEffect for reload mode
   useEffect(() => {
     if (reloadMode && existingRecord) {
       setIsReloadMode(true);
       setExistingORTRecord(existingRecord);
- 
+
       // Load existing scanned parts
       if (existingRecord.ortLab?.scannedParts) {
-        setScannedParts(existingRecord.ortLab.scannedParts.map((part: any) => ({
+        const parts = existingRecord.ortLab.scannedParts.map((part: any) => ({
           ...part,
           scannedAt: new Date(part.scannedAt)
-        })));
+        }));
+        setScannedParts(parts);
         setSerialNumber(existingRecord.ortLab.serialNumber || "");
+
+        // NEW: Check if parts are from a completed project
+        const isFromCompletedProject = existingRecord.status === "Complete";
+
+        if (!isFromCompletedProject) {
+          // Only load assigned parts if NOT from a completed project
+          const assignedMap: Record<string, Set<string>> = {};
+          parts.forEach((part: ScannedPart) => {
+            if (!assignedMap[part.serialNumber]) {
+              assignedMap[part.serialNumber] = new Set();
+            }
+            assignedMap[part.serialNumber].add(part.partNumber);
+          });
+          setAssignedPartsBySerial(assignedMap);
+
+          toast({
+            title: "Reload Mode Active",
+            description: `Loaded ${existingRecord.ortLab?.scannedParts?.length || 0} existing parts. You can now add more parts.`,
+            duration: 4000,
+          });
+        } else {
+          // Clear assigned parts for completed projects - require rescanning
+          setAssignedPartsBySerial({});
+
+          toast({
+            title: "Completed Project - Rescan Required",
+            description: `This project is marked as Complete. All parts must be rescanned.`,
+            duration: 5000,
+            variant: "destructive",
+          });
+        }
       }
- 
-      toast({
-        title: "Reload Mode Active",
-        description: `Loaded ${existingRecord.ortLab?.scannedParts?.length || 0} existing parts. You can now add more parts.`,
-        duration: 4000,
-      });
     }
   }, [reloadMode, existingRecord]);
- 
+
   // Handle barcode input from physical scanner
   const handleBarcodeInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
- 
+
       const barcodeData = barcodeInput.trim();
       if (barcodeData) {
         processBarcodeData(barcodeData);
         setBarcodeInput("");
- 
+
         // Auto-refocus for next scan
         setTimeout(() => {
           if (barcodeInputRef.current) {
@@ -1184,7 +1236,8 @@ const ORTLabPage: React.FC = () => {
       }
     }
   };
- 
+
+  // Process barcode data
   // Process barcode data
   const processBarcodeData = (data: string) => {
     if (!data.trim()) {
@@ -1196,16 +1249,16 @@ const ORTLabPage: React.FC = () => {
       });
       return;
     }
- 
+
     try {
       let serial = "";
       let partNumbers: string[] = [];
- 
+
       // Check if input is a static barcode from our test data
       const staticBarcode = STATIC_BARCODE_DATA.find(barcode =>
         barcode.split(':')[0] === data.toUpperCase()
       );
- 
+
       if (staticBarcode) {
         const parts = staticBarcode.split(':');
         serial = parts[0].trim();
@@ -1237,7 +1290,7 @@ const ORTLabPage: React.FC = () => {
       else {
         serial = data.trim();
       }
- 
+
       // Validate serial number
       if (!serial) {
         toast({
@@ -1248,10 +1301,41 @@ const ORTLabPage: React.FC = () => {
         });
         return;
       }
- 
+
+      // NEW: Check if parts belong to a completed project
+      const isFromCompletedProject = checkIfPartsFromCompletedProject(serial);
+
+      let alreadyAssigned = new Set<string>();
+      let unassignedParts = partNumbers;
+
+      if (!isFromCompletedProject) {
+        // Only filter assigned parts if NOT from a completed project
+        alreadyAssigned = assignedPartsBySerial[serial] || new Set<string>();
+        unassignedParts = partNumbers.filter(part => !alreadyAssigned.has(part));
+
+        if (unassignedParts.length === 0 && partNumbers.length > 0) {
+          toast({
+            variant: "destructive",
+            title: "All Parts Already Assigned",
+            description: `All ${partNumbers.length} part(s) from this barcode are already assigned to serial ${serial}.`,
+            duration: 3000,
+          });
+          return;
+        }
+      } else {
+        // For completed projects, all parts are treated as unassigned
+        if (partNumbers.length > 0) {
+          toast({
+            title: "Completed Project Detected",
+            description: `Serial ${serial} is from a completed project. All ${partNumbers.length} part(s) will be rescanned.`,
+            duration: 3000,
+          });
+        }
+      }
+
       // Set serial number
       setSerialNumber(serial);
- 
+
       // Check if we've reached the required quantity (skip in reload mode)
       const requiredQuantity = selectedRecord?.quantity || 0;
       if (!isReloadMode && scannedParts.length >= requiredQuantity) {
@@ -1263,31 +1347,53 @@ const ORTLabPage: React.FC = () => {
         });
         return;
       }
- 
-      // Add scanned parts
-      const newParts: ScannedPart[] = partNumbers.map(part => ({
+
+      // Create scanned parts from unassigned parts
+      const newParts: ScannedPart[] = unassignedParts.map(part => ({
         serialNumber: serial,
         partNumber: part,
         scannedAt: new Date()
       }));
- 
-      // Replace the parts addition section with:
+
       // Check how many more parts we can add
       const remainingCapacity = isReloadMode
         ? 999 // Allow unlimited additional parts in reload mode
         : requiredQuantity - scannedParts.length;
       const partsToAdd = newParts.slice(0, remainingCapacity);
- 
+
       if (partsToAdd.length > 0) {
         setScannedParts(prev => [...prev, ...partsToAdd]);
- 
+
+        // Update assigned parts map (only if not from completed project)
+        if (!isFromCompletedProject) {
+          setAssignedPartsBySerial(prev => {
+            const updated = { ...prev };
+            if (!updated[serial]) {
+              updated[serial] = new Set();
+            }
+            partsToAdd.forEach(part => {
+              updated[serial].add(part.partNumber);
+            });
+            return updated;
+          });
+        }
+
+        const skippedCount = partNumbers.length - unassignedParts.length;
         const messagePrefix = isReloadMode ? "Additional" : "";
+
+        // Different message for completed projects
+        const statusMessage = isFromCompletedProject
+          ? " (Completed Project - Rescanned)"
+          : skippedCount > 0
+            ? ` (${skippedCount} already assigned)`
+            : '';
+
         toast({
           title: `${messagePrefix} Parts Scanned`,
-          description: `Added ${partsToAdd.length} part(s) to serial ${serial}${isReloadMode ? ' (Reload Mode)' : ''}`,
-          duration: 2000,
+          description: `Added ${partsToAdd.length} part(s) to serial ${serial}${statusMessage}${isReloadMode && !isFromCompletedProject ? ' (Reload Mode)' : ''}`,
+          duration: 3000,
         });
- 
+
         // Check if we reached required quantity (only in normal mode)
         if (!isReloadMode && scannedParts.length + partsToAdd.length >= requiredQuantity) {
           toast({
@@ -1304,7 +1410,7 @@ const ORTLabPage: React.FC = () => {
           duration: 3000,
         });
       }
- 
+
     } catch (error) {
       console.error("Barcode processing error:", error);
       toast({
@@ -1315,19 +1421,20 @@ const ORTLabPage: React.FC = () => {
       });
     }
   };
- 
+
   // Test with static barcode data
   const testWithStaticBarcode = (barcode: string) => {
     setBarcodeInput(barcode);
     processBarcodeData(barcode);
     setBarcodeInput("");
   };
- 
+
   // Clear all scanned data
   const clearScannedData = () => {
     setSerialNumber("");
     setScannedParts([]);
     setBarcodeInput("");
+    setAssignedPartsBySerial({}); // NEW: Clear assigned parts map
     if (barcodeInputRef.current) {
       barcodeInputRef.current.focus();
     }
@@ -1337,7 +1444,7 @@ const ORTLabPage: React.FC = () => {
       duration: 2000,
     });
   };
- 
+
   // Start/Stop camera scanner
   const startScanner = async () => {
     try {
@@ -1359,7 +1466,7 @@ const ORTLabPage: React.FC = () => {
       });
     }
   };
- 
+
   const stopScanner = () => {
     if (videoRef.current?.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
@@ -1369,7 +1476,7 @@ const ORTLabPage: React.FC = () => {
     setIsScanning(false);
     setShowScanner(false);
   };
- 
+
   // Toggle additional part selection
   const toggleAdditionalPart = (partNumber: string) => {
     setSelectedAdditionalParts(prev => {
@@ -1380,12 +1487,13 @@ const ORTLabPage: React.FC = () => {
       }
     });
   };
- 
+
   // Check if a part is already scanned
   const isPartAlreadyScanned = (partNumber: string) => {
     return scannedParts.some(part => part.partNumber === partNumber);
   };
- 
+
+  // Add selected additional parts to scanned parts
   // Add selected additional parts to scanned parts
   const addSelectedAdditionalParts = () => {
     if (selectedAdditionalParts.length === 0) {
@@ -1397,7 +1505,7 @@ const ORTLabPage: React.FC = () => {
       });
       return;
     }
- 
+
     if (!serialNumber) {
       toast({
         variant: "destructive",
@@ -1407,31 +1515,81 @@ const ORTLabPage: React.FC = () => {
       });
       return;
     }
- 
-    // Create new scanned parts from selection
-    const newParts: ScannedPart[] = selectedAdditionalParts.map(partNumber => ({
+
+    // NEW: Check if parts belong to a completed project
+    const isFromCompletedProject = checkIfPartsFromCompletedProject(serialNumber);
+
+    let unassignedParts = selectedAdditionalParts;
+    let skippedCount = 0;
+
+    if (!isFromCompletedProject) {
+      // Only check for already assigned parts if NOT from a completed project
+      const alreadyAssigned = assignedPartsBySerial[serialNumber] || new Set<string>();
+      unassignedParts = selectedAdditionalParts.filter(part => !alreadyAssigned.has(part));
+      skippedCount = selectedAdditionalParts.length - unassignedParts.length;
+
+      if (unassignedParts.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "All Selected Parts Already Assigned",
+          description: "All selected parts are already assigned to this serial number.",
+          duration: 2000,
+        });
+        return;
+      }
+    } else {
+      // For completed projects, all parts are treated as unassigned
+      toast({
+        title: "Completed Project Detected",
+        description: `Serial ${serialNumber} is from a completed project. All selected parts will be added.`,
+        duration: 2000,
+      });
+    }
+
+    // Create new scanned parts from unassigned selection
+    const newParts: ScannedPart[] = unassignedParts.map(partNumber => ({
       serialNumber: serialNumber,
       partNumber: partNumber,
       scannedAt: new Date()
     }));
- 
+
     setScannedParts(prev => [...prev, ...newParts]);
- 
+
+    // Update assigned parts map (only if not from completed project)
+    if (!isFromCompletedProject) {
+      setAssignedPartsBySerial(prev => {
+        const updated = { ...prev };
+        if (!updated[serialNumber]) {
+          updated[serialNumber] = new Set();
+        }
+        newParts.forEach(part => {
+          updated[serialNumber].add(part.partNumber);
+        });
+        return updated;
+      });
+    }
+
+    const statusMessage = isFromCompletedProject
+      ? " (Completed Project - Rescanned)"
+      : skippedCount > 0
+        ? ` (${skippedCount} already assigned)`
+        : '';
+
     toast({
       title: "Additional Parts Added",
-      description: `Successfully added ${newParts.length} additional part(s) to serial ${serialNumber}`,
-      duration: 2000,
+      description: `Successfully added ${newParts.length} part(s) to serial ${serialNumber}${statusMessage}`,
+      duration: 3000,
     });
- 
+
     // Clear selection
     setSelectedAdditionalParts([]);
   };
- 
+
   const handleORTSubmit = () => {
     if (!selectedRecord) return;
- 
+
     const requiredQuantity = selectedRecord.quantity;
- 
+
     // In reload mode, just need at least one part
     // In normal mode, need all required parts
     if (!isReloadMode && scannedParts.length < requiredQuantity) {
@@ -1443,7 +1601,7 @@ const ORTLabPage: React.FC = () => {
       });
       return;
     }
- 
+
     if (isReloadMode && scannedParts.length === existingORTRecord?.ortLab?.scannedParts?.length) {
       toast({
         variant: "destructive",
@@ -1453,12 +1611,12 @@ const ORTLabPage: React.FC = () => {
       });
       return;
     }
- 
+
     try {
       // Retrieve existing ORT records
       const existingORTData = localStorage.getItem("ortLabRecords");
       const ortRecords = existingORTData ? JSON.parse(existingORTData) : [];
- 
+
       if (isReloadMode && existingORTRecord) {
         // UPDATE existing record
         const updatedORTData = {
@@ -1472,20 +1630,20 @@ const ORTLabPage: React.FC = () => {
             updateCount: (existingORTRecord.ortLab?.updateCount || 0) + 1
           }
         };
- 
+
         // Find and update the existing record
         const updatedRecords = ortRecords.map((record: any) =>
           record.ortLabId === existingORTRecord.ortLabId ? updatedORTData : record
         );
- 
+
         localStorage.setItem("ortLabRecords", JSON.stringify(updatedRecords));
- 
+
         toast({
           title: "ORT Lab Updated!",
           description: `Record updated with ${scannedParts.length} total parts (added ${scannedParts.length - (existingORTRecord.ortLab?.scannedParts?.length || 0)} new parts).`,
           duration: 4000,
         });
- 
+
         // Navigate back to QRT checklist
         navigate("/qrtchecklist", {
           state: {
@@ -1493,7 +1651,7 @@ const ORTLabPage: React.FC = () => {
             ortData: updatedORTData
           }
         });
- 
+
       } else {
         // CREATE new record (existing logic)
         const ortLabId = Date.now();
@@ -1511,16 +1669,16 @@ const ORTLabPage: React.FC = () => {
             updateCount: 0
           }
         };
- 
+
         ortRecords.push(ortLabData);
         localStorage.setItem("ortLabRecords", JSON.stringify(ortRecords));
- 
+
         toast({
           title: "ORT Lab Completed!",
           description: `${scannedParts.length} parts scanned and assigned successfully.`,
           duration: 4000,
         });
- 
+
         navigate("/qrtchecklist", {
           state: {
             record: selectedRecord,
@@ -1528,7 +1686,7 @@ const ORTLabPage: React.FC = () => {
           }
         });
       }
- 
+
     } catch (error) {
       toast({
         variant: "destructive",
@@ -1539,7 +1697,7 @@ const ORTLabPage: React.FC = () => {
       console.error("Error:", error);
     }
   };
- 
+
   if (!selectedRecord) {
     return (
       <div className="mx-auto p-6">
@@ -1559,14 +1717,14 @@ const ORTLabPage: React.FC = () => {
       </div>
     );
   }
- 
+
   const requiredQuantity = selectedRecord.quantity || 0;
   const scannedCount = scannedParts.length;
   const remainingCount = isReloadMode ? 0 : Math.max(0, requiredQuantity - scannedCount);
   const isComplete = isReloadMode
     ? scannedCount > (existingORTRecord?.ortLab?.scannedParts?.length || 0)
     : scannedCount >= requiredQuantity;
- 
+
   return (
     <div className="mx-auto p-6 ">
       <Button
@@ -1577,7 +1735,7 @@ const ORTLabPage: React.FC = () => {
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Live Test Checklist
       </Button>
- 
+
       <Card>
         <CardHeader>
           <CardTitle className="text-xl">
@@ -1585,7 +1743,7 @@ const ORTLabPage: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-1">
- 
+
           {/* Serial Number Input - Show in reload mode */}
           {isReloadMode && (
             <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
@@ -1612,7 +1770,7 @@ const ORTLabPage: React.FC = () => {
               </div>
             </div>
           )}
- 
+
           {/* OQC Form Data Display */}
           <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
             <h3 className="font-semibold text-lg mb-3 text-gray-700">
@@ -1623,7 +1781,7 @@ const ORTLabPage: React.FC = () => {
                 <Label className="text-sm font-medium text-gray-500">Quantity Required</Label>
                 <div className="text-xl font-bold">{selectedRecord.quantity}</div>
               </div>
- 
+
               <div className="space-y-1">
                 <Label className="text-sm font-medium text-gray-500">Project(s)</Label>
                 <div className="flex flex-wrap gap-1">
@@ -1638,12 +1796,12 @@ const ORTLabPage: React.FC = () => {
                   )}
                 </div>
               </div>
- 
+
               <div className="space-y-1">
                 <Label className="text-sm font-medium text-gray-500">Line</Label>
                 <div className="text-sm font-medium">{selectedRecord.line || "N/A"}</div>
               </div>
- 
+
               <div className="space-y-1">
                 <Label className="text-sm font-medium text-gray-500">Colour</Label>
                 <div className="flex items-center">
@@ -1661,7 +1819,7 @@ const ORTLabPage: React.FC = () => {
               </div>
             </div>
           </div>
- 
+
           {/* Completion Status Banner */}
           {/* {isComplete && !isReloadMode && (
             <div className="mb-6 p-4 bg-green-100 border border-green-400 rounded-lg">
@@ -1676,7 +1834,27 @@ const ORTLabPage: React.FC = () => {
               </div>
             </div>
           )} */}
- 
+
+          {/* Completed Project Warning Banner - Add after OQC Form Data Display */}
+          {isReloadMode && existingRecord?.status === "Complete" && (
+            <div className="mb-6 p-4 bg-orange-50 border-2 border-orange-300 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-orange-500 flex items-center justify-center">
+                  <span className="text-white text-xl font-bold">!</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-orange-900 text-lg">Completed Project - Rescan Required</h3>
+                  <p className="text-orange-800 text-sm mt-1">
+                    This project has been marked as "Complete". All parts from serial number <span className="font-mono font-bold">{existingRecord.ortLab?.serialNumber}</span> are treated as unassigned and must be rescanned.
+                  </p>
+                  <p className="text-orange-700 text-xs mt-2 font-medium">
+                    Previously assigned parts: {existingRecord.ortLab?.scannedParts?.length || 0}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Reload Mode - Ready to Update Banner */}
           {isReloadMode && scannedCount > (existingORTRecord?.ortLab?.scannedParts?.length || 0) && (
             <div className="mb-6 p-4 bg-blue-100 border border-blue-400 rounded-lg">
@@ -1692,7 +1870,7 @@ const ORTLabPage: React.FC = () => {
               </div>
             </div>
           )}
- 
+
           {/* Progress Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card>
@@ -1724,7 +1902,7 @@ const ORTLabPage: React.FC = () => {
               </CardContent>
             </Card>
           </div>
- 
+
           {/* Barcode Scanner Section */}
           <div className="mb-6 p-4 rounded-lg">
             <div className="flex items-center justify-between mb-4">
@@ -1741,7 +1919,7 @@ const ORTLabPage: React.FC = () => {
                 Clear All
               </Button>
             </div>
- 
+
             <div className="space-y-4">
               {/* Barcode Input */}
               <div className="space-y-2">
@@ -1765,7 +1943,7 @@ const ORTLabPage: React.FC = () => {
                   </p>
                 )} */}
               </div>
- 
+
               {/* Test Barcode Buttons */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-gray-700">
@@ -1786,7 +1964,7 @@ const ORTLabPage: React.FC = () => {
                   ))}
                 </div>
               </div>
- 
+
               {/* Camera Scanner */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-gray-700">
@@ -1811,7 +1989,7 @@ const ORTLabPage: React.FC = () => {
                   )}
                 </div>
               </div>
- 
+
               {/* Scanner Status */}
               {/* <div className="p-3 bg-white rounded border">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -1828,7 +2006,7 @@ const ORTLabPage: React.FC = () => {
               </div> */}
             </div>
           </div>
- 
+
           {/* Camera Preview */}
           {showScanner && (
             <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
@@ -1848,8 +2026,8 @@ const ORTLabPage: React.FC = () => {
               </div>
             </div>
           )}
- 
- 
+
+
           {/* Additional Parts Section - Only show in reload mode */}
           {isReloadMode && (
             <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border-2 border-green-300">
@@ -1862,7 +2040,7 @@ const ORTLabPage: React.FC = () => {
                   Click to select additional parts to add to existing record
                 </p>
               </div>
- 
+
               {!serialNumber && (
                 <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg">
                   <p className="text-sm text-yellow-800 font-medium">
@@ -1870,13 +2048,13 @@ const ORTLabPage: React.FC = () => {
                   </p>
                 </div>
               )}
- 
+
               {/* Additional Parts Grid - 5 Buttons */}
               <div className="grid grid-cols-5 gap-3 mb-4">
                 {ADDITIONAL_PARTS.map((part) => {
                   const isSelected = selectedAdditionalParts.includes(part.partNumber);
                   const alreadyScanned = isPartAlreadyScanned(part.partNumber);
- 
+
                   return (
                     <button
                       key={part.id}
@@ -1907,9 +2085,7 @@ const ORTLabPage: React.FC = () => {
                       <div className={`font-mono text-sm font-bold mb-1 ${isSelected ? 'text-white' : 'text-gray-800'}`}>
                         {part.partNumber}
                       </div>
-                      <div className={`text-xs ${isSelected ? 'text-white' : 'text-gray-600'}`}>
-                        {part.description}
-                      </div>
+
                       {alreadyScanned && (
                         <div className="text-xs text-green-600 font-medium mt-2">
                           Added
@@ -1919,7 +2095,7 @@ const ORTLabPage: React.FC = () => {
                   );
                 })}
               </div>
- 
+
               {/* Selection Summary and Add Button */}
               {selectedAdditionalParts.length > 0 && (
                 <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
@@ -1947,7 +2123,7 @@ const ORTLabPage: React.FC = () => {
                   </div>
                 </div>
               )}
- 
+
               {/* Quick Stats */}
               <div className="mt-3 pt-3 border-t border-green-200">
                 <div className="grid grid-cols-3 gap-4 text-center text-sm">
@@ -1977,7 +2153,7 @@ const ORTLabPage: React.FC = () => {
               </div>
             </div>
           )}
- 
+
           {/* Simple Scanned Parts Display */}
           {scannedParts.length > 0 && (
             <div className="mb-6">
@@ -1986,13 +2162,13 @@ const ORTLabPage: React.FC = () => {
                   Scanned Parts ({scannedParts.length} {isReloadMode ? 'total' : `of ${requiredQuantity}`})
                 </h3>
               </div>
- 
+
               <div className="p-4 bg-white border rounded-lg">
                 <div className="mb-3">
                   <div className="text-sm font-medium text-gray-500">Serial Number</div>
                   <div className="font-mono text-lg font-bold">{serialNumber}</div>
                 </div>
- 
+
                 <div>
                   <div className="text-sm font-medium text-gray-500 mb-2">Parts</div>
                   <div className="font-mono p-3 bg-gray-50 rounded border text-gray-800">
@@ -2002,7 +2178,7 @@ const ORTLabPage: React.FC = () => {
               </div>
             </div>
           )}
- 
+
           {/* Action Buttons */}
           <div className="flex justify-end gap-4 pt-6 border-t">
             <Button
@@ -2026,6 +2202,5 @@ const ORTLabPage: React.FC = () => {
     </div>
   );
 };
- 
+
 export default ORTLabPage;
- 

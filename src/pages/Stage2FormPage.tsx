@@ -2241,6 +2241,7 @@
 
 // export default Stage2Page;
 
+
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -2305,7 +2306,7 @@ interface ORTLabRecord {
   };
 }
 
-const Stage2Page: React.FC = () => {
+const Stage2FormPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const selectedRecord = location.state?.record as TestRecord | undefined;
@@ -2331,8 +2332,81 @@ const Stage2Page: React.FC = () => {
   // ORT Lab data
   const [ortLabRecords, setOrtLabRecords] = useState<ORTLabRecord[]>([]);
   const [availableProjects, setAvailableProjects] = useState<string[]>([]);
-  const [availableLines, setAvailableLines] = useState<string[]>([]);
-  const [availableParts, setAvailableParts] = useState<string[]>([]);
+  // const [availableLines, setAvailableLines] = useState<string[]>([]);
+  // const [availableParts, setAvailableParts] = useState<string[]>([]);
+
+
+  // Add this function to automatically get parts from ORT Lab
+  const getAutoMappedParts = () => {
+    try {
+      const storedRecords = localStorage.getItem("ortLabRecords");
+      if (!storedRecords) return [];
+
+      const records: ORTLabRecord[] = JSON.parse(storedRecords);
+
+      // Find ORT Lab records matching the selected record's document number
+      const matchingRecords = records.filter(record =>
+        record.documentNumber === selectedRecord?.documentNumber
+      );
+
+      if (matchingRecords.length === 0) return [];
+
+      // Collect all unique part numbers from all matching records
+      const parts = new Set<string>();
+      matchingRecords.forEach(record => {
+        record.ortLab.scannedParts.forEach(part => {
+          parts.add(part.partNumber);
+        });
+      });
+
+      return Array.from(parts);
+    } catch (error) {
+      console.error("Error loading parts from ORT Lab:", error);
+      return [];
+    }
+  };
+
+  // Add this function to get project and line from ORT Lab
+  const getAutoMappedProjectAndLine = () => {
+    try {
+      const storedRecords = localStorage.getItem("ortLabRecords");
+      if (!storedRecords) return { project: "", lines: [] };
+
+      const records: ORTLabRecord[] = JSON.parse(storedRecords);
+
+      // Find the first matching ORT Lab record
+      const matchingRecord = records.find(record =>
+        record.documentNumber === selectedRecord?.documentNumber
+      );
+
+      if (!matchingRecord) return { project: "", lines: [] };
+
+      return {
+        project: matchingRecord.project || "",
+        lines: matchingRecord.line ? [matchingRecord.line] : []
+      };
+    } catch (error) {
+      console.error("Error loading project/line from ORT Lab:", error);
+      return { project: "", lines: [] };
+    }
+  };
+
+
+  // Replace the loadORTLabRecords function and its usage with:
+  useEffect(() => {
+    if (selectedRecord) {
+      // Auto-map project, line, and parts from ORT Lab
+      const { project, lines } = getAutoMappedProjectAndLine();
+      const parts = getAutoMappedParts();
+
+      setStage2Form(prev => ({
+        ...prev,
+        project: project,
+        lines: lines,
+        selectedParts: parts
+      }));
+    }
+  }, [selectedRecord]);
 
   const processStages = Array.from(new Set(flaskData.map(item => item.processStage)));
 
@@ -2376,89 +2450,89 @@ const Stage2Page: React.FC = () => {
   };
 
   // Update lines and parts when project changes
-  useEffect(() => {
-    if (stage2Form.project) {
-      const lines = new Set<string>();
-      const parts: string[] = [];
+  // useEffect(() => {
+  //   if (stage2Form.project) {
+  //     const lines = new Set<string>();
+  //     const parts: string[] = [];
 
-      ortLabRecords.forEach(record => {
-        // Check if record has the selected project
-        if (record.project === stage2Form.project) {
-          // Add line if it exists
-          if (record.line && record.line.trim() !== '') {
-            lines.add(record.line);
-          }
+  //     ortLabRecords.forEach(record => {
+  //       // Check if record has the selected project
+  //       if (record.project === stage2Form.project) {
+  //         // Add line if it exists
+  //         if (record.line && record.line.trim() !== '') {
+  //           lines.add(record.line);
+  //         }
 
-          // Add scanned parts
-          if (record.ortLab?.scannedParts) {
-            record.ortLab.scannedParts.forEach(part => {
-              if (part.partNumber && part.partNumber.trim() !== '') {
-                parts.push(part.partNumber);
-              }
-            });
-          }
-        }
-      });
+  //         // Add scanned parts
+  //         if (record.ortLab?.scannedParts) {
+  //           record.ortLab.scannedParts.forEach(part => {
+  //             if (part.partNumber && part.partNumber.trim() !== '') {
+  //               parts.push(part.partNumber);
+  //             }
+  //           });
+  //         }
+  //       }
+  //     });
 
-      setAvailableLines(Array.from(lines));
-      setAvailableParts([...new Set(parts)]); // Remove duplicates
+  //     setAvailableLines(Array.from(lines));
+  //     setAvailableParts([...new Set(parts)]); // Remove duplicates
 
-      // Reset lines and parts when project changes
-      setStage2Form(prev => ({
-        ...prev,
-        lines: [],
-        selectedParts: []
-      }));
-    } else {
-      setAvailableLines([]);
-      setAvailableParts([]);
-      setStage2Form(prev => ({
-        ...prev,
-        lines: [],
-        selectedParts: []
-      }));
-    }
-  }, [stage2Form.project, ortLabRecords]);
+  //     // Reset lines and parts when project changes
+  //     setStage2Form(prev => ({
+  //       ...prev,
+  //       lines: [],
+  //       selectedParts: []
+  //     }));
+  //   } else {
+  //     setAvailableLines([]);
+  //     setAvailableParts([]);
+  //     setStage2Form(prev => ({
+  //       ...prev,
+  //       lines: [],
+  //       selectedParts: []
+  //     }));
+  //   }
+  // }, [stage2Form.project, ortLabRecords]);
 
-  // Update parts when lines change
-  useEffect(() => {
-    if (stage2Form.project) {
-      const parts: string[] = [];
+  // // Update parts when lines change
+  // useEffect(() => {
+  //   if (stage2Form.project) {
+  //     const parts: string[] = [];
 
-      ortLabRecords.forEach(record => {
-        // Check if record has the selected project
-        if (record.project === stage2Form.project) {
-          // Check if line matches (if lines are selected)
-          const hasSelectedLine = stage2Form.lines.length === 0 ||
-            (record.line && stage2Form.lines.includes(record.line));
+  //     ortLabRecords.forEach(record => {
+  //       // Check if record has the selected project
+  //       if (record.project === stage2Form.project) {
+  //         // Check if line matches (if lines are selected)
+  //         const hasSelectedLine = stage2Form.lines.length === 0 ||
+  //           (record.line && stage2Form.lines.includes(record.line));
 
-          if (hasSelectedLine) {
-            // Add scanned parts
-            if (record.ortLab?.scannedParts) {
-              record.ortLab.scannedParts.forEach(part => {
-                if (part.partNumber && part.partNumber.trim() !== '') {
-                  parts.push(part.partNumber);
-                }
-              });
-            }
-          }
-        }
-      });
+  //         if (hasSelectedLine) {
+  //           // Add scanned parts
+  //           if (record.ortLab?.scannedParts) {
+  //             record.ortLab.scannedParts.forEach(part => {
+  //               if (part.partNumber && part.partNumber.trim() !== '') {
+  //                 parts.push(part.partNumber);
+  //               }
+  //             });
+  //           }
+  //         }
+  //       }
+  //     });
 
-      const uniqueParts = [...new Set(parts)];
-      setAvailableParts(uniqueParts);
+  //     const uniqueParts = [...new Set(parts)];
+  //     setAvailableParts(uniqueParts);
 
-      // Reset selected parts when filter changes
-      if (stage2Form.lines.length > 0) {
-        setStage2Form(prev => ({
-          ...prev,
-          selectedParts: []
-        }));
-      }
-    } else {
-      setAvailableParts([]);
-    }
-  }, [stage2Form.lines, stage2Form.project, ortLabRecords]);
+  //     // Reset selected parts when filter changes
+  //     if (stage2Form.lines.length > 0) {
+  //       setStage2Form(prev => ({
+  //         ...prev,
+  //         selectedParts: []
+  //       }));
+  //     }
+  //   } else {
+  //     setAvailableParts([]);
+  //   }
+  // }, [stage2Form.lines, stage2Form.project, ortLabRecords]);
 
   // Process Stage handlers (remain the same)
   const handleProcessStageSelection = (stage: string) => {
@@ -2758,19 +2832,19 @@ const Stage2Page: React.FC = () => {
     }));
   };
 
-  const selectAllLines = () => {
-    setStage2Form(prev => ({
-      ...prev,
-      lines: [...availableLines]
-    }));
-  };
+  // const selectAllLines = () => {
+  //   setStage2Form(prev => ({
+  //     ...prev,
+  //     lines: [...availableLines]
+  //   }));
+  // };
 
-  const clearAllLines = () => {
-    setStage2Form(prev => ({
-      ...prev,
-      lines: []
-    }));
-  };
+  // const clearAllLines = () => {
+  //   setStage2Form(prev => ({
+  //     ...prev,
+  //     lines: []
+  //   }));
+  // };
 
   // Part handlers (remain the same)
   const handlePartSelection = (partNumber: string) => {
@@ -2792,19 +2866,19 @@ const Stage2Page: React.FC = () => {
     }));
   };
 
-  const selectAllParts = () => {
-    setStage2Form(prev => ({
-      ...prev,
-      selectedParts: [...availableParts]
-    }));
-  };
+  // const selectAllParts = () => {
+  //   setStage2Form(prev => ({
+  //     ...prev,
+  //     selectedParts: [...availableParts]
+  //   }));
+  // };
 
-  const clearAllParts = () => {
-    setStage2Form(prev => ({
-      ...prev,
-      selectedParts: []
-    }));
-  };
+  // const clearAllParts = () => {
+  //   setStage2Form(prev => ({
+  //     ...prev,
+  //     selectedParts: []
+  //   }));
+  // };
 
   // Helper to get parts count
   const getAvailablePartsCount = () => {
@@ -2828,6 +2902,26 @@ const Stage2Page: React.FC = () => {
   const handleStage2Submit = () => {
     if (!selectedRecord) return;
 
+    // Auto-load parts if not already loaded
+    if (stage2Form.selectedParts.length === 0) {
+      const parts = getAutoMappedParts();
+      setStage2Form(prev => ({
+        ...prev,
+        selectedParts: parts
+      }));
+    }
+
+    // Auto-load project and lines if not already loaded
+    if (!stage2Form.project || stage2Form.lines.length === 0) {
+      const { project, lines } = getAutoMappedProjectAndLine();
+      setStage2Form(prev => ({
+        ...prev,
+        project: project,
+        lines: lines
+      }));
+    }
+
+    // Basic validation
     if (stage2Form.processStage.length === 0 || stage2Form.type.length === 0 ||
       stage2Form.testName.length === 0 || stage2Form.testCondition.length === 0) {
       toast({
@@ -2842,8 +2936,8 @@ const Stage2Page: React.FC = () => {
     if (!stage2Form.project) {
       toast({
         variant: "destructive",
-        title: "Missing Project",
-        description: "Please select a project from ORT Lab data.",
+        title: "No Project Found",
+        description: "Could not find matching project in ORT Lab records.",
         duration: 2000,
       });
       return;
@@ -2852,8 +2946,8 @@ const Stage2Page: React.FC = () => {
     if (stage2Form.selectedParts.length === 0) {
       toast({
         variant: "destructive",
-        title: "No Parts Selected",
-        description: "Please select at least one part.",
+        title: "No Parts Found",
+        description: "Could not find any parts in ORT Lab records.",
         duration: 2000,
       });
       return;
@@ -2871,9 +2965,9 @@ const Stage2Page: React.FC = () => {
           requiredQty: stage2Form.requiredQty,
           equipment: stage2Form.equipment.join(', '),
           checkpoint: Number(stage2Form.checkpoint),
-          project: stage2Form.project, // Single string
-          lines: stage2Form.lines,
-          selectedParts: stage2Form.selectedParts,
+          project: stage2Form.project, // Auto-mapped
+          lines: stage2Form.lines, // Auto-mapped
+          selectedParts: stage2Form.selectedParts, // Auto-mapped
           startTime: stage2Form.startDateTime,
           endTime: stage2Form.endDateTime,
           remark: stage2Form.remark,
@@ -2899,7 +2993,7 @@ const Stage2Page: React.FC = () => {
 
       toast({
         title: "✅ Stage 2 Submitted",
-        description: `Stage 2 data has been saved successfully!`,
+        description: `Stage 2 data has been saved with ${stage2Form.selectedParts.length} auto-mapped parts!`,
         duration: 3000,
       });
 
@@ -2922,9 +3016,9 @@ const Stage2Page: React.FC = () => {
       stage2Form.testName.length > 0 &&
       stage2Form.testCondition.length > 0 &&
       stage2Form.equipment.length > 0 &&
-      stage2Form.checkpoint &&
-      stage2Form.project &&
-      stage2Form.selectedParts.length > 0;
+      stage2Form.checkpoint;
+    // Removed: stage2Form.project && stage2Form.selectedParts.length > 0
+    // These are auto-mapped so we don't validate them in UI
   };
 
   if (!selectedRecord) {
@@ -2939,13 +3033,13 @@ const Stage2Page: React.FC = () => {
     type => !stage2Form.type.includes(type)
   );
 
-  const unselectedLines = availableLines.filter(
-    line => !stage2Form.lines.includes(line)
-  );
+  // const unselectedLines = availableLines.filter(
+  //   line => !stage2Form.lines.includes(line)
+  // );
 
-  const unselectedParts = availableParts.filter(
-    part => !stage2Form.selectedParts.includes(part)
-  );
+  // const unselectedParts = availableParts.filter(
+  //   part => !stage2Form.selectedParts.includes(part)
+  // );
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
@@ -3385,210 +3479,7 @@ const Stage2Page: React.FC = () => {
               onChange={(val) => setStage2Form(prev => ({ ...prev, endDateTime: val }))}
             />
 
-            {/* ORT Lab Data Selection Section */}
-            <div className="space-y-2 md:col-span-2">
-              {/* Project Selection - SINGLE SELECTION ONLY */}
-              <div className="space-y-4 mb-6">
-                <div className="flex justify-between items-center">
-                  <Label htmlFor="project" className="text-base">
-                    Project <span className="text-red-600">*</span>
-                  </Label>
-                  {stage2Form.project && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={removeSelectedProject}
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </div>
 
-                <Select
-                  value={stage2Form.project}
-                  onValueChange={handleProjectSelection}
-                  disabled={availableProjects.length === 0}
-                >
-                  <SelectTrigger className="h-11">
-                    <SelectValue placeholder={
-                      stage2Form.project
-                        ? stage2Form.project
-                        : availableProjects.length === 0
-                          ? "No projects available"
-                          : "Select a project"
-                    } />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableProjects.map((project) => (
-                      <SelectItem key={project} value={project}>
-                        {project}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Lines Selection */}
-              {availableLines.length > 0 && (
-                <div className="space-y-4 mb-6">
-                  <div className="flex justify-between items-center">
-                    <Label htmlFor="lines" className="text-base">
-                      Lines
-                    </Label>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={selectAllLines}
-                        disabled={stage2Form.lines.length === availableLines.length}
-                      >
-                        Select All
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearAllLines}
-                        disabled={stage2Form.lines.length === 0}
-                      >
-                        Clear All
-                      </Button>
-                    </div>
-                  </div>
-                  <Select
-                    onValueChange={handleLineSelection}
-                    disabled={unselectedLines.length === 0}
-                  >
-                    <SelectTrigger className="h-11">
-                      <SelectValue placeholder={
-                        unselectedLines.length === 0
-                          ? "All lines selected"
-                          : `Select from ${unselectedLines.length} available line(s)`
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {unselectedLines.map((line) => (
-                        <SelectItem key={line} value={line}>
-                          {line}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-gray-500">
-                    {stage2Form.lines.length} of {availableLines.length} lines selected
-                  </p>
-
-                  {/* Selected Lines Display */}
-                  {stage2Form.lines.length > 0 && (
-                    <div className="space-y-2">
-                      <Label className="text-base flex items-center gap-2">
-                        Selected Lines
-                        <span className="text-sm font-normal text-gray-500">
-                          ({stage2Form.lines.length} selected)
-                        </span>
-                      </Label>
-                      <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
-                        {stage2Form.lines.map((line) => (
-                          <div
-                            key={line}
-                            className="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm"
-                          >
-                            <span>{line}</span>
-                            <button
-                              onClick={() => removeSelectedLine(line)}
-                              className="hover:bg-green-200 rounded-full p-0.5 transition-colors"
-                              title="Remove line"
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Parts Selection */}
-              {availableParts.length > 0 && (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <Label htmlFor="parts" className="text-base">
-                      Select Parts <span className="text-red-600">*</span>
-                    </Label>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={selectAllParts}
-                        disabled={stage2Form.selectedParts.length === availableParts.length}
-                      >
-                        Select All
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearAllParts}
-                        disabled={stage2Form.selectedParts.length === 0}
-                      >
-                        Clear All
-                      </Button>
-                    </div>
-                  </div>
-                  <Select
-                    onValueChange={handlePartSelection}
-                    disabled={unselectedParts.length === 0}
-                  >
-                    <SelectTrigger className="h-11">
-                      <SelectValue placeholder={
-                        unselectedParts.length === 0
-                          ? "All parts selected"
-                          : `Select from ${unselectedParts.length} available part(s)`
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {unselectedParts.map((part) => (
-                        <SelectItem key={part} value={part}>
-                          <span className="font-mono">{part}</span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-gray-500">
-                    {stage2Form.selectedParts.length} of {availableParts.length} available parts selected
-                    {availableParts.length > 0 && ` (Total in ORT Lab: ${getAvailablePartsCount()})`}
-                  </p>
-
-                  {/* Selected Parts Display */}
-                  {stage2Form.selectedParts.length > 0 && (
-                    <div className="space-y-2">
-                      <Label className="text-base flex items-center gap-2">
-                        Selected Parts
-                        <span className="text-sm font-normal text-gray-500">
-                          ({stage2Form.selectedParts.length} selected)
-                        </span>
-                      </Label>
-                      <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
-                        {stage2Form.selectedParts.map((part) => (
-                          <div
-                            key={part}
-                            className="flex items-center gap-2 bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm"
-                          >
-                            <span className="font-mono">{part}</span>
-                            <button
-                              onClick={() => removeSelectedPart(part)}
-                              className="hover:bg-purple-200 rounded-full p-0.5 transition-colors"
-                              title="Remove part"
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Action Buttons */}
@@ -3614,4 +3505,4 @@ const Stage2Page: React.FC = () => {
   );
 };
 
-export default Stage2Page;
+export default Stage2FormPage;

@@ -969,7 +969,7 @@ interface LocalStorageResponse {
   projectName: string;
   color: string;
   testLocation: string;
-  submissionDate: string;
+  submissionPartDate: string;
   sampleConfig: string;
   status: string;
   id: number;
@@ -1115,13 +1115,13 @@ const PlanningModule = () => {
           testCondition: stage2.testCondition || "RT",
           quantity: stage2.quantity || "N/A",
           equipment: stage2.equipment || "Unknown Equipment",
-          startDate: record.submissionDate || record.createdAt?.split('T')[0] || "N/A",
+          startDate: record.submissionPartDate || record.createdAt?.split('T')[0] || "N/A",
           endDate: record.testCompletionDate || record.completedAt?.split('T')[0] || "N/A",
           duration: "24", // Default duration
           status: record.status || "Scheduled",
           machineStatus: machineStatus, // "occupied" or "available"
           documentNumber: record.documentNumber,
-          submissionDate: record.submissionDate
+          submissionPartDate: record.submissionPartDate
         });
       }
     });
@@ -1178,12 +1178,15 @@ const PlanningModule = () => {
 
   const stats = useMemo(() => {
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = now.toISOString().split('T')[0]; // e.g., "2025-12-03"
 
-    // Count submissions today
+    // Count records submitted today (using submissionPartDate, fallback to createdAt)
     const submittedToday = stage2Records.filter(r => {
-      if (!r.submissionDate) return false;
-      return r.submissionDate === todayStr;
+      let dateStr = r.submissionPartDate; // ✅ Use the correct field from your data
+      if (!dateStr && r.createdAt) {
+        dateStr = r.createdAt.split('T')[0];
+      }
+      return dateStr === todayStr;
     }).length;
 
     return {
@@ -1240,46 +1243,44 @@ const PlanningModule = () => {
       return;
     }
 
-    const newTest = {
-      id: `TST-${String(testTableData.length + 1).padStart(3, '0')}`,
-      project: formData.project,
-      testName: formData.testName,
-      testCondition: formData.testCondition,
-      quantity: formData.quantity,
-      equipment: formData.equipment,
-      startDate: formData.scheduledDate,
-      endDate: formData.scheduledDate,
-      duration: formData.duration || "24",
-      status: formData.status,
-      machineStatus: "available",
-      documentNumber: formData.documentNumber,
-      submissionDate: formData.scheduledDate
-    };
+    const matchingFlask = flaskData.find(
+      f => f.testName === formData.testName && f.equipment === formData.equipment
+    );
 
-    // Add to localStorage structure
-    const newRecord = {
-      id: Date.now(),
+    const newRecord: LocalStorageResponse = {
+      documentNumber: formData.documentNumber || `DOC-${Date.now()}`,
+      documentTitle: "Auto-generated Test",
       projectName: formData.project,
-      documentNumber: formData.documentNumber,
-      submissionDate: formData.scheduledDate,
+      color: "",
+      testLocation: formData.testLocation || "Lab A",
+      submissionPartDate: formData.scheduledDate,
+      sampleConfig: "",
       status: formData.status,
+      id: Date.now(),
       createdAt: new Date().toISOString(),
       stage2: {
+        processStage: matchingFlask?.processStage || "",
+        type: matchingFlask?.type || "",
         testName: formData.testName,
         testCondition: formData.testCondition,
-        requiredQty: formData.quantity,
+        quantity: formData.quantity,
         equipment: formData.equipment,
         projects: [formData.project],
         lines: [],
         selectedParts: [],
-        startTime: formData.scheduledTime,
+        startTime: formData.scheduledTime || new Date().toISOString(),
         endTime: "",
         remark: "",
-        submittedAt: new Date().toISOString()
-      }
+        submittedAt: new Date().toISOString(),
+      },
+      forms: {},
+      completedAt: formData.status === "Completed" ? new Date().toISOString() : "",
+      sharedImages: {},
+      quantity: formData.quantity,
+      testCompletionDate: formData.status === "Completed" ? formData.scheduledDate : "",
+      completedTests: formData.status === "Completed" ? [formData.testName] : [],
     };
 
-    // Update localStorage
     const updatedRecords = [...stage2Records, newRecord];
     localStorage.setItem('stage2Records', JSON.stringify(updatedRecords));
     setStage2Records(updatedRecords);

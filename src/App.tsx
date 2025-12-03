@@ -12,9 +12,9 @@ import QrtCheckList from "./pages/QrtCheckList";
 import Author from "./pages/Author";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-import Stage2Form from "./pages/Stage2Form";
+import Stage2DetailRecords from "./pages/Stage2DetailsPage";
 import DefaultForm from '@/components/DefaultForm'
-import Stage2Page from "./pages/Stage2Page";
+import Stage2FormPage from "./pages/Stage2FormPage";
 import PlanningModule from "./pages/PlanningPage"
 import ORTLabDetailsPage from "./pages/ORTLabDetailPage";
 import ORTLabPage from "./pages/ORTLabPage";
@@ -39,8 +39,8 @@ const App = () => (
                   <Route path="/qrtchecklist" element={<QrtCheckList />} />
                   <Route path="/author" element={<Author />} />
                   <Route path="/settings" element={<Settings />} />
-                  <Route path="/stage2-form" element={<Stage2Page />} />
-                  <Route path="/stage2" element={<Stage2Form />} />
+                  <Route path="/stage2-form" element={<Stage2FormPage />} />
+                  <Route path="/stage2" element={<Stage2DetailRecords />} />
                   <Route path="/form-default" element={<DefaultForm />} />
                   <Route path="/planning-detail" element={<PlanningModule />} />
                   <Route path="/ort-lab-details" element={<ORTLabDetailsPage />} />

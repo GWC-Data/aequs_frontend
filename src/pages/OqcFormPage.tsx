@@ -835,13 +835,13 @@ const TestForm: React.FC = () => {
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
                 Remarks <span className="text-red-600">*</span>
               </label>
-              <Textarea
+              <Input
                 type="text"
                 name="remarks"
                 value={formData.remarks}
                 onChange={handleInputChange}
                 placeholder="Enter any remarks"
-                className="h- px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
+                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
                 required
               />
             </div>
