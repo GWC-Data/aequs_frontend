@@ -588,7 +588,6 @@ const Dashboard = () => {
 
   // Helper function to filter records by time period
   const filterRecordsByTime = (records: any[], period: string) => {
-    console.log(records);
 
     const now = new Date();
 
@@ -681,7 +680,7 @@ const Dashboard = () => {
 
       return {
         id: record.documentNumber,
-        batch: record.projectName,
+        batch: record.stage2.project,
         owner: record.testLocation,
         qqc: record.testStartDate,
         cmr: record.testCompletionDate,
@@ -717,11 +716,11 @@ const Dashboard = () => {
 
   // Calculate quantity statistics
   const quantityStats = useMemo(() => {
-    const ortLabRecords = JSON.parse(localStorage.getItem('ortLabRecords') || '[]');
+    const ortLabRecords = JSON.parse(localStorage.getItem('stage2Records') || '[]');
 
     // 🔹 Count Assigned Parts Across All Records
     const totalAssignedParts = ortLabRecords.reduce((total: number, record: any) => {
-      const scannedParts = record.ortLab?.scannedParts || [];
+      const scannedParts = record.stage2?.selectedParts || [];
       return total + scannedParts.length;
     }, 0);
 
@@ -770,21 +769,31 @@ const Dashboard = () => {
 
 
   // Function to get machine details from time-filtered records
+  // Function to get machine details from time-filtered records
   const machineDetails = useMemo(() => {
     const details: any[] = [];
 
     timeFilteredRecords.forEach((record: any) => {
-      if (record.status === "Received" && record.stage2 && record.stage2.equipment) {
-        const equipmentList = record.stage2.equipment.split(',').map((equipment: string) => equipment.trim());
+
+      if (
+        (record.status === "Received") &&
+        record.status !== "Completed" &&
+        record.stage2 &&
+        record.stage2.equipment
+      ) {
+        const equipmentList = record.stage2.equipment
+          .split(',')
+          .map((equipment: string) => equipment.trim());
 
         equipmentList.forEach((equipment: string, index: number) => {
-          const testNames = record.stage2.testName ? record.stage2.testName.split(',').map((name: string) => name.trim()) : [];
+          const testNames = record.stage2.testName
+            ? record.stage2.testName.split(',').map((name: string) => name.trim())
+            : [];
 
           details.push({
             id: `${record.id}-${index}`,
             machineName: equipment,
-            project: record.projectName,
-            documentNumber: record.documentNumber,
+            project: record.stage2.project,
             status: record.status,
             testName: testNames[index] || '-',
             processStage: record.stage2.processStage || '-',
@@ -1009,7 +1018,7 @@ const Dashboard = () => {
                         <div key={index} className="border border-gray-200 rounded-xl p-4 bg-white hover:shadow-md transition-shadow">
                           <div className="flex items-start justify-between mb-3">
                             <div>
-                              <h3 className="font-semibold text-lg text-gray-800">{product.id}</h3>
+                              <h3 className="font-semibold text-lg text-gray-800">Project:{product.id}</h3>
                               <p className="text-sm text-gray-600">{product.batch || "No batch assigned"}</p>
                             </div>
                             <div className="flex flex-col items-end gap-2">
@@ -1104,7 +1113,7 @@ const Dashboard = () => {
             {rightSideMenuItems.map((item, index) => (
               <Card
                 key={index}
-                onClick={() => handleRightMenuClick(item.title)}
+                //onClick={() => handleRightMenuClick(item.title)}
                 className="hover:shadow-lg transition-shadow border-l-4 border-l-[#e0413a] bg-white rounded-xl"
               >
                 <CardContent className="p-4 space-y-1">

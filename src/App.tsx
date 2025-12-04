@@ -8,16 +8,18 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { Navbar } from "@/components/Navbar";
 import Index from "./pages/Index";
 import OqcformPage from "./pages/OqcFormPage";
-import QrtCheckList from "./pages/QrtCheckList";
 import Author from "./pages/Author";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-import Stage2Form from "./pages/Stage2Form";
+import Stage2FormPage from "./pages/Stage2FormPage";
 import DefaultForm from '@/components/DefaultForm'
-import Stage2Page from "./pages/Stage2Page";
+import Stage2DetailRecords from "./pages/Stage2DetailsPage";
 import PlanningModule from "./pages/PlanningPage"
 import ORTLabDetailsPage from "./pages/ORTLabDetailPage";
 import ORTLabPage from "./pages/ORTLabPage";
+import BarcodeScannerPage from "./pages/BarcodeScannerPage";
+import TicketAssignmentsTable from "./pages/TicketAssignmentsTable";
+import QrtCheckList from "./pages/QrtCheckList";
 
 const queryClient = new QueryClient();
 
@@ -36,16 +38,17 @@ const App = () => (
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/oqcpage" element={<OqcformPage />} />
-                  <Route path="/qrtchecklist" element={<QrtCheckList />} />
+                  <Route path="/barcode-scanner" element={<BarcodeScannerPage/>}/>
+                  <Route path="/tickets" element={<TicketAssignmentsTable/>}/>
                   <Route path="/author" element={<Author />} />
                   <Route path="/settings" element={<Settings />} />
-                  <Route path="/stage2-form" element={<Stage2Page />} />
-                  <Route path="/stage2" element={<Stage2Form />} />
+                  <Route path="/stage2-form" element={<Stage2FormPage />} />
+                  <Route path="/stage2" element={<Stage2DetailRecords />} />
+                  <Route path="/qrtchecklist" element={<QrtCheckList/>} />
                   <Route path="/form-default" element={<DefaultForm />} />
                   <Route path="/planning-detail" element={<PlanningModule />} />
                   <Route path="/ort-lab-details" element={<ORTLabDetailsPage />} />
                   <Route path="/ort-lab-form" element={<ORTLabPage/>}/>
-                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>
