@@ -23,10 +23,6 @@ import { toast } from "@/components/ui/use-toast";
 import { X } from "lucide-react";
 
 interface Stage2Record {
-  documentNumber: string;
-  documentTitle: string;
-  projectName: string;
-  colour: string; // Changed from "color" to "colour"
   testLocation: string;
   submissionPartDate: string; // Changed from testStartDate
   sampleConfig: string;
@@ -55,6 +51,9 @@ interface Stage2Record {
     remark: string;
     submittedAt: string;
   };
+  detailsBox: {
+    color: string;
+  }
 }
 
 const Stage2DetailRecords: React.FC = () => {
@@ -67,10 +66,7 @@ const Stage2DetailRecords: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
   const [editingRecord, setEditingRecord] = React.useState<Stage2Record | null>(null);
   const [editForm, setEditForm] = React.useState({
-    documentNumber: "",
-    documentTitle: "",
-    projectName: "",
-    colour: "",
+    color: "",
     testLocation: "",
     testStartDate: "",
     testCompletionDate: "",
@@ -78,6 +74,7 @@ const Stage2DetailRecords: React.FC = () => {
     status: "",
     processStage: "",
     type: "",
+    project: "",
     testName: "",
     testCondition: "",
     requiredQty: "",
@@ -133,14 +130,15 @@ const Stage2DetailRecords: React.FC = () => {
       const storedRecords = localStorage.getItem("stage2Records");
       if (storedRecords) {
         const records = JSON.parse(storedRecords);
+        console.log(records);
 
         // Transform records to match our interface
         const transformedRecords = records.map((record: any) => ({
           ...record,
           // Ensure colour is properly mapped
-          colour: record.colour || record.color || "",
+          colour: record.detailsBox.color || record.color || "",
           // Map single project to projectName
-          projectName: record.projectName || record.project || "",
+          project: record.stage2.project || record.project || "",
           // Map line to line (single)
           line: record.line || "",
           // Map projects array from stage2 if exists
@@ -170,44 +168,84 @@ const Stage2DetailRecords: React.FC = () => {
     setIsDetailModalOpen(true);
   };
 
+  // const handleEdit = (record: Stage2Record) => {
+  //   setEditingRecord(record);
+  //   setEditForm({
+  //     color: record.detailsBox.color,
+  //     testLocation: record.testLocation,
+  //     testStartDate: record.testStartDate,
+  //     testCompletionDate: record.testCompletionDate,
+  //     sampleConfig: record.sampleConfig,
+  //     status: record.status,
+  //     processStage: record.stage2.processStage,
+  //     type: record.stage2.type,
+  //     testName: record.stage2.testName,
+  //     project: record.stage2.project,
+  //     testCondition: record.stage2.testCondition,
+  //     requiredQty: record.stage2.requiredQty,
+  //     equipment: record.stage2.equipment,
+  //     projects: Array.isArray(record.stage2.project) ? record.stage2.project : [],
+  //     lines: Array.isArray(record.stage2.lines) ? record.stage2.lines : [],
+  //     selectedParts: Array.isArray(record.stage2.selectedParts)
+  //       ? record.stage2.selectedParts.map((part: any) =>
+  //         typeof part === 'string' ? part : part.part
+  //       )
+  //       : [],
+  //     startTime: record.stage2.startTime || "",
+  //     endTime: record.stage2.endTime || "",
+  //     remark: record.stage2.remark || ""
+  //   });
+
+  //   // Update available lines and parts based on selected projects
+  //   updateAvailableLinesAndParts(
+  //     Array.isArray(record.stage2.project) ? record.stage2.project : [],
+  //     Array.isArray(record.stage2.lines) ? record.stage2.lines : []
+  //   );
+
+  //   setIsEditModalOpen(true);
+  // };
+
   const handleEdit = (record: Stage2Record) => {
     setEditingRecord(record);
+
+    const selectedProject = record.stage2.project ? [record.stage2.project] : [];
+    const selectedLines = Array.isArray(record.stage2.lines) ? record.stage2.lines : [];
+    console.log(selectedLines);
+
+    const selectedParts = Array.isArray(record.stage2.selectedParts)
+      ? record.stage2.selectedParts.map((part: any) =>
+        typeof part === "string" ? part : part.part
+      )
+      : [];
+    console.log(selectedLines);
+
     setEditForm({
-      documentNumber: record.documentNumber,
-      documentTitle: record.documentTitle,
-      projectName: record.projectName,
-      colour: record.colour,
+      color: record.detailsBox.color,
       testLocation: record.testLocation,
-      testStartDate: record.testStartDate,
-      testCompletionDate: record.testCompletionDate,
+      testStartDate: record.testStartDate || "",
+      testCompletionDate: record.testCompletionDate || "",
       sampleConfig: record.sampleConfig,
       status: record.status,
       processStage: record.stage2.processStage,
       type: record.stage2.type,
       testName: record.stage2.testName,
+      project: record.stage2.project, // single value
       testCondition: record.stage2.testCondition,
       requiredQty: record.stage2.requiredQty,
       equipment: record.stage2.equipment,
-      projects: Array.isArray(record.stage2.project) ? record.stage2.project : [],
-      lines: Array.isArray(record.stage2.lines) ? record.stage2.lines : [],
-      selectedParts: Array.isArray(record.stage2.selectedParts)
-        ? record.stage2.selectedParts.map((part: any) =>
-          typeof part === 'string' ? part : part.part
-        )
-        : [],
+      projects: selectedProject,
+      lines: selectedLines,
+      selectedParts: selectedParts,
       startTime: record.stage2.startTime || "",
       endTime: record.stage2.endTime || "",
       remark: record.stage2.remark || ""
     });
 
-    // Update available lines and parts based on selected projects
-    updateAvailableLinesAndParts(
-      Array.isArray(record.stage2.project) ? record.stage2.project : [],
-      Array.isArray(record.stage2.lines) ? record.stage2.lines : []
-    );
+    updateAvailableLinesAndParts(selectedProject, selectedLines);
 
     setIsEditModalOpen(true);
   };
+
 
   const updateAvailableLinesAndParts = (selectedProjects: string[], selectedLines: string[]) => {
     if (selectedProjects.length > 0) {
@@ -343,10 +381,9 @@ const Stage2DetailRecords: React.FC = () => {
     try {
       const updatedRecord: Stage2Record = {
         ...editingRecord,
-        documentNumber: editForm.documentNumber,
-        documentTitle: editForm.documentTitle,
-        projectName: editForm.projectName,
-        colour: editForm.colour,
+        detailsBox: {
+          color: editForm.color
+        },
         testLocation: editForm.testLocation,
         testStartDate: editForm.testStartDate,
         testCompletionDate: editForm.testCompletionDate,
@@ -360,7 +397,7 @@ const Stage2DetailRecords: React.FC = () => {
           testCondition: editForm.testCondition,
           requiredQty: editForm.requiredQty,
           equipment: editForm.equipment,
-          project: editForm.projectName,
+          project: editForm.project,
           lines: editForm.lines,
           selectedParts: editForm.selectedParts,
           startTime: editForm.startTime,
@@ -379,12 +416,6 @@ const Stage2DetailRecords: React.FC = () => {
 
       setIsEditModalOpen(false);
       setEditingRecord(null);
-
-      toast({
-        title: "✅ Record Updated",
-        description: `Record ${editForm.documentNumber} has been updated successfully!`,
-        duration: 3000,
-      });
 
     } catch (error) {
       toast({
@@ -417,11 +448,6 @@ const Stage2DetailRecords: React.FC = () => {
       setStage2Records(updatedRecords);
       localStorage.setItem("stage2Records", JSON.stringify(updatedRecords));
 
-      toast({
-        title: "✅ Record Deleted",
-        description: `Record ${recordToDelete.documentNumber} has been deleted successfully!`,
-        duration: 3000,
-      });
     } catch (error) {
       toast({
         variant: "destructive",
@@ -514,25 +540,19 @@ const Stage2DetailRecords: React.FC = () => {
                             <div
                               className="h-3 w-3 rounded-full flex-shrink-0"
                               style={{
-                                backgroundColor: record.colour || "#6b7280", // Changed from record.color
+                                backgroundColor: record.detailsBox.color || "#6b7280", // Changed from record.color
                               }}
                             ></div>
                             <div>
-                              <div className="font-medium text-sm">
-                                {record.documentNumber}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {record.documentTitle}
-                              </div>
                               {/* Show colour text */}
                               <div className="text-xs text-gray-500">
-                                Colour: {record.colour}
+                                Colour: {record.detailsBox.color}
                               </div>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell className="text-sm">
-                          {record.projectName}
+                          {record.project}
                         </TableCell>
                         <TableCell className="text-sm">
                           {record.stage2.processStage}
@@ -613,16 +633,8 @@ const Stage2DetailRecords: React.FC = () => {
                 <h3 className="font-semibold text-lg mb-4 text-gray-800">Basic Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Document Number</label>
-                    <p className="text-sm font-semibold">{selectedRecord.documentNumber}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Document Title</label>
-                    <p className="text-sm">{selectedRecord.documentTitle}</p>
-                  </div>
-                  <div>
                     <label className="text-sm font-medium text-gray-600">Project Name</label>
-                    <p className="text-sm">{selectedRecord.projectName}</p>
+                    <p className="text-sm">{selectedRecord.project}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Colour</label>
@@ -630,10 +642,10 @@ const Stage2DetailRecords: React.FC = () => {
                       <div
                         className="h-4 w-4 rounded-full border border-gray-400"
                         style={{
-                          backgroundColor: selectedRecord.colour, // Changed from color
+                          backgroundColor: selectedRecord.detailsBox.color, // Changed from color
                         }}
                       ></div>
-                      <p className="text-sm">{selectedRecord.colour}</p>
+                      <p className="text-sm">{selectedRecord.detailsBox.color}</p>
                     </div>
                   </div>
                   <div>
@@ -786,32 +798,13 @@ const Stage2DetailRecords: React.FC = () => {
             <div className="space-y-6 py-4">
               {/* Basic Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-500">Document Number <span className="text-red-600">*</span></label>
-                  <input
-                    type="text"
-                    value={editForm.documentNumber}
-                    onChange={(e) => handleEditInputChange('documentNumber', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-500">Document Title <span className="text-red-600">*</span></label>
-                  <input
-                    type="text"
-                    value={editForm.documentTitle}
-                    onChange={(e) => handleEditInputChange('documentTitle', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                  />
-                </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-500">Project Name <span className="text-red-600">*</span></label>
                   <input
                     type="text"
-                    value={editForm.projectName}
-                    onChange={(e) => handleEditInputChange('projectName', e.target.value)}
+                    value={editForm.project}
+                    onChange={(e) => handleEditInputChange('project', e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md text-sm"
                   />
                 </div>
@@ -820,13 +813,13 @@ const Stage2DetailRecords: React.FC = () => {
                   <label className="text-sm font-medium text-gray-500">Colour</label>
                   <input
                     type="text"
-                    value={editForm.colour}
-                    onChange={(e) => handleEditInputChange('colour', e.target.value)}
+                    value={editForm.color}
+                    onChange={(e) => handleEditInputChange('color', e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md text-sm"
                   />
                 </div>
 
-                <div className="space-y-2">
+                {/* <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-500">Test Location</label>
                   <input
                     type="text"
@@ -834,7 +827,7 @@ const Stage2DetailRecords: React.FC = () => {
                     onChange={(e) => handleEditInputChange('testLocation', e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md text-sm"
                   />
-                </div>
+                </div> */}
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-500">Status</label>
@@ -958,125 +951,117 @@ const Stage2DetailRecords: React.FC = () => {
                 </div>
 
                 {/* Lines */}
-                {availableLines.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm font-medium text-gray-600">
+                      Lines ({editForm.lines.length} selected)
+                    </label>
+                  </div>
+
+                  {/* Available Lines */}
                   <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <label className="text-sm font-medium text-gray-600">
-                        Lines ({editForm.lines.length} selected)
-                      </label>
-                    </div>
-
-                    {/* Available Lines to Add */}
-                    {availableLines.filter(l => !editForm.lines.includes(l)).length > 0 && (
-                      <div className="space-y-2">
-                        <label className="text-xs text-gray-500">Add Lines:</label>
-                        <div className="flex flex-wrap gap-2 p-2 bg-gray-50 rounded border">
-                          {availableLines
-                            .filter(l => !editForm.lines.includes(l))
-                            .map((line) => (
-                              <button
-                                key={line}
-                                onClick={() => handleEditLineSelection(line)}
-                                className="px-3 py-1 bg-white border border-green-300 text-green-700 rounded-full text-sm hover:bg-green-50 transition-colors"
-                              >
-                                + {line}
-                              </button>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Selected Lines */}
-                    <div className="space-y-2">
-                      <label className="text-xs text-gray-500">Selected Lines:</label>
-                      <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
-                        {editForm.lines.length > 0 ? (
-                          editForm.lines.map((line) => (
-                            <div
+                    <label className="text-xs text-gray-500">Add Lines:</label>
+                    <div className="flex flex-wrap gap-2 p-2 bg-gray-50 rounded border">
+                      {availableLines.length > 0 ? (
+                        availableLines
+                          .filter(l => !editForm.lines.includes(l))
+                          .map((line) => (
+                            <button
                               key={line}
-                              className="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm"
+                              onClick={() => handleEditLineSelection(line)}
+                              className="px-3 py-1 bg-white border border-green-300 text-green-700 rounded-full text-sm hover:bg-green-50 transition-colors"
                             >
-                              <span>{line}</span>
-                              <button
-                                onClick={() => removeEditLine(line)}
-                                className="hover:bg-green-200 rounded-full p-0.5 transition-colors"
-                                title="Remove line"
-                              >
-                                <X size={14} />
-                              </button>
-                            </div>
+                              + {line}
+                            </button>
                           ))
-                        ) : (
-                          <p className="text-sm text-gray-500">No lines selected</p>
-                        )}
-                      </div>
+                      ) : (
+                        <p className="text-sm text-gray-400">No lines available</p>
+                      )}
                     </div>
                   </div>
-                )}
+
+                  {/* Selected Lines */}
+                  <div className="space-y-2">
+                    <label className="text-xs text-gray-500">Selected Lines:</label>
+                    <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
+                      {editForm.lines.length > 0 ? (
+                        editForm.lines.map((line) => (
+                          <div
+                            key={line}
+                            className="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm"
+                          >
+                            <span>{line}</span>
+                            <button
+                              onClick={() => removeEditLine(line)}
+                              className="hover:bg-green-200 rounded-full p-0.5 transition-colors"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">No lines selected</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
 
                 {/* Parts */}
-                {availableParts.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm font-medium text-gray-600">
+                      Parts ({editForm.selectedParts.length} selected) <span className="text-red-600">*</span>
+                    </label>
+                  </div>
+
+                  {/* Available Parts */}
                   <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <label className="text-sm font-medium text-gray-600">
-                        Parts ({editForm.selectedParts.length} selected) <span className="text-red-600">*</span>
-                      </label>
-                    </div>
-
-                    {/* Available Parts to Add */}
-                    {availableParts.filter(p => !editForm.selectedParts.includes(p)).length > 0 && (
-                      <div className="space-y-2">
-                        <label className="text-xs text-gray-500">Add Parts:</label>
-                        <div className="flex flex-wrap gap-2 p-2 bg-gray-50 rounded border max-h-[150px] overflow-y-auto">
-                          {availableParts
-                            .filter(p => !editForm.selectedParts.includes(p))
-                            .map((part) => (
-                              <button
-                                key={part}
-                                onClick={() => handleEditPartSelection(part)}
-                                className="px-3 py-1 bg-white border border-purple-300 text-purple-700 rounded-full text-sm font-mono hover:bg-purple-50 transition-colors"
-                              >
-                                + {part}
-                              </button>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Selected Parts */}
-                    <div className="space-y-2">
-                      <label className="text-xs text-gray-500">Selected Parts:</label>
-                      <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem] max-h-[200px] overflow-y-auto">
-                        {editForm.selectedParts.length > 0 ? (
-                          editForm.selectedParts.map((part) => (
-                            <div
+                    <label className="text-xs text-gray-500">Add Parts:</label>
+                    <div className="flex flex-wrap gap-2 p-2 bg-gray-50 rounded border max-h-[150px] overflow-y-auto">
+                      {availableParts.length > 0 ? (
+                        availableParts
+                          .filter(p => !editForm.selectedParts.includes(p))
+                          .map((part) => (
+                            <button
                               key={part}
-                              className="flex items-center gap-2 bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-mono"
+                              onClick={() => handleEditPartSelection(part)}
+                              className="px-3 py-1 bg-white border border-purple-300 text-purple-700 rounded-full text-sm font-mono hover:bg-purple-50 transition-colors"
                             >
-                              <span>{part}</span>
-                              <button
-                                onClick={() => removeEditPart(part)}
-                                className="hover:bg-purple-200 rounded-full p-0.5 transition-colors"
-                                title="Remove part"
-                              >
-                                <X size={14} />
-                              </button>
-                            </div>
+                              + {part}
+                            </button>
                           ))
-                        ) : (
-                          <p className="text-sm text-gray-500">No parts selected</p>
-                        )}
-                      </div>
+                      ) : (
+                        <p className="text-sm text-gray-400">No parts available</p>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
 
-              {/* ORT Lab Data Selection in Edit Modal */}
-              <div className="p-4 space-y-4">
-                {/* <h3 className="font-semibold text-lg text-blue-800">ORT Lab Data Selection</h3> */}
-
-
+                  {/* Selected Parts */}
+                  <div className="space-y-2">
+                    <label className="text-xs text-gray-500">Selected Parts:</label>
+                    <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem] max-h-[200px] overflow-y-auto">
+                      {editForm.selectedParts.length > 0 ? (
+                        editForm.selectedParts.map((part) => (
+                          <div
+                            key={part}
+                            className="flex items-center gap-2 bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-mono"
+                          >
+                            <span>{part}</span>
+                            <button
+                              onClick={() => removeEditPart(part)}
+                              className="hover:bg-purple-200 rounded-full p-0.5 transition-colors"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">No parts selected</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -1099,7 +1084,7 @@ const Stage2DetailRecords: React.FC = () => {
             <DialogTitle>Confirm Delete</DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <p>Are you sure you want to delete record <strong>{recordToDelete?.documentNumber}</strong>?</p>
+            <p>Are you sure you want to delete record <strong>{recordToDelete?.project}</strong>?</p>
             <p className="text-sm text-gray-500 mt-2">This action cannot be undone.</p>
           </div>
           <DialogFooter>

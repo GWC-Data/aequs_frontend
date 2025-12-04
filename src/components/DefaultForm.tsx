@@ -77,8 +77,7 @@ const getLabelCategory = (label: string) => {
 
 // Types
 interface Stage2Record {
-    documentNumber: string;
-    documentTitle: string;
+    ticketCode: string;
     projectName: string;
     color: string;
     testLocation: string;
@@ -95,7 +94,7 @@ interface Stage2Record {
         requiredQty: string;
         equipment: string;
         checkpoint?: number;  // ADD THIS LINE
-        projects: string[];
+        project: string[];
         lines: string[];
         selectedParts: string[];
         startTime: string;
@@ -993,6 +992,8 @@ export default function MultiStageTestForm() {
     // Load stage2Records from localStorage and initialize forms
     useEffect(() => {
         const storedRecords = localStorage.getItem("stage2Records");
+        console.log(storedRecords);
+        
         if (storedRecords) {
             try {
                 const records: Stage2Record[] = JSON.parse(storedRecords);
@@ -1260,217 +1261,6 @@ export default function MultiStageTestForm() {
         }
     };
 
-    // Modified processNonCosmeticImage to accept partId
-    // const processNonCosmeticImage = (file: File, partId: string) => {
-    //     if (!cvLoaded) {
-    //         alert("OpenCV not loaded yet. Please wait...");
-    //         return;
-    //     }
-
-    //     setProcessing(true);
-    //     const reader = new FileReader();
-    //     reader.onload = (e) => {
-    //         const img = new Image();
-    //         img.onload = async () => {
-    //             try {
-    //                 const cv = window.cv;
-    //                 const canvas = document.createElement("canvas");
-    //                 canvas.width = img.width;
-    //                 canvas.height = img.height;
-    //                 const ctx = canvas.getContext("2d");
-    //                 if (!ctx) {
-    //                     setProcessing(false);
-    //                     return;
-    //                 }
-
-    //                 ctx.drawImage(img, 0, 0);
-    //                 const src = cv.imread(canvas);
-
-    //                 const srcForDetection = cv.imread(canvas);
-    //                 const hasMarks = detectYellowMarks(srcForDetection);
-    //                 srcForDetection.delete();
-    //                 setHasYellowMarks(hasMarks);
-
-    //                 console.log(`Image for part ${partId} has yellow marks: ${hasMarks}`);
-
-    //                 let detectedRegions: any[] = [];
-
-    //                 if (hasMarks) {
-    //                     detectedRegions = processImageWithYellowMarks(src, img);
-    //                 } else {
-    //                     detectedRegions = processImageWithoutYellowMarks(src, img);
-    //                 }
-
-    //                 console.log(`Detected regions for part ${partId}:`, detectedRegions);
-
-    //                 const croppedImages: CroppedRegion[] = [];
-    //                 detectedRegions.forEach((rect, i) => {
-    //                     try {
-    //                         const x = Math.max(0, Math.min(rect.x, src.cols - 1));
-    //                         const y = Math.max(0, Math.min(rect.y, src.rows - 1));
-    //                         const width = Math.min(rect.width, src.cols - x);
-    //                         const height = Math.min(rect.height, src.rows - y);
-
-    //                         if (width <= 0 || height <= 0) {
-    //                             console.warn(`Invalid dimensions for region ${i}: ${width}x${height}`);
-    //                             return;
-    //                         }
-
-    //                         const validRect = new cv.Rect(x, y, width, height);
-    //                         const roi = src.roi(validRect);
-
-    //                         const cropCanvas = document.createElement("canvas");
-    //                         cropCanvas.width = width;
-    //                         cropCanvas.height = height;
-    //                         cv.imshow(cropCanvas, roi);
-
-    //                         const croppedData = cropCanvas.toDataURL("image/png", 1.0);
-
-    //                         const detectedLabel = hasMarks
-    //                             ? detectLabelText(croppedData, i, detectedRegions, true)
-    //                             : rect.label;
-
-    //                         const category = getLabelCategory(detectedLabel);
-
-    //                         croppedImages.push({
-    //                             id: i,
-    //                             data: croppedData,
-    //                             label: `${partId}-${detectedLabel}`,
-    //                             category: category,
-    //                             rect: { x, y, width, height }
-    //                         });
-
-    //                         console.log(`Part ${partId} - Region ${i}: ${detectedLabel} → ${category?.form} (${x},${y} ${width}x${height})`);
-
-    //                         roi.delete();
-    //                     } catch (err) {
-    //                         console.error(`Error cropping region ${i}:`, err);
-    //                     }
-    //                 });
-
-    //                 setCroppedRegions(prev => [...prev, ...croppedImages]);
-    //                 setRegions(detectedRegions);
-
-    //                 src.delete();
-    //             } catch (err) {
-    //                 console.error("Error processing image:", err);
-    //                 alert("Failed to process image. Please try again.");
-    //             } finally {
-    //                 setProcessing(false);
-    //             }
-    //         };
-    //         img.src = e.target?.result as string;
-    //     };
-    //     reader.readAsDataURL(file);
-    // };
-
-    // const processNonCosmeticImage = (file: File, partId: string) => {
-    //     if (!cvLoaded) {
-    //         alert("OpenCV not loaded yet. Please wait...");
-    //         return;
-    //     }
-
-    //     setProcessing(true);
-    //     const reader = new FileReader();
-    //     reader.onload = (e) => {
-    //         const img = new Image();
-    //         img.onload = async () => {
-    //             try {
-    //                 const cv = window.cv;
-    //                 const canvas = document.createElement("canvas");
-    //                 canvas.width = img.width;
-    //                 canvas.height = img.height;
-    //                 const ctx = canvas.getContext("2d");
-    //                 if (!ctx) {
-    //                     setProcessing(false);
-    //                     return;
-    //                 }
-
-    //                 ctx.drawImage(img, 0, 0);
-    //                 const src = cv.imread(canvas);
-
-    //                 const srcForDetection = cv.imread(canvas);
-    //                 const hasMarks = detectYellowMarks(srcForDetection);
-    //                 srcForDetection.delete();
-    //                 setHasYellowMarks(hasMarks);
-
-    //                 console.log(`Image for part ${partId} has yellow marks: ${hasMarks}`);
-
-    //                 let detectedRegions: any[] = [];
-
-    //                 if (hasMarks) {
-    //                     detectedRegions = processImageWithYellowMarks(src, img);
-    //                 } else {
-    //                     detectedRegions = processImageWithoutYellowMarks(src, img);
-    //                 }
-
-    //                 console.log(`Detected regions for part ${partId}:`, detectedRegions);
-
-    //                 const croppedImages: CroppedRegion[] = [];
-    //                 detectedRegions.forEach((rect, i) => {
-    //                     try {
-    //                         const x = Math.max(0, Math.min(rect.x, src.cols - 1));
-    //                         const y = Math.max(0, Math.min(rect.y, src.rows - 1));
-    //                         const width = Math.min(rect.width, src.cols - x);
-    //                         const height = Math.min(rect.height, src.rows - y);
-
-    //                         if (width <= 0 || height <= 0) {
-    //                             console.warn(`Invalid dimensions for region ${i}: ${width}x${height}`);
-    //                             return;
-    //                         }
-
-    //                         const validRect = new cv.Rect(x, y, width, height);
-    //                         const roi = src.roi(validRect);
-
-    //                         const cropCanvas = document.createElement("canvas");
-    //                         cropCanvas.width = width;
-    //                         cropCanvas.height = height;
-    //                         cv.imshow(cropCanvas, roi);
-
-    //                         const croppedData = cropCanvas.toDataURL("image/png", 1.0);
-
-    //                         const detectedLabel = hasMarks
-    //                             ? detectLabelText(croppedData, i, detectedRegions, true)
-    //                             : rect.label;
-
-    //                         const category = getLabelCategory(detectedLabel);
-
-    //                         croppedImages.push({
-    //                             id: i,
-    //                             data: croppedData,
-    //                             label: `${partId}-${detectedLabel}`,
-    //                             category: category,
-    //                             rect: { x, y, width, height },
-    //                             partId: partId  // ADD THIS LINE - Associate with part
-    //                         });
-
-    //                         console.log(`Part ${partId} - Region ${i}: ${detectedLabel} → ${category?.form} (${x},${y} ${width}x${height})`);
-
-    //                         roi.delete();
-    //                     } catch (err) {
-    //                         console.error(`Error cropping region ${i}:`, err);
-    //                     }
-    //                 });
-
-    //                 // Replace existing cropped regions for this part
-    //                 setCroppedRegions(prev => {
-    //                     const filtered = prev.filter(region => !(region as any).partId || (region as any).partId !== partId);
-    //                     return [...filtered, ...croppedImages];
-    //                 });
-    //                 setRegions(detectedRegions);
-
-    //                 src.delete();
-    //             } catch (err) {
-    //                 console.error("Error processing image:", err);
-    //                 alert("Failed to process image. Please try again.");
-    //             } finally {
-    //                 setProcessing(false);
-    //             }
-    //         };
-    //         img.src = e.target?.result as string;
-    //     };
-    //     reader.readAsDataURL(file);
-    // };
 
     const processNonCosmeticImage = (file: File, partId: string, nonCosmeticImageUrl: string) => {
         if (!cvLoaded) {
@@ -1952,12 +1742,12 @@ export default function MultiStageTestForm() {
                     <h3 className="font-semibold text-blue-800 mb-2">Current Test Record:</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
-                            <span className="text-gray-600">Document:</span>
-                            <div className="font-semibold">{currentRecord.documentNumber}</div>
+                            <span className="text-gray-600">Ticket Code:</span>
+                            <div className="font-semibold">{currentRecord.ticketCode}</div>
                         </div>
                         <div>
                             <span className="text-gray-600">Project:</span>
-                            <div className="font-semibold">{currentRecord.projectName}</div>
+                            <div className="font-semibold">{currentRecord.stage2.project}</div>
                         </div>
                         <div>
                             <span className="text-gray-600">Process Stage:</span>
