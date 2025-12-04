@@ -451,6 +451,7 @@ interface TestData {
   build: string;
   colour: string;
   dateTime: string;
+  status: string;
 }
  
 const SOURCE_OPTIONS = ["Entire", "Line1", "Line2"];
@@ -476,7 +477,8 @@ const TestForm: React.FC = () => {
     project: "",
     build: "",
     colour: "",
-    dateTime: ""
+    dateTime: "",
+    status: "In-Progress"
   });
  
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
@@ -522,7 +524,9 @@ const TestForm: React.FC = () => {
       console.log(records);
  
       // Save back to localStorage
-      localStorage.setItem("Oqcformdata", JSON.stringify(records));
+      const a = localStorage.setItem("Oqcformdata", JSON.stringify(records));
+      console.log(a);
+      
  
       // Reset form
       setFormData({
@@ -534,7 +538,8 @@ const TestForm: React.FC = () => {
         project: "",
         build: "",
         colour: "",
-        dateTime: ""
+        dateTime: "",
+        status: "",
       });
  
       setIsDropdownOpen(false);

@@ -1,4 +1,4 @@
- 
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/use-toast";
 import { Save, ArrowRight } from "lucide-react";
- 
+
 // Keep your existing TableRow interface
 interface TableRow {
   id: number;
@@ -41,7 +41,7 @@ interface TableRow {
   inventoryRemarks: string;
   stage2Enabled: boolean;
 }
- 
+
 // Define the incoming assignment format
 interface StoredBarcodeData {
   id: string;
@@ -54,7 +54,7 @@ interface StoredBarcodeData {
   rawBarcodeData?: string;
   // Optional: isSubmitted, submittedAt — we ignore these for Stage 1
 }
- 
+
 // Define OQC record structure (from "Oqcformdata")
 interface OqcRecord {
   ticketCode: string;
@@ -65,23 +65,24 @@ interface OqcRecord {
   project: string;
   build: string;      // this is your "batch" equivalent
   colour: string;     // UK spelling — from your data
-  dateTime: string;   // e.g., "2025-12-03"
+  dateTime: string;
+  status: string;
   id: number;
   createdAt: string;
   barcodeAssignments?: any[];
   assignedParts?: number;
   lastUpdated?: string;
 }
- 
+
 const ORTLabPage = () => {
   const navigate = useNavigate();
   const [tableData, setTableData] = useState<TableRow[]>([]);
- 
+
   // Load data from localStorage on mount
   useEffect(() => {
     loadTableDataFromStorage();
   }, []);
- 
+
   const loadTableDataFromStorage = () => {
     try {
       // Load barcode assignments
@@ -89,26 +90,27 @@ const ORTLabPage = () => {
       const barcodeAssignments: StoredBarcodeData[] = barcodeAssignmentsStr
         ? JSON.parse(barcodeAssignmentsStr)
         : [];
- 
+
       if (barcodeAssignments.length === 0) {
         setTableData([]);
         return;
       }
- 
+
       // Load OQC data for detailsBox
       const oqcDataStr = localStorage.getItem("Oqcformdata");
+      console.log(oqcDataStr)
       const oqcRecords: OqcRecord[] = oqcDataStr ? JSON.parse(oqcDataStr) : [];
- 
+
       // Build a map for fast lookup by ticketCode
       const oqcMap = new Map<string, OqcRecord>();
       oqcRecords.forEach(record => {
         oqcMap.set(record.ticketCode, record);
       });
- 
+
       // Generate table rows
       const rows: TableRow[] = barcodeAssignments.map((assignment, index) => {
         const oqcRecord = oqcMap.get(assignment.ticketCode);
- 
+
         // Map OQC fields to detailsBox using your actual schema
         const fallbackDetails = {
           totalQuantity: assignment.totalParts,
@@ -120,7 +122,7 @@ const ORTLabPage = () => {
           assemblyOQCAno: "N/A",
           reason: "N/A",
         };
- 
+
         const detailsBox = oqcRecord
           ? {
             totalQuantity: Number(oqcRecord.totalQuantity) || assignment.totalParts,
@@ -137,7 +139,7 @@ const ORTLabPage = () => {
             reason: oqcRecord.reason || "N/A",
           }
           : fallbackDetails;
- 
+
         return {
           id: index + 1,
           ticketCode: assignment.ticketCode,
@@ -148,7 +150,7 @@ const ORTLabPage = () => {
           detailsBox,
         };
       });
- 
+
       setTableData(rows);
     } catch (error) {
       console.error("Error loading data for ORT Lab:", error);
@@ -161,7 +163,7 @@ const ORTLabPage = () => {
       setTableData([]);
     }
   };
- 
+
   // Get current shift time
   const getCurrentShift = () => {
     const hour = new Date().getHours();
@@ -169,11 +171,11 @@ const ORTLabPage = () => {
     if (hour >= 14 && hour < 22) return "Afternoon Shift (2 PM - 10 PM)";
     return "Night Shift (10 PM - 6 AM)";
   };
- 
+
   const getCurrentDate = () => {
     return new Date().toISOString().split("T")[0];
   };
- 
+
   const handleReceivedChange = (id: number, value: "Yes" | "No") => {
     setTableData((prevData) =>
       prevData.map((row) => {
@@ -182,6 +184,7 @@ const ORTLabPage = () => {
             return {
               ...row,
               received: value,
+              status: "Received", // 🔥 <-- Add this line
               date: getCurrentDate(),
               shiftTime: getCurrentShift(),
             };
@@ -189,6 +192,7 @@ const ORTLabPage = () => {
             return {
               ...row,
               received: value,
+              status: "", // 🔥 <-- Add this also
               date: undefined,
               shiftTime: undefined,
               stage2Enabled: false,
@@ -199,18 +203,49 @@ const ORTLabPage = () => {
       })
     );
   };
- 
+
   const handleInventoryRemarksChange = (id: number, value: string) => {
     setTableData((prevData) =>
       prevData.map((row) => (row.id === id ? { ...row, inventoryRemarks: value } : row))
     );
   };
- 
+
+  // const handleSave = () => {
+  //   const invalidRows = tableData.filter(
+  //     (row) => row.received === "Yes" && !row.inventoryRemarks.trim()
+  //   );
+
+  //   if (invalidRows.length > 0) {
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Validation Error",
+  //       description: "Please fill in Inventory Remarks for all items marked as Received (Yes)",
+  //       duration: 3000,
+  //     });
+  //     return;
+  //   }
+
+  //   const updatedData = tableData.map((row) => ({
+  //     ...row,
+  //     stage2Enabled: row.received === "Yes" && row.inventoryRemarks.trim() !== "",
+  //   }));
+
+  //   setTableData(updatedData);
+  //   localStorage.setItem("stage1TableData", JSON.stringify(updatedData));
+
+  //   toast({
+  //     title: "Data Saved Successfully",
+  //     description: `Saved ${updatedData.filter((r) => r.stage2Enabled).length} record(s) with Stage 2 enabled`,
+  //     duration: 2000,
+  //   });
+  // };
+
   const handleSave = () => {
+    // Validation: ensure all "Yes" rows have inventory remarks
     const invalidRows = tableData.filter(
       (row) => row.received === "Yes" && !row.inventoryRemarks.trim()
     );
- 
+
     if (invalidRows.length > 0) {
       toast({
         variant: "destructive",
@@ -220,22 +255,54 @@ const ORTLabPage = () => {
       });
       return;
     }
- 
+
+    // Update stage2Enabled based on valid "Yes" + remarks
     const updatedData = tableData.map((row) => ({
       ...row,
       stage2Enabled: row.received === "Yes" && row.inventoryRemarks.trim() !== "",
     }));
- 
-    setTableData(updatedData);
+
+    // Save stage1TableData (your existing behavior)
     localStorage.setItem("stage1TableData", JSON.stringify(updatedData));
- 
+    setTableData(updatedData);
+
+    // 🔻 NEW: Update OQC records' status to "Received" if row.received === "Yes"
+    try {
+      const oqcDataStr = localStorage.getItem("Oqcformdata");
+      if (oqcDataStr) {
+        let oqcRecords: OqcRecord[] = JSON.parse(oqcDataStr);
+
+        // Create a set of ticketCodes that are marked as "Yes"
+        const receivedTicketCodes = new Set(
+          updatedData
+            .filter(row => row.received === "Yes")
+            .map(row => row.ticketCode)
+        );
+
+        // Update status to "Received" for matching OQC records
+        oqcRecords = oqcRecords.map(record => {
+          if (receivedTicketCodes.has(record.ticketCode) && record.status !== "Received") {
+            return { ...record, status: "Received" };
+          }
+          return record;
+        });
+
+        // Save updated OQC data back to localStorage
+        localStorage.setItem("Oqcformdata", JSON.stringify(oqcRecords));
+      }
+    } catch (error) {
+      console.error("Error updating OQC status:", error);
+      // Optional: show toast, but you didn't ask for it — so skip to stay minimal
+    }
+
+    // Show success toast (your existing message)
     toast({
       title: "Data Saved Successfully",
       description: `Saved ${updatedData.filter((r) => r.stage2Enabled).length} record(s) with Stage 2 enabled`,
       duration: 2000,
     });
   };
- 
+
   const handleStage2Navigate = (row: TableRow) => {
     localStorage.setItem("stage1TableData", JSON.stringify(tableData));
     navigate("/stage2-form", {
@@ -250,7 +317,7 @@ const ORTLabPage = () => {
       duration: 2000,
     });
   };
- 
+
   return (
     <div className="mx-auto p-6 max-w-7xl">
       <Card>
@@ -259,14 +326,17 @@ const ORTLabPage = () => {
             <CardTitle className="text-2xl font-bold text-gray-800">
               ORT Received Ticket - Stage 1
             </CardTitle>
+
             <Button
               onClick={handleSave}
               className="bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={tableData.length === 0}
             >
               <Save className="mr-2 h-4 w-4" />
               Save Data
             </Button>
           </div>
+
           <p className="text-sm text-gray-600 mt-2">
             ORT receives the ticket and to say just received.
           </p>
@@ -392,40 +462,10 @@ const ORTLabPage = () => {
               </Table>
             </div>
           )}
- 
-          {/* Summary Section */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h3 className="font-semibold text-lg mb-3 text-blue-900">Summary</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
-              <div className="bg-white p-3 rounded shadow-sm">
-                <p className="text-sm text-gray-600">Total Tickets</p>
-                <p className="text-2xl font-bold text-gray-800">{tableData.length}</p>
-              </div>
-              <div className="bg-white p-3 rounded shadow-sm">
-                <p className="text-sm text-gray-600">Received</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {tableData.filter((r) => r.received === "Yes").length}
-                </p>
-              </div>
-              <div className="bg-white p-3 rounded shadow-sm">
-                <p className="text-sm text-gray-600">Not Received</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {tableData.filter((r) => r.received === "No").length}
-                </p>
-              </div>
-              <div className="bg-white p-3 rounded shadow-sm">
-                <p className="text-sm text-gray-600">Stage 2 Ready</p>
-                <p className="text-2xl font-bold text-indigo-600">
-                  {tableData.filter((r) => r.stage2Enabled).length}
-                </p>
-              </div>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
   );
 };
- 
+
 export default ORTLabPage;
- 
