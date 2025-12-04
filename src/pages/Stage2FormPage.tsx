@@ -999,17 +999,923 @@
 
 // export default Stage2Page;
 
-import React, { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/components/ui/use-toast";
-import { flaskData } from "@/data/flaskData";
-import { ArrowLeft, X } from "lucide-react";
-import DateTimePicker from "@/components/DatePicker";
+// import React, { useEffect, useState } from "react";
+// import { useNavigate, useLocation } from "react-router-dom";
+// import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+// import { Button } from "@/components/ui/button";
+// import { Input } from "@/components/ui/input";
+// import { Label } from "@/components/ui/label";
+// import { Textarea } from "@/components/ui/textarea";
+// import { toast } from "@/components/ui/use-toast";
+// import { flaskData } from "@/data/flaskData";
+// import { ArrowLeft, X } from "lucide-react";
+// import DateTimePicker from "@/components/DatePicker";
+
+// interface TestRecord {
+//   documentNumber: string;
+//   documentTitle: string;
+//   projectName: string;
+//   color: string;
+//   testLocation: string;
+//   testStartDate: string;
+//   testCompletionDate: string;
+//   sampleConfig: string;
+//   status: string;
+//   id: number;
+//   createdAt: string;
+// }
+
+// interface ORTLabRecord {
+//   documentNumber: string;
+//   documentTitle: string;
+//   projectName: string;
+//   testLocation: string;
+//   submissionPartDate: string;
+//   sampleConfig: string;
+//   remarks: string;
+//   status: string;
+//   project: string;
+//   line: string;
+//   colour: string;
+//   quantity: string;
+//   id: number;
+//   createdAt: string;
+//   ortLabId: number;
+//   ortLab: {
+//     submissionId: number;
+//     date: string;
+//     serialNumber: string;
+//     scannedParts: {
+//       serialNumber: string;
+//       partNumber: string;
+//       scannedAt: string;
+//     }[];
+//     totalParts: number;
+//     requiredQuantity: string;
+//     submittedAt: string;
+//   };
+// }
+
+// const Stage2FormPage: React.FC = () => {
+//   const navigate = useNavigate();
+//   const location = useLocation();
+//   const selectedRecord = location.state?.record as TestRecord | undefined;
+//   const [testMode, setTestMode] = useState<'single' | 'multi'>('single');
+//   const [filteredData, setFilteredData] = useState<typeof flaskData>([]);
+//   const [availableTestNames, setAvailableTestNames] = useState<string[]>([]);
+
+//   const [stage2Form, setStage2Form] = useState({
+//     processStage: [] as string[],
+//     type: [] as string[],
+//     testName: [] as string[],
+//     testCondition: [] as string[],
+//     requiredQty: "",
+//     equipment: [] as string[],
+//     checkpoint: "",
+//     startDateTime: "",
+//     endDateTime: "",
+//     remark: "",
+//     project: "",
+//     lines: [] as string[],
+//     selectedParts: [] as string[]
+//   });
+
+//   // ORT Lab records
+//   const [ortLabRecords, setOrtLabRecords] = useState<ORTLabRecord[]>([]);
+
+//   // ✅ Auto-load ORT records AND auto-fill project/line/parts in one effect
+//   useEffect(() => {
+//     if (!selectedRecord) return;
+
+//     const loadAndAutoFill = () => {
+//       const stored = localStorage.getItem("ortLabRecords");
+//       if (!stored) {
+//         // Fallback if no ORT data
+//         setStage2Form(prev => ({
+//           ...prev,
+//           project: selectedRecord.projectName.trim(),
+//           lines: [],
+//           selectedParts: []
+//         }));
+//         return;
+//       }
+
+//       try {
+//         const records: ORTLabRecord[] = JSON.parse(stored);
+//         setOrtLabRecords(records);
+
+//         const targetName = selectedRecord.projectName.trim();
+//         const match = records.find(rec => rec.projectName.trim() === targetName);
+
+//         if (match) {
+//           const project = (match.project || targetName).trim();
+//           const lines = match.line ? [match.line.trim()] : [];
+//           const parts = (match.ortLab?.scannedParts || [])
+//             .map(p => p.partNumber.trim())
+//             .filter(p => p !== "");
+
+//           setStage2Form(prev => ({
+//             ...prev,
+//             project,
+//             lines,
+//             selectedParts: parts
+//           }));
+//         } else {
+//           // No match found — use projectName as fallback
+//           setStage2Form(prev => ({
+//             ...prev,
+//             project: targetName,
+//             lines: [],
+//             selectedParts: []
+//           }));
+//           console.warn(`No ORT record found for project: ${targetName}`);
+//         }
+//       } catch (err) {
+//         console.error("Failed to parse ORT records", err);
+//         setStage2Form(prev => ({
+//           ...prev,
+//           project: selectedRecord.projectName.trim(),
+//           lines: [],
+//           selectedParts: []
+//         }));
+//       }
+//     };
+
+//     loadAndAutoFill();
+//   }, [selectedRecord]);
+
+//   // Remaining logic for processStage, type, testName — unchanged
+//   const processStages = Array.from(new Set(flaskData.map(item => item.processStage)));
+
+//   const getFilteredTypes = () => {
+//     if (stage2Form.processStage.length === 0) return [];
+//     const filteredTypes = flaskData
+//       .filter(item => stage2Form.processStage.includes(item.processStage))
+//       .map(item => item.type);
+//     return Array.from(new Set(filteredTypes));
+//   };
+
+//   const types = getFilteredTypes();
+
+//   // --- All handlers for processStage, type, testName remain unchanged ---
+//   const handleProcessStageSelection = (stage: string) => {
+//     setStage2Form(prev => {
+//       if (testMode === 'multi') {
+//         const isSelected = prev.processStage.includes(stage);
+//         const newProcessStages = isSelected
+//           ? prev.processStage.filter(s => s !== stage)
+//           : [...prev.processStage, stage];
+//         return {
+//           ...prev,
+//           processStage: newProcessStages,
+//           type: [],
+//           testName: [],
+//           testCondition: [],
+//           equipment: [],
+//           requiredQty: ""
+//         };
+//       } else {
+//         return {
+//           ...prev,
+//           processStage: [stage],
+//           type: [],
+//           testName: [],
+//           testCondition: [],
+//           equipment: [],
+//           requiredQty: ""
+//         };
+//       }
+//     });
+//   };
+
+//   const removeSelectedProcessStage = (stage: string) => {
+//     setStage2Form(prev => ({
+//       ...prev,
+//       processStage: prev.processStage.filter(s => s !== stage),
+//       type: [],
+//       testName: [],
+//       testCondition: [],
+//       equipment: []
+//     }));
+//     setFilteredData([]);
+//     setAvailableTestNames([]);
+//   };
+
+//   const selectAllProcessStages = () => {
+//     if (testMode === 'multi') {
+//       setStage2Form(prev => ({
+//         ...prev,
+//         processStage: [...processStages]
+//       }));
+//     }
+//   };
+
+//   const clearAllProcessStages = () => {
+//     setStage2Form(prev => ({
+//       ...prev,
+//       processStage: [],
+//       type: [],
+//       testName: [],
+//       testCondition: [],
+//       equipment: []
+//     }));
+//     setFilteredData([]);
+//     setAvailableTestNames([]);
+//   };
+
+//   const handleTypeSelection = (type: string) => {
+//     setStage2Form(prev => {
+//       if (testMode === 'multi') {
+//         const isSelected = prev.type.includes(type);
+//         const newTypes = isSelected
+//           ? prev.type.filter(t => t !== type)
+//           : [...prev.type, type];
+//         const allSelectedProcessStages = prev.processStage;
+//         const filteredData = flaskData.filter(item =>
+//           allSelectedProcessStages.includes(item.processStage) &&
+//           newTypes.includes(item.type)
+//         );
+//         setFilteredData(filteredData);
+//         const testNames = Array.from(new Set(filteredData.map(item => item.testName)));
+//         setAvailableTestNames(testNames);
+//         return {
+//           ...prev,
+//           type: newTypes,
+//           testName: [],
+//           testCondition: [],
+//           equipment: []
+//         };
+//       } else {
+//         const filteredData = flaskData.filter(item =>
+//           prev.processStage[0] === item.processStage && item.type === type
+//         );
+//         setFilteredData(filteredData);
+//         const testNames = Array.from(new Set(filteredData.map(item => item.testName)));
+//         setAvailableTestNames(testNames);
+//         return {
+//           ...prev,
+//           type: [type],
+//           testName: [],
+//           testCondition: [],
+//           equipment: []
+//         };
+//       }
+//     });
+//   };
+
+//   const removeSelectedType = (type: string) => {
+//     setStage2Form(prev => {
+//       const newTypes = prev.type.filter(t => t !== type);
+//       if (prev.processStage.length > 0 && newTypes.length > 0) {
+//         const matchedData = flaskData.filter(
+//           item => prev.processStage.includes(item.processStage) && newTypes.includes(item.type)
+//         );
+//         setFilteredData(matchedData);
+//         const testNames = Array.from(new Set(matchedData.map(item => item.testName)));
+//         setAvailableTestNames(testNames);
+//       } else {
+//         setFilteredData([]);
+//         setAvailableTestNames([]);
+//       }
+//       return {
+//         ...prev,
+//         type: newTypes,
+//         testName: [],
+//         testCondition: [],
+//         equipment: []
+//       };
+//     });
+//   };
+
+//   const selectAllTypes = () => {
+//     if (testMode === 'multi' && stage2Form.processStage.length > 0) {
+//       const filteredTypes = flaskData
+//         .filter(item => stage2Form.processStage.includes(item.processStage))
+//         .map(item => item.type);
+//       const uniqueTypes = Array.from(new Set(filteredTypes));
+//       setStage2Form(prev => ({
+//         ...prev,
+//         type: uniqueTypes
+//       }));
+//     }
+//   };
+
+//   const clearAllTypes = () => {
+//     setStage2Form(prev => ({
+//       ...prev,
+//       type: [],
+//       testName: [],
+//       testCondition: [],
+//       equipment: []
+//     }));
+//     setFilteredData([]);
+//     setAvailableTestNames([]);
+//   };
+
+//   const handleTestNameSelection = (testName: string) => {
+//     if (testMode === 'single') {
+//       const selectedTest = filteredData.find(item => item.testName === testName);
+//       if (selectedTest) {
+//         setStage2Form(prev => ({
+//           ...prev,
+//           testName: [testName],
+//           equipment: [selectedTest.equipment],
+//           testCondition: [selectedTest.testCondition || ""],
+//         }));
+//       }
+//     } else {
+//       setStage2Form(prev => {
+//         const isSelected = prev.testName.includes(testName);
+//         const newTestNames = isSelected
+//           ? prev.testName.filter(t => t !== testName)
+//           : [...prev.testName, testName];
+//         const equipmentList: string[] = [];
+//         const conditionList: string[] = [];
+//         newTestNames.forEach(name => {
+//           const test = filteredData.find(item => item.testName === name);
+//           if (test) {
+//             equipmentList.push(test.equipment);
+//             conditionList.push(test.testCondition || "");
+//           }
+//         });
+//         return {
+//           ...prev,
+//           testName: newTestNames,
+//           equipment: equipmentList,
+//           testCondition: conditionList,
+//         };
+//       });
+//     }
+//   };
+
+//   const removeSelectedTestName = (testName: string) => {
+//     setStage2Form(prev => {
+//       const newTestNames = prev.testName.filter(t => t !== testName);
+//       const equipmentList: string[] = [];
+//       const conditionList: string[] = [];
+//       newTestNames.forEach(name => {
+//         const test = filteredData.find(item => item.testName === name);
+//         if (test) {
+//           equipmentList.push(test.equipment);
+//           conditionList.push(test.testCondition || "");
+//         }
+//       });
+//       return {
+//         ...prev,
+//         testName: newTestNames,
+//         equipment: equipmentList,
+//         testCondition: conditionList,
+//       };
+//     });
+//   };
+
+//   const selectAllTestNames = () => {
+//     const allTestNames = availableTestNames;
+//     const equipmentList: string[] = [];
+//     const conditionList: string[] = [];
+//     allTestNames.forEach(name => {
+//       const test = filteredData.find(item => item.testName === name);
+//       if (test) {
+//         equipmentList.push(test.equipment);
+//         conditionList.push(test.testCondition || "");
+//       }
+//     });
+//     setStage2Form(prev => ({
+//       ...prev,
+//       testName: allTestNames,
+//       equipment: equipmentList,
+//       testCondition: conditionList,
+//     }));
+//   };
+
+//   const clearAllTestNames = () => {
+//     setStage2Form(prev => ({
+//       ...prev,
+//       testName: [],
+//       equipment: [],
+//       testCondition: [],
+//     }));
+//   };
+
+//   // --- Submit logic unchanged ---
+//   const handleStage2Submit = () => {
+//     if (!selectedRecord) return;
+//     if (
+//       stage2Form.processStage.length === 0 ||
+//       stage2Form.type.length === 0 ||
+//       stage2Form.testName.length === 0 ||
+//       stage2Form.testCondition.length === 0
+//     ) {
+//       toast({
+//         variant: "destructive",
+//         title: "Incomplete Form",
+//         description: "Please fill in all required fields.",
+//         duration: 2000,
+//       });
+//       return;
+//     }
+//     if (!stage2Form.project) {
+//       toast({
+//         variant: "destructive",
+//         title: "Missing Project",
+//         description: "Project could not be loaded from ORT Lab data.",
+//         duration: 2000,
+//       });
+//       return;
+//     }
+//     if (stage2Form.selectedParts.length === 0) {
+//       toast({
+//         variant: "destructive",
+//         title: "No Parts Selected",
+//         description: "No parts were found in ORT Lab for this project.",
+//         duration: 2000,
+//       });
+//       return;
+//     }
+
+//     try {
+//       const stage2Data = {
+//         ...selectedRecord,
+//         stage2: {
+//           testMode: testMode,
+//           processStage: testMode === 'single' ? stage2Form.processStage[0] : stage2Form.processStage.join(', '),
+//           type: testMode === 'single' ? stage2Form.type[0] : stage2Form.type.join(', '),
+//           testName: stage2Form.testName.join(', '),
+//           testCondition: stage2Form.testCondition.join(', '),
+//           requiredQty: stage2Form.requiredQty,
+//           equipment: stage2Form.equipment.join(', '),
+//           checkpoint: Number(stage2Form.checkpoint),
+//           project: stage2Form.project,
+//           lines: stage2Form.lines,
+//           selectedParts: stage2Form.selectedParts,
+//           startTime: stage2Form.startDateTime,
+//           endTime: stage2Form.endDateTime,
+//           remark: stage2Form.remark,
+//           submittedAt: new Date().toISOString()
+//         }
+//       };
+
+//       const existingStage2Data = localStorage.getItem("stage2Records");
+//       const stage2Records = existingStage2Data ? JSON.parse(existingStage2Data) : [];
+//       stage2Records.push(stage2Data);
+//       localStorage.setItem("stage2Records", JSON.stringify(stage2Records));
+
+//       // Remove from testRecords
+//       const existingTestRecords = localStorage.getItem("testRecords");
+//       if (existingTestRecords) {
+//         const testRecords = JSON.parse(existingTestRecords);
+//         const updatedTestRecords = testRecords.filter(
+//           (record: TestRecord) => record.id !== selectedRecord.id
+//         );
+//         localStorage.setItem("testRecords", JSON.stringify(updatedTestRecords));
+//       }
+
+//       toast({
+//         title: "✅ Stage 2 Submitted",
+//         description: `Stage 2 data has been saved successfully!`,
+//         duration: 3000,
+//       });
+//       navigate("/stage2");
+//     } catch (error) {
+//       toast({
+//         variant: "destructive",
+//         title: "Submission Failed",
+//         description: "There was an error saving the Stage 2 data. Please try again.",
+//         duration: 3000,
+//       });
+//       console.error("Error saving Stage 2 data:", error);
+//     }
+//   };
+
+//   const isStage2SubmitEnabled = () => {
+//     return (
+//       stage2Form.processStage.length > 0 &&
+//       stage2Form.type.length > 0 &&
+//       stage2Form.testName.length > 0 &&
+//       stage2Form.testCondition.length > 0 &&
+//       stage2Form.equipment.length > 0 &&
+//       stage2Form.checkpoint !== "" &&
+//       stage2Form.project !== "" &&
+//       stage2Form.selectedParts.length > 0
+//     );
+//   };
+
+//   if (!selectedRecord) {
+//     return null;
+//   }
+
+//   const unselectedProcessStages = processStages.filter(
+//     stage => !stage2Form.processStage.includes(stage)
+//   );
+//   const unselectedTypes = types.filter(
+//     type => !stage2Form.type.includes(type)
+//   );
+
+//   return (
+//     <div className="container mx-auto p-6 max-w-6xl">
+//       <Button
+//         variant="ghost"
+//         onClick={() => navigate("/")}
+//         className="mb-4 hover:bg-gray-100"
+//       >
+//         <ArrowLeft className="mr-2 h-4 w-4" />
+//         Back to Live Test Checklist
+//       </Button>
+//       <Card>
+//         <CardHeader className="bg-[#e0413a] text-white">
+//           <CardTitle className="text-2xl">Stage 2 - Test Configuration</CardTitle>
+//         </CardHeader>
+//         <CardContent className="pt-6">
+//           {/* Record Information */}
+//           {/* <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+//             <h3 className="font-semibold text-lg mb-3 text-gray-700">Selected Record Information</h3>
+//             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+//               <div>
+//                 <span className="font-medium text-gray-600">Document Number:</span>
+//                 <p className="text-gray-800">{selectedRecord.documentNumber}</p>
+//               </div>
+//               <div>
+//                 <span className="font-medium text-gray-600">Project Name:</span>
+//                 <p className="text-gray-800">{selectedRecord.projectName}</p>
+//               </div>
+//               <div>
+//                 <span className="font-medium text-gray-600">Test Location:</span>
+//                 <p className="text-gray-800">{selectedRecord.testLocation}</p>
+//               </div>
+//             </div>
+//           </div> */}
+
+//           {/* Test Mode Selection */}
+//           <div className="space-y-2 md:col-span-2 mb-5">
+//             <Label htmlFor="testMode" className="text-base">
+//               Test Mode <span className="text-red-600">*</span>
+//             </Label>
+//             <select
+//               value={testMode}
+//               onChange={(e) => {
+//                 const value = e.target.value as 'single' | 'multi';
+//                 setTestMode(value);
+//                 setStage2Form({
+//                   processStage: [],
+//                   type: [],
+//                   testName: [],
+//                   testCondition: [],
+//                   requiredQty: "",
+//                   equipment: [],
+//                   checkpoint: "",
+//                   startDateTime: "",
+//                   endDateTime: "",
+//                   remark: "",
+//                   project: "",
+//                   lines: [],
+//                   selectedParts: []
+//                 });
+//                 setFilteredData([]);
+//                 setAvailableTestNames([]);
+//               }}
+//               className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
+//             >
+//               <option value="single">Single Test</option>
+//               <option value="multi">Multi Test</option>
+//             </select>
+//           </div>
+
+//           {/* Stage 2 Form Fields */}
+//           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//             {/* Process Stage */}
+//             {testMode === 'single' ? (
+//               <div className="space-y-2">
+//                 <Label className="text-base">Process Stage <span className="text-red-600">*</span></Label>
+//                 <select
+//                   value={stage2Form.processStage[0] || ""}
+//                   onChange={(e) => handleProcessStageSelection(e.target.value)}
+//                   className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
+//                   disabled={false}
+//                 >
+//                   <option value="">Select Process Stage</option>
+//                   {processStages.map(stage => (
+//                     <option key={stage} value={stage}>{stage}</option>
+//                   ))}
+//                 </select>
+//               </div>
+//             ) : (
+//               <div className="space-y-2">
+//                 <div className="flex justify-between items-center">
+//                   <Label className="text-base">Process Stages <span className="text-red-600">*</span></Label>
+//                   <div className="flex gap-2">
+//                     <Button variant="outline" size="sm" onClick={selectAllProcessStages} disabled={stage2Form.processStage.length === processStages.length}>
+//                       Select All
+//                     </Button>
+//                     <Button variant="outline" size="sm" onClick={clearAllProcessStages} disabled={stage2Form.processStage.length === 0}>
+//                       Clear All
+//                     </Button>
+//                   </div>
+//                 </div>
+//                 <select
+//                   onChange={(e) => handleProcessStageSelection(e.target.value)}
+//                   className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
+//                   disabled={unselectedProcessStages.length === 0}
+//                 >
+//                   <option value="">
+//                     {stage2Form.processStage.length === processStages.length
+//                       ? "All stages selected"
+//                       : `Select from ${unselectedProcessStages.length} available stage(s)`}
+//                   </option>
+//                   {unselectedProcessStages.map(stage => (
+//                     <option key={stage} value={stage}>{stage}</option>
+//                   ))}
+//                 </select>
+//                 <p className="text-xs text-gray-500">
+//                   {stage2Form.processStage.length} of {processStages.length} stages selected
+//                 </p>
+//                 {stage2Form.processStage.length > 0 && (
+//                   <div className="space-y-2">
+//                     <Label className="text-base flex items-center gap-2">
+//                       Selected Process Stages
+//                       <span className="text-sm font-normal text-gray-500">({stage2Form.processStage.length} selected)</span>
+//                     </Label>
+//                     <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
+//                       {stage2Form.processStage.map(stage => (
+//                         <div key={stage} className="flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+//                           {stage}
+//                           <button onClick={() => removeSelectedProcessStage(stage)} className="hover:bg-blue-200 rounded-full p-0.5">
+//                             <X size={14} />
+//                           </button>
+//                         </div>
+//                       ))}
+//                     </div>
+//                   </div>
+//                 )}
+//               </div>
+//             )}
+
+//             {/* Type */}
+//             {testMode === 'single' ? (
+//               <div className="space-y-2">
+//                 <Label className="text-base">Type <span className="text-red-600">*</span></Label>
+//                 <select
+//                   value={stage2Form.type[0] || ""}
+//                   onChange={(e) => handleTypeSelection(e.target.value)}
+//                   className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
+//                   disabled={stage2Form.processStage.length === 0}
+//                 >
+//                   <option value="">Select Type</option>
+//                   {types.map(type => (
+//                     <option key={type} value={type}>{type}</option>
+//                   ))}
+//                 </select>
+//               </div>
+//             ) : (
+//               <div className="space-y-2">
+//                 <div className="flex justify-between items-center">
+//                   <Label className="text-base">Types <span className="text-red-600">*</span></Label>
+//                   <div className="flex gap-2">
+//                     <Button variant="outline" size="sm" onClick={selectAllTypes} disabled={stage2Form.type.length === types.length || stage2Form.processStage.length === 0}>
+//                       Select All
+//                     </Button>
+//                     <Button variant="outline" size="sm" onClick={clearAllTypes} disabled={stage2Form.type.length === 0}>
+//                       Clear All
+//                     </Button>
+//                   </div>
+//                 </div>
+//                 <select
+//                   onChange={(e) => handleTypeSelection(e.target.value)}
+//                   className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
+//                   disabled={stage2Form.processStage.length === 0 || unselectedTypes.length === 0}
+//                 >
+//                   <option value="">
+//                     {stage2Form.type.length === types.length
+//                       ? "All types selected"
+//                       : stage2Form.processStage.length === 0
+//                         ? "Select process stages first"
+//                         : `Select from ${unselectedTypes.length} available type(s)`}
+//                   </option>
+//                   {unselectedTypes.map(type => (
+//                     <option key={type} value={type}>{type}</option>
+//                   ))}
+//                 </select>
+//                 <p className="text-xs text-gray-500">
+//                   {stage2Form.type.length} of {types.length} types selected
+//                 </p>
+//                 {stage2Form.type.length > 0 && (
+//                   <div className="space-y-2">
+//                     <Label className="text-base flex items-center gap-2">
+//                       Selected Types
+//                       <span className="text-sm font-normal text-gray-500">({stage2Form.type.length} selected)</span>
+//                     </Label>
+//                     <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
+//                       {stage2Form.type.map(type => (
+//                         <div key={type} className="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+//                           {type}
+//                           <button onClick={() => removeSelectedType(type)} className="hover:bg-green-200 rounded-full p-0.5">
+//                             <X size={14} />
+//                           </button>
+//                         </div>
+//                       ))}
+//                     </div>
+//                   </div>
+//                 )}
+//               </div>
+//             )}
+
+//             {/* Test Name */}
+//             {testMode === 'single' ? (
+//               <div className="space-y-2">
+//                 <Label className="text-base">Test Name <span className="text-red-600">*</span></Label>
+//                 <select
+//                   value={stage2Form.testName[0] || ""}
+//                   onChange={(e) => handleTestNameSelection(e.target.value)}
+//                   className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
+//                   disabled={availableTestNames.length === 0}
+//                 >
+//                   <option value="">Select Test Name</option>
+//                   {availableTestNames.map(name => (
+//                     <option key={name} value={name}>{name}</option>
+//                   ))}
+//                 </select>
+//               </div>
+//             ) : (
+//               <div className="space-y-2">
+//                 <div className="flex justify-between items-center">
+//                   <Label className="text-base">Test Names <span className="text-red-600">*</span></Label>
+//                   <div className="flex gap-2">
+//                     <Button variant="outline" size="sm" onClick={selectAllTestNames} disabled={stage2Form.testName.length === availableTestNames.length}>
+//                       Select All
+//                     </Button>
+//                     <Button variant="outline" size="sm" onClick={clearAllTestNames} disabled={stage2Form.testName.length === 0}>
+//                       Clear All
+//                     </Button>
+//                   </div>
+//                 </div>
+//                 <select
+//                   onChange={(e) => handleTestNameSelection(e.target.value)}
+//                   className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
+//                   disabled={availableTestNames.filter(n => !stage2Form.testName.includes(n)).length === 0}
+//                 >
+//                   <option value="">
+//                     {stage2Form.testName.length === availableTestNames.length
+//                       ? "All tests selected"
+//                       : `Select from ${availableTestNames.filter(n => !stage2Form.testName.includes(n)).length} available test(s)`}
+//                   </option>
+//                   {availableTestNames
+//                     .filter(n => !stage2Form.testName.includes(n))
+//                     .map(name => (
+//                       <option key={name} value={name}>{name}</option>
+//                     ))}
+//                 </select>
+//                 <p className="text-xs text-gray-500">
+//                   {stage2Form.testName.length} of {availableTestNames.length} tests selected
+//                 </p>
+//                 {stage2Form.testName.length > 0 && (
+//                   <div className="space-y-2">
+//                     <Label className="text-base flex items-center gap-2">
+//                       Selected Test Names
+//                       <span className="text-sm font-normal text-gray-500">({stage2Form.testName.length} selected)</span>
+//                     </Label>
+//                     <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
+//                       {stage2Form.testName.map(name => (
+//                         <div key={name} className="flex items-center gap-2 bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm">
+//                           {name}
+//                           <button onClick={() => removeSelectedTestName(name)} className="hover:bg-amber-200 rounded-full p-0.5">
+//                             <X size={14} />
+//                           </button>
+//                         </div>
+//                       ))}
+//                     </div>
+//                   </div>
+//                 )}
+//               </div>
+//             )}
+
+//             {/* Test Condition */}
+//             <div className="space-y-2">
+//               <Label className="text-base">
+//                 Test Condition{testMode === 'multi' && 's'} <span className="text-red-600">*</span>
+//               </Label>
+//               <Input
+//                 value={stage2Form.testCondition.join(', ')}
+//                 placeholder={`Test condition${testMode === 'multi' ? 's' : ''} (auto-filled)`}
+//                 disabled
+//                 className="h-11"
+//               />
+//             </div>
+
+//             {/* Equipment */}
+//             <div className="space-y-2">
+//               <Label className="text-base">Equipment{testMode === 'multi' && '(s)'}</Label>
+//               <Input
+//                 value={stage2Form.equipment.join(', ')}
+//                 placeholder={`Equipment${testMode === 'multi' ? '(s)' : ''} (auto-filled)`}
+//                 disabled
+//                 className="h-11 bg-gray-50"
+//               />
+//             </div>
+
+//             <div className="space-y-2">
+//               <Label className="text-base">CheckPoint <span className="text-red-600">*</span></Label>
+//               <Input
+//                 type="number"
+//                 value={stage2Form.checkpoint}
+//                 onChange={(e) => setStage2Form(prev => ({ ...prev, checkpoint: e.target.value }))}
+//                 placeholder="Enter the Hours"
+//                 className="h-11"
+//               />
+//             </div>
+
+//             <DateTimePicker
+//               label="Start Date & Time"
+//               value={stage2Form.startDateTime ? new Date(stage2Form.startDateTime) : null}
+//               onChange={(val) => setStage2Form(prev => ({ ...prev, startDateTime: val ? val.toISOString() : "" }))}
+//             />
+
+//             <DateTimePicker
+//               label="End Date & Time"
+//               value={stage2Form.endDateTime ? new Date(stage2Form.endDateTime) : null}
+//               onChange={(val) => setStage2Form(prev => ({ ...prev, endDateTime: val ? val.toISOString() : "" }))}
+//             />
+
+//             {/* Auto-populated ORT Lab Data — Read-only */}
+//             <div className="space-y-4 md:col-span-2">
+//               {/* Project */}
+//               <div className="space-y-2">
+//                 <Label className="text-base">Project <span className="text-red-600">*</span></Label>
+//                 <Input
+//                   value={stage2Form.project || "Loading project..."}
+//                   disabled
+//                   className="h-11 bg-gray-100"
+//                 />
+//               </div>
+
+//               {/* Line */}
+//               <div className="space-y-2">
+//                 <Label className="text-base">Line</Label>
+//                 <Input
+//                   value={stage2Form.lines[0] || "No line found"}
+//                   disabled
+//                   className="h-11 bg-gray-100"
+//                 />
+//               </div>
+
+//               {/* Parts */}
+//               <div className="space-y-2">
+//                 <Label className="text-base">Parts <span className="text-red-600">*</span></Label>
+//                 <div className="p-3 bg-gray-50 rounded-lg border min-h-[3rem]">
+//                   {stage2Form.selectedParts.length > 0 ? (
+//                     <div className="flex flex-wrap gap-2">
+//                       {stage2Form.selectedParts.map(part => (
+//                         <span
+//                           key={part}
+//                           className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-mono"
+//                         >
+//                           {part}
+//                         </span>
+//                       ))}
+//                     </div>
+//                   ) : (
+//                     <span className="text-gray-500 italic">
+//                       {stage2Form.project ? `No parts found in ORT Lab for project "${stage2Form.project}"` : "Loading parts..."}
+//                     </span>
+//                   )}
+//                 </div>
+//                 <p className="text-xs text-gray-500">
+//                   {stage2Form.selectedParts.length} part(s) loaded from ORT Lab
+//                 </p>
+//               </div>
+//             </div>
+//           </div>
+
+//           {/* Action Buttons */}
+//           <div className="flex justify-end gap-4 mt-8 pt-2">
+//             <Button variant="outline" onClick={() => navigate("/")} className="px-6">
+//               Cancel
+//             </Button>
+//             <Button
+//               onClick={handleStage2Submit}
+//               disabled={!isStage2SubmitEnabled()}
+//               className="bg-[#e0413a] text-white hover:bg-[#c53730] px-6"
+//             >
+//               Submit Stage 2
+//             </Button>
+//           </div>
+//         </CardContent>
+//       </Card>
+//     </div>
+//   );
+// };
+
+// export default Stage2FormPage;
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { toast } from '@/components/ui/use-toast';
+import { ArrowLeft, X } from 'lucide-react';
+import DateTimePicker from '@/components/DatePicker';
+import { flaskData } from '@/data/flaskData';
+
 
 interface TestRecord {
   documentNumber: string;
@@ -1056,6 +1962,11 @@ interface ORTLabRecord {
   };
 }
 
+// ✅ Helper to generate parts: Part 001 to Part 050
+const generateParts = (count: number): string[] => {
+  return Array.from({ length: count }, (_, i) => `Part ${String(i + 1).padStart(3, '0')}`);
+};
+
 const Stage2FormPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -1063,6 +1974,20 @@ const Stage2FormPage: React.FC = () => {
   const [testMode, setTestMode] = useState<'single' | 'multi'>('single');
   const [filteredData, setFilteredData] = useState<typeof flaskData>([]);
   const [availableTestNames, setAvailableTestNames] = useState<string[]>([]);
+  const [ortLabRecords, setOrtLabRecords] = useState<ORTLabRecord[]>([]);
+
+  // Load ORT Lab records once on mount
+  useEffect(() => {
+    const stored = localStorage.getItem("ortLabRecords");
+    if (stored) {
+      try {
+        const records: ORTLabRecord[] = JSON.parse(stored);
+        setOrtLabRecords(records);
+      } catch (err) {
+        console.error("Failed to parse ORT records", err);
+      }
+    }
+  }, []);
 
   const [stage2Form, setStage2Form] = useState({
     processStage: [] as string[],
@@ -1075,76 +2000,12 @@ const Stage2FormPage: React.FC = () => {
     startDateTime: "",
     endDateTime: "",
     remark: "",
-    project: "",
+    project: "",         // Initially empty
     lines: [] as string[],
-    selectedParts: [] as string[]
+    selectedParts: [] as string[],
+    ticketCode: "TICKET-001"
   });
 
-  // ORT Lab records
-  const [ortLabRecords, setOrtLabRecords] = useState<ORTLabRecord[]>([]);
-
-  // ✅ Auto-load ORT records AND auto-fill project/line/parts in one effect
-  useEffect(() => {
-    if (!selectedRecord) return;
-
-    const loadAndAutoFill = () => {
-      const stored = localStorage.getItem("ortLabRecords");
-      if (!stored) {
-        // Fallback if no ORT data
-        setStage2Form(prev => ({
-          ...prev,
-          project: selectedRecord.projectName.trim(),
-          lines: [],
-          selectedParts: []
-        }));
-        return;
-      }
-
-      try {
-        const records: ORTLabRecord[] = JSON.parse(stored);
-        setOrtLabRecords(records);
-
-        const targetName = selectedRecord.projectName.trim();
-        const match = records.find(rec => rec.projectName.trim() === targetName);
-
-        if (match) {
-          const project = (match.project || targetName).trim();
-          const lines = match.line ? [match.line.trim()] : [];
-          const parts = (match.ortLab?.scannedParts || [])
-            .map(p => p.partNumber.trim())
-            .filter(p => p !== "");
-
-          setStage2Form(prev => ({
-            ...prev,
-            project,
-            lines,
-            selectedParts: parts
-          }));
-        } else {
-          // No match found — use projectName as fallback
-          setStage2Form(prev => ({
-            ...prev,
-            project: targetName,
-            lines: [],
-            selectedParts: []
-          }));
-          console.warn(`No ORT record found for project: ${targetName}`);
-        }
-      } catch (err) {
-        console.error("Failed to parse ORT records", err);
-        setStage2Form(prev => ({
-          ...prev,
-          project: selectedRecord.projectName.trim(),
-          lines: [],
-          selectedParts: []
-        }));
-      }
-    };
-
-    loadAndAutoFill();
-  }, [selectedRecord]);
-
-  // Remaining logic for processStage, type, testName — unchanged
   const processStages = Array.from(new Set(flaskData.map(item => item.processStage)));
 
   const getFilteredTypes = () => {
@@ -1157,7 +2018,7 @@ const Stage2FormPage: React.FC = () => {
 
   const types = getFilteredTypes();
 
-  // --- All handlers for processStage, type, testName remain unchanged ---
+  // --- All handlers unchanged except handleTestNameSelection ---
   const handleProcessStageSelection = (stage: string) => {
     setStage2Form(prev => {
       if (testMode === 'multi') {
@@ -1172,7 +2033,11 @@ const Stage2FormPage: React.FC = () => {
           testName: [],
           testCondition: [],
           equipment: [],
-          requiredQty: ""
+          requiredQty: "",
+          // Clear project/line/parts until test name selected
+          project: "",
+          lines: [],
+          selectedParts: []
         };
       } else {
         return {
@@ -1182,7 +2047,10 @@ const Stage2FormPage: React.FC = () => {
           testName: [],
           testCondition: [],
           equipment: [],
-          requiredQty: ""
+          requiredQty: "",
+          project: "",
+          lines: [],
+          selectedParts: []
         };
       }
     });
@@ -1195,7 +2063,10 @@ const Stage2FormPage: React.FC = () => {
       type: [],
       testName: [],
       testCondition: [],
-      equipment: []
+      equipment: [],
+      project: "",
+      lines: [],
+      selectedParts: []
     }));
     setFilteredData([]);
     setAvailableTestNames([]);
@@ -1217,7 +2088,10 @@ const Stage2FormPage: React.FC = () => {
       type: [],
       testName: [],
       testCondition: [],
-      equipment: []
+      equipment: [],
+      project: "",
+      lines: [],
+      selectedParts: []
     }));
     setFilteredData([]);
     setAvailableTestNames([]);
@@ -1243,7 +2117,10 @@ const Stage2FormPage: React.FC = () => {
           type: newTypes,
           testName: [],
           testCondition: [],
-          equipment: []
+          equipment: [],
+          project: "",
+          lines: [],
+          selectedParts: []
         };
       } else {
         const filteredData = flaskData.filter(item =>
@@ -1257,7 +2134,10 @@ const Stage2FormPage: React.FC = () => {
           type: [type],
           testName: [],
           testCondition: [],
-          equipment: []
+          equipment: [],
+          project: "",
+          lines: [],
+          selectedParts: []
         };
       }
     });
@@ -1282,7 +2162,10 @@ const Stage2FormPage: React.FC = () => {
         type: newTypes,
         testName: [],
         testCondition: [],
-        equipment: []
+        equipment: [],
+        project: "",
+        lines: [],
+        selectedParts: []
       };
     });
   };
@@ -1306,21 +2189,61 @@ const Stage2FormPage: React.FC = () => {
       type: [],
       testName: [],
       testCondition: [],
-      equipment: []
+      equipment: [],
+      project: "",
+      lines: [],
+      selectedParts: []
     }));
     setFilteredData([]);
     setAvailableTestNames([]);
   };
 
+  // ✅ Enhanced: Populate project/line/parts AFTER test name selection
   const handleTestNameSelection = (testName: string) => {
+    const TOTAL_QUANTITY = 50;
+    const EQUIPMENT_CAPACITY = 10;
+
+    // Find matching ORT record using selectedRecord.projectName
+    const targetProject = selectedRecord?.projectName.trim() || "";
+    const ortMatch = ortLabRecords.find(rec => rec.projectName.trim() === targetProject);
+
+    // Determine project/line/parts
+    let project = "";
+    let lines: string[] = [];
+    let selectedParts: string[] = [];
+
+    if (ortMatch) {
+      project = (ortMatch.project || targetProject).trim();
+      lines = ortMatch.line ? [ortMatch.line.trim()] : [];
+      selectedParts = (ortMatch.ortLab?.scannedParts || [])
+        .map(p => p.partNumber.trim())
+        .filter(p => p !== "");
+    }
+
+    // Fallback to static if no ORT data OR no parts
+    if (!project) project = "DEFAULT_PROJECT";
+    if (lines.length === 0) lines = ["LINE_A"];
+    if (selectedParts.length === 0) {
+      selectedParts = generateParts(TOTAL_QUANTITY); // Part 001 to Part 050
+    }
+
     if (testMode === 'single') {
       const selectedTest = filteredData.find(item => item.testName === testName);
       if (selectedTest) {
+        const equipmentList = selectedTest.equipment.split(',').map(eq => eq.trim());
+        const numEquipment = equipmentList.length;
+        const qtyPerEquipment = Math.ceil(TOTAL_QUANTITY / numEquipment);
+        const requiredQtyStr = Array(numEquipment).fill(qtyPerEquipment).join(', ');
+
         setStage2Form(prev => ({
           ...prev,
           testName: [testName],
-          equipment: [selectedTest.equipment],
+          equipment: equipmentList,
           testCondition: [selectedTest.testCondition || ""],
+          requiredQty: requiredQtyStr,
+          project,
+          lines,
+          selectedParts
         }));
       }
     } else {
@@ -1329,62 +2252,131 @@ const Stage2FormPage: React.FC = () => {
         const newTestNames = isSelected
           ? prev.testName.filter(t => t !== testName)
           : [...prev.testName, testName];
+
         const equipmentList: string[] = [];
         const conditionList: string[] = [];
+
         newTestNames.forEach(name => {
           const test = filteredData.find(item => item.testName === name);
           if (test) {
-            equipmentList.push(test.equipment);
-            conditionList.push(test.testCondition || "");
+            const eqs = test.equipment.split(',').map(eq => eq.trim());
+            equipmentList.push(...eqs);
+            conditionList.push(...Array(eqs.length).fill(test.testCondition || ""));
           }
         });
+
+        const totalEquipment = equipmentList.length;
+        const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(TOTAL_QUANTITY / totalEquipment) : 0;
+        const requiredQtyStr = Array(totalEquipment).fill(qtyPerEquipment).join(', ');
+
         return {
           ...prev,
           testName: newTestNames,
           equipment: equipmentList,
           testCondition: conditionList,
+          requiredQty: requiredQtyStr,
+          project,
+          lines,
+          selectedParts
         };
       });
     }
   };
 
   const removeSelectedTestName = (testName: string) => {
+    // When removing, keep the last known project/line/parts (or recalc if last test removed)
     setStage2Form(prev => {
       const newTestNames = prev.testName.filter(t => t !== testName);
+      if (newTestNames.length === 0) {
+        return {
+          ...prev,
+          testName: [],
+          equipment: [],
+          testCondition: [],
+          requiredQty: "",
+          project: "",
+          lines: [],
+          selectedParts: []
+        };
+      }
+
       const equipmentList: string[] = [];
       const conditionList: string[] = [];
+
       newTestNames.forEach(name => {
         const test = filteredData.find(item => item.testName === name);
         if (test) {
-          equipmentList.push(test.equipment);
-          conditionList.push(test.testCondition || "");
+          const eqs = test.equipment.split(',').map(eq => eq.trim());
+          equipmentList.push(...eqs);
+          conditionList.push(...Array(eqs.length).fill(test.testCondition || ""));
         }
       });
+
+      const totalEquipment = equipmentList.length;
+      const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(50 / totalEquipment) : 0;
+      const requiredQtyStr = Array(totalEquipment).fill(qtyPerEquipment).join(', ');
+
       return {
         ...prev,
         testName: newTestNames,
         equipment: equipmentList,
         testCondition: conditionList,
+        requiredQty: requiredQtyStr
+        // Keep existing project/line/parts
       };
     });
   };
 
   const selectAllTestNames = () => {
     const allTestNames = availableTestNames;
+
+    // Reuse project/line/parts logic from handleTestNameSelection
+    const targetProject = selectedRecord?.projectName.trim() || "";
+    const ortMatch = ortLabRecords.find(rec => rec.projectName.trim() === targetProject);
+
+    let project = "";
+    let lines: string[] = [];
+    let selectedParts: string[] = [];
+
+    if (ortMatch) {
+      project = (ortMatch.project || targetProject).trim();
+      lines = ortMatch.line ? [ortMatch.line.trim()] : [];
+      selectedParts = (ortMatch.ortLab?.scannedParts || [])
+        .map(p => p.partNumber.trim())
+        .filter(p => p !== "");
+    }
+
+    if (!project) project = "DEFAULT_PROJECT";
+    if (lines.length === 0) lines = ["LINE_A"];
+    if (selectedParts.length === 0) {
+      selectedParts = generateParts(50);
+    }
+
     const equipmentList: string[] = [];
     const conditionList: string[] = [];
+
     allTestNames.forEach(name => {
       const test = filteredData.find(item => item.testName === name);
       if (test) {
-        equipmentList.push(test.equipment);
-        conditionList.push(test.testCondition || "");
+        const eqs = test.equipment.split(',').map(eq => eq.trim());
+        equipmentList.push(...eqs);
+        conditionList.push(...Array(eqs.length).fill(test.testCondition || ""));
       }
     });
+
+    const totalEquipment = equipmentList.length;
+    const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(50 / totalEquipment) : 0;
+    const requiredQtyStr = Array(totalEquipment).fill(qtyPerEquipment).join(', ');
+
     setStage2Form(prev => ({
       ...prev,
       testName: allTestNames,
       equipment: equipmentList,
       testCondition: conditionList,
+      requiredQty: requiredQtyStr,
+      project,
+      lines,
+      selectedParts
     }));
   };
 
@@ -1394,6 +2386,10 @@ const Stage2FormPage: React.FC = () => {
       testName: [],
       equipment: [],
       testCondition: [],
+      requiredQty: "",
+      project: "",
+      lines: [],
+      selectedParts: []
     }));
   };
 
@@ -1418,7 +2414,7 @@ const Stage2FormPage: React.FC = () => {
       toast({
         variant: "destructive",
         title: "Missing Project",
-        description: "Project could not be loaded from ORT Lab data.",
+        description: "Project could not be loaded.",
         duration: 2000,
       });
       return;
@@ -1427,7 +2423,7 @@ const Stage2FormPage: React.FC = () => {
       toast({
         variant: "destructive",
         title: "No Parts Selected",
-        description: "No parts were found in ORT Lab for this project.",
+        description: "Parts could not be generated.",
         duration: 2000,
       });
       return;
@@ -1460,7 +2456,6 @@ const Stage2FormPage: React.FC = () => {
       stage2Records.push(stage2Data);
       localStorage.setItem("stage2Records", JSON.stringify(stage2Records));
 
-      // Remove from testRecords
       const existingTestRecords = localStorage.getItem("testRecords");
       if (existingTestRecords) {
         const testRecords = JSON.parse(existingTestRecords);
@@ -1526,26 +2521,6 @@ const Stage2FormPage: React.FC = () => {
           <CardTitle className="text-2xl">Stage 2 - Test Configuration</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          {/* Record Information */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
-            <h3 className="font-semibold text-lg mb-3 text-gray-700">Selected Record Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="font-medium text-gray-600">Document Number:</span>
-                <p className="text-gray-800">{selectedRecord.documentNumber}</p>
-              </div>
-              <div>
-                <span className="font-medium text-gray-600">Project Name:</span>
-                <p className="text-gray-800">{selectedRecord.projectName}</p>
-              </div>
-              <div>
-                <span className="font-medium text-gray-600">Test Location:</span>
-                <p className="text-gray-800">{selectedRecord.testLocation}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Test Mode Selection */}
           <div className="space-y-2 md:col-span-2 mb-5">
             <Label htmlFor="testMode" className="text-base">
               Test Mode <span className="text-red-600">*</span>
@@ -1568,7 +2543,8 @@ const Stage2FormPage: React.FC = () => {
                   remark: "",
                   project: "",
                   lines: [],
-                  selectedParts: []
+                  selectedParts: [],
+                  ticketCode: "TICKET-001"
                 });
                 setFilteredData([]);
                 setAvailableTestNames([]);
@@ -1580,7 +2556,16 @@ const Stage2FormPage: React.FC = () => {
             </select>
           </div>
 
-          {/* Stage 2 Form Fields */}
+          {/* ✅ Ticket Code */}
+          <div className="space-y-2 mb-4">
+            <Label className="text-base">Ticket Code <span className="text-red-600">*</span></Label>
+            <Input
+              value={stage2Form.ticketCode}
+              onChange={(e) => setStage2Form(prev => ({ ...prev, ticketCode: e.target.value }))}
+              className="h-11"
+            />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Process Stage */}
             {testMode === 'single' ? (
@@ -1590,7 +2575,6 @@ const Stage2FormPage: React.FC = () => {
                   value={stage2Form.processStage[0] || ""}
                   onChange={(e) => handleProcessStageSelection(e.target.value)}
                   className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
-                  disabled={false}
                 >
                   <option value="">Select Process Stage</option>
                   {processStages.map(stage => (
@@ -1811,6 +2795,17 @@ const Stage2FormPage: React.FC = () => {
               />
             </div>
 
+            {/* Required Quantity */}
+            <div className="space-y-2">
+              <Label className="text-base">Required Quantity per Equipment</Label>
+              <Input
+                value={stage2Form.requiredQty}
+                placeholder="Auto-calculated based on 50 total parts"
+                disabled
+                className="h-11 bg-gray-50"
+              />
+            </div>
+
             <div className="space-y-2">
               <Label className="text-base">CheckPoint <span className="text-red-600">*</span></Label>
               <Input
@@ -1824,38 +2819,36 @@ const Stage2FormPage: React.FC = () => {
 
             <DateTimePicker
               label="Start Date & Time"
-              value={stage2Form.startDateTime}
-              onChange={(val) => setStage2Form(prev => ({ ...prev, startDateTime: val }))}
-            />
-            <DateTimePicker
-              label="End Date & Time"
-              value={stage2Form.endDateTime}
-              onChange={(val) => setStage2Form(prev => ({ ...prev, endDateTime: val }))}
+              value={stage2Form.startDateTime ? new Date(stage2Form.startDateTime) : null}
+              onChange={(val) => setStage2Form(prev => ({ ...prev, startDateTime: val ? val.toISOString() : "" }))}
             />
 
-            {/* Auto-populated ORT Lab Data — Read-only */}
+            <DateTimePicker
+              label="End Date & Time"
+              value={stage2Form.endDateTime ? new Date(stage2Form.endDateTime) : null}
+              onChange={(val) => setStage2Form(prev => ({ ...prev, endDateTime: val ? val.toISOString() : "" }))}
+            />
+
+            {/* Auto-populated Project, Line, Parts — now filled after test name selection */}
             <div className="space-y-4 md:col-span-2">
-              {/* Project */}
               <div className="space-y-2">
                 <Label className="text-base">Project <span className="text-red-600">*</span></Label>
                 <Input
-                  value={stage2Form.project || "Loading project..."}
+                  value={stage2Form.project || "—"}
                   disabled
                   className="h-11 bg-gray-100"
                 />
               </div>
 
-              {/* Line */}
               <div className="space-y-2">
                 <Label className="text-base">Line</Label>
                 <Input
-                  value={stage2Form.lines[0] || "No line found"}
+                  value={stage2Form.lines[0] || "—"}
                   disabled
                   className="h-11 bg-gray-100"
                 />
               </div>
 
-              {/* Parts */}
               <div className="space-y-2">
                 <Label className="text-base">Parts <span className="text-red-600">*</span></Label>
                 <div className="p-3 bg-gray-50 rounded-lg border min-h-[3rem]">
@@ -1871,19 +2864,16 @@ const Stage2FormPage: React.FC = () => {
                       ))}
                     </div>
                   ) : (
-                    <span className="text-gray-500 italic">
-                      {stage2Form.project ? `No parts found in ORT Lab for project "${stage2Form.project}"` : "Loading parts..."}
-                    </span>
+                    <span className="text-gray-500 italic">Select a test name to load parts</span>
                   )}
                 </div>
                 <p className="text-xs text-gray-500">
-                  {stage2Form.selectedParts.length} part(s) loaded from ORT Lab
+                  {stage2Form.selectedParts.length} part(s) loaded
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="flex justify-end gap-4 mt-8 pt-2">
             <Button variant="outline" onClick={() => navigate("/")} className="px-6">
               Cancel
@@ -1903,1252 +2893,3 @@ const Stage2FormPage: React.FC = () => {
 };
 
 export default Stage2FormPage;
-
-
-// interface TestRecord {
-//   documentNumber: string;
-//   documentTitle: string;
-//   projectName: string;
-//   color: string;
-//   testLocation: string;
-//   testStartDate: string;
-//   testCompletionDate: string;
-//   sampleConfig: string;
-//   status: string;
-//   id: number;
-//   createdAt: string;
-// }
-
-// interface ORTLabRecord {
-//   documentNumber: string;
-//   documentTitle: string;
-//   projectName: string;
-//   testLocation: string;
-//   submissionPartDate: string;
-//   sampleConfig: string;
-//   remarks: string;
-//   status: string;
-//   project: string; // Changed from string[] to string
-//   line: string;
-//   colour: string;
-//   quantity: string;
-//   id: number;
-//   createdAt: string;
-//   ortLabId: number;
-//   ortLab: {
-//     submissionId: number;
-//     date: string;
-//     serialNumber: string;
-//     scannedParts: {
-//       serialNumber: string;
-//       partNumber: string;
-//       scannedAt: string;
-//     }[];
-//     totalParts: number;
-//     requiredQuantity: string;
-//     submittedAt: string;
-//   };
-// }
-
-// const Stage2FormPage: React.FC = () => {
-//   const navigate = useNavigate();
-//   const location = useLocation();
-//   const selectedRecord = location.state?.record as TestRecord | undefined;
-//   const [testMode, setTestMode] = useState<'single' | 'multi'>('single');
-//   const [filteredData, setFilteredData] = useState<typeof flaskData>([]);
-//   const [availableTestNames, setAvailableTestNames] = useState<string[]>([]);
-//   const [stage2Form, setStage2Form] = useState({
-//     processStage: [] as string[],
-//     type: [] as string[],
-//     testName: [] as string[],
-//     testCondition: [] as string[],
-//     requiredQty: "",
-//     equipment: [] as string[],
-//     checkpoint: "",
-//     startDateTime: "",
-//     endDateTime: "",
-//     remark: "",
-//     project: "", // Changed from projects[] to single string
-//     lines: [] as string[],
-//     selectedParts: [] as string[]
-//   });
-
-//   // ORT Lab data
-//   const [ortLabRecords, setOrtLabRecords] = useState<ORTLabRecord[]>([]);
-//   const [availableProjects, setAvailableProjects] = useState<string[]>([]);
-//   const [availableLines, setAvailableLines] = useState<string[]>([]);
-//   const [availableParts, setAvailableParts] = useState<string[]>([]);
-
-//   // Move this useEffect to AFTER loading ORT Lab records
-//   // Remove the current auto-population useEffect and replace it with this:
-
-//   useEffect(() => {
-//     if (!selectedRecord || ortLabRecords.length === 0 || stage2Form.project) return;
-
-//     // Find ALL ORT records that match selectedRecord.projectName (not just first)
-//     const matchingRecords = ortLabRecords.filter(
-//       record => record.projectName === selectedRecord.projectName
-//     );
-
-//     if (matchingRecords.length === 0) {
-//       console.log("No matching ORT Lab records found for project:", selectedRecord.projectName);
-//       return;
-//     }
-
-//     console.log("Found matching ORT Lab records:", matchingRecords.length);
-
-//     // Get all unique projects from matching records
-//     const projects = [...new Set(matchingRecords.map(record => record.project))];
-//     const lines = [...new Set(matchingRecords.map(record => record.line).filter(Boolean))];
-
-//     // Collect all parts from all matching records
-//     const allParts: string[] = [];
-//     matchingRecords.forEach(record => {
-//       if (record.ortLab?.scannedParts) {
-//         record.ortLab.scannedParts.forEach(part => {
-//           if (part.partNumber) {
-//             allParts.push(part.partNumber);
-//           }
-//         });
-//       }
-//     });
-//     const uniqueParts = [...new Set(allParts)];
-
-//     // Auto-fill data
-//     setStage2Form(prev => ({
-//       ...prev,
-//       project: projects[0] || "", // Take first project if multiple
-//       lines: lines, // All lines from matching records
-//       selectedParts: uniqueParts // All parts from matching records
-//     }));
-
-//     // Also update available data
-//     setAvailableProjects(projects);
-//     setAvailableLines(lines);
-//     setAvailableParts(uniqueParts);
-
-//   }, [ortLabRecords, selectedRecord]); // Remove stage2Form.project from dependencies
-
-//   const processStages = Array.from(new Set(flaskData.map(item => item.processStage)));
-
-//   // Helper to get filtered types based on selected process stages
-//   const getFilteredTypes = () => {
-//     if (stage2Form.processStage.length === 0) return [];
-
-//     const filteredTypes = flaskData
-//       .filter(item => stage2Form.processStage.includes(item.processStage))
-//       .map(item => item.type);
-
-//     return Array.from(new Set(filteredTypes));
-//   };
-
-//   const types = getFilteredTypes();
-
-//   // Load ORT Lab records on component mount
-//   useEffect(() => {
-//     loadORTLabRecords();
-//   }, []);
-
-//   const loadORTLabRecords = () => {
-//     try {
-//       const storedRecords = localStorage.getItem("ortLabRecords");
-//       if (storedRecords) {
-//         const records: ORTLabRecord[] = JSON.parse(storedRecords);
-//         setOrtLabRecords(records);
-
-//         // Extract unique projects - now single strings
-//         const projects = new Set<string>();
-//         records.forEach(record => {
-//           if (record.project && typeof record.project === 'string' && record.project.trim() !== '') {
-//             projects.add(record.project.trim());
-//           }
-//         });
-//         setAvailableProjects(Array.from(projects));
-//       }
-//     } catch (error) {
-//       console.error("Error loading ORT Lab records:", error);
-//     }
-//   };
-
-//   // Update lines and parts when project changes
-//   useEffect(() => {
-//     if (stage2Form.project) {
-//       const lines = new Set<string>();
-//       const parts: string[] = [];
-
-//       ortLabRecords.forEach(record => {
-//         // Check if record has the selected project
-//         if (record.project === stage2Form.project) {
-//           // Add line if it exists
-//           if (record.line && record.line.trim() !== '') {
-//             lines.add(record.line);
-//           }
-
-//           // Add scanned parts
-//           if (record.ortLab?.scannedParts) {
-//             record.ortLab.scannedParts.forEach(part => {
-//               if (part.partNumber && part.partNumber.trim() !== '') {
-//                 parts.push(part.partNumber);
-//               }
-//             });
-//           }
-//         }
-//       });
-
-//       setAvailableLines(Array.from(lines));
-//       setAvailableParts([...new Set(parts)]); // Remove duplicates
-
-//       // Reset lines and parts when project changes
-//       setStage2Form(prev => ({
-//         ...prev,
-//         lines: [],
-//         selectedParts: []
-//       }));
-//     } else {
-//       setAvailableLines([]);
-//       setAvailableParts([]);
-//       setStage2Form(prev => ({
-//         ...prev,
-//         lines: [],
-//         selectedParts: []
-//       }));
-//     }
-//   }, [stage2Form.project, ortLabRecords]);
-
-//   // Update parts when lines change
-//   useEffect(() => {
-//     if (stage2Form.project) {
-//       const parts: string[] = [];
-
-//       ortLabRecords.forEach(record => {
-//         // Check if record has the selected project
-//         if (record.project === stage2Form.project) {
-//           // Check if line matches (if lines are selected)
-//           const hasSelectedLine = stage2Form.lines.length === 0 ||
-//             (record.line && stage2Form.lines.includes(record.line));
-
-//           if (hasSelectedLine) {
-//             // Add scanned parts
-//             if (record.ortLab?.scannedParts) {
-//               record.ortLab.scannedParts.forEach(part => {
-//                 if (part.partNumber && part.partNumber.trim() !== '') {
-//                   parts.push(part.partNumber);
-//                 }
-//               });
-//             }
-//           }
-//         }
-//       });
-
-//       const uniqueParts = [...new Set(parts)];
-//       setAvailableParts(uniqueParts);
-
-//       // Reset selected parts when filter changes
-//       if (stage2Form.lines.length > 0) {
-//         setStage2Form(prev => ({
-//           ...prev,
-//           selectedParts: []
-//         }));
-//       }
-//     } else {
-//       setAvailableParts([]);
-//     }
-//   }, [stage2Form.lines, stage2Form.project, ortLabRecords]);
-
-//   // Process Stage handlers (remain the same)
-//   const handleProcessStageSelection = (stage: string) => {
-//     setStage2Form(prev => {
-//       if (testMode === 'multi') {
-//         const isSelected = prev.processStage.includes(stage);
-//         const newProcessStages = isSelected
-//           ? prev.processStage.filter(s => s !== stage)
-//           : [...prev.processStage, stage];
-
-//         return {
-//           ...prev,
-//           processStage: newProcessStages,
-//           type: [],
-//           testName: [],
-//           testCondition: [],
-//           equipment: [],
-//           requiredQty: ""
-//         };
-//       } else {
-//         return {
-//           ...prev,
-//           processStage: [stage],
-//           type: [],
-//           testName: [],
-//           testCondition: [],
-//           equipment: [],
-//           requiredQty: ""
-//         };
-//       }
-//     });
-//   };
-
-//   const removeSelectedProcessStage = (stage: string) => {
-//     setStage2Form(prev => ({
-//       ...prev,
-//       processStage: prev.processStage.filter(s => s !== stage),
-//       type: [],
-//       testName: [],
-//       testCondition: [],
-//       equipment: []
-//     }));
-//     setFilteredData([]);
-//     setAvailableTestNames([]);
-//   };
-
-//   const selectAllProcessStages = () => {
-//     if (testMode === 'multi') {
-//       setStage2Form(prev => ({
-//         ...prev,
-//         processStage: [...processStages]
-//       }));
-//     }
-//   };
-
-//   const clearAllProcessStages = () => {
-//     setStage2Form(prev => ({
-//       ...prev,
-//       processStage: [],
-//       type: [],
-//       testName: [],
-//       testCondition: [],
-//       equipment: []
-//     }));
-//     setFilteredData([]);
-//     setAvailableTestNames([]);
-//   };
-
-//   // Type handlers (remain the same)
-//   const handleTypeSelection = (type: string) => {
-//     setStage2Form(prev => {
-//       if (testMode === 'multi') {
-//         const isSelected = prev.type.includes(type);
-//         const newTypes = isSelected
-//           ? prev.type.filter(t => t !== type)
-//           : [...prev.type, type];
-
-//         const allSelectedProcessStages = prev.processStage;
-//         const filteredData = flaskData.filter(item =>
-//           allSelectedProcessStages.includes(item.processStage) &&
-//           newTypes.includes(item.type)
-//         );
-
-//         setFilteredData(filteredData);
-//         const testNames = Array.from(new Set(filteredData.map(item => item.testName)));
-//         setAvailableTestNames(testNames);
-
-//         return {
-//           ...prev,
-//           type: newTypes,
-//           testName: [],
-//           testCondition: [],
-//           equipment: []
-//         };
-//       } else {
-//         const filteredData = flaskData.filter(item =>
-//           prev.processStage[0] === item.processStage && item.type === type
-//         );
-
-//         setFilteredData(filteredData);
-//         const testNames = Array.from(new Set(filteredData.map(item => item.testName)));
-//         setAvailableTestNames(testNames);
-
-//         return {
-//           ...prev,
-//           type: [type],
-//           testName: [],
-//           testCondition: [],
-//           equipment: []
-//         };
-//       }
-//     });
-//   };
-
-//   const removeSelectedType = (type: string) => {
-//     setStage2Form(prev => {
-//       const newTypes = prev.type.filter(t => t !== type);
-
-//       if (prev.processStage.length > 0 && newTypes.length > 0) {
-//         const matchedData = flaskData.filter(
-//           item => prev.processStage.includes(item.processStage) && newTypes.includes(item.type)
-//         );
-//         setFilteredData(matchedData);
-//         const testNames = Array.from(new Set(matchedData.map(item => item.testName)));
-//         setAvailableTestNames(testNames);
-//       } else {
-//         setFilteredData([]);
-//         setAvailableTestNames([]);
-//       }
-
-//       return {
-//         ...prev,
-//         type: newTypes,
-//         testName: [],
-//         testCondition: [],
-//         equipment: []
-//       };
-//     });
-//   };
-
-//   const selectAllTypes = () => {
-//     if (testMode === 'multi' && stage2Form.processStage.length > 0) {
-//       const filteredTypes = flaskData
-//         .filter(item => stage2Form.processStage.includes(item.processStage))
-//         .map(item => item.type);
-//       const uniqueTypes = Array.from(new Set(filteredTypes));
-
-//       setStage2Form(prev => ({
-//         ...prev,
-//         type: uniqueTypes
-//       }));
-//     }
-//   };
-
-//   const clearAllTypes = () => {
-//     setStage2Form(prev => ({
-//       ...prev,
-//       type: [],
-//       testName: [],
-//       testCondition: [],
-//       equipment: []
-//     }));
-//     setFilteredData([]);
-//     setAvailableTestNames([]);
-//   };
-
-//   // Test Name handlers (remain the same)
-//   const handleTestNameSelection = (testName: string) => {
-//     if (testMode === 'single') {
-//       const selectedTest = filteredData.find(item => item.testName === testName);
-//       if (selectedTest) {
-//         setStage2Form(prev => ({
-//           ...prev,
-//           testName: [testName],
-//           equipment: [selectedTest.equipment],
-//           testCondition: [selectedTest.testCondition || ""],
-//         }));
-//       }
-//     } else {
-//       setStage2Form(prev => {
-//         const isSelected = prev.testName.includes(testName);
-//         const newTestNames = isSelected
-//           ? prev.testName.filter(t => t !== testName)
-//           : [...prev.testName, testName];
-
-//         const equipmentList: string[] = [];
-//         const conditionList: string[] = [];
-
-//         newTestNames.forEach(name => {
-//           const test = filteredData.find(item => item.testName === name);
-//           if (test) {
-//             equipmentList.push(test.equipment);
-//             conditionList.push(test.testCondition || "");
-//           }
-//         });
-
-//         return {
-//           ...prev,
-//           testName: newTestNames,
-//           equipment: equipmentList,
-//           testCondition: conditionList,
-//         };
-//       });
-//     }
-//   };
-
-//   const removeSelectedTestName = (testName: string) => {
-//     setStage2Form(prev => {
-//       const newTestNames = prev.testName.filter(t => t !== testName);
-
-//       const equipmentList: string[] = [];
-//       const conditionList: string[] = [];
-
-//       newTestNames.forEach(name => {
-//         const test = filteredData.find(item => item.testName === name);
-//         if (test) {
-//           equipmentList.push(test.equipment);
-//           conditionList.push(test.testCondition || "");
-//         }
-//       });
-
-//       return {
-//         ...prev,
-//         testName: newTestNames,
-//         equipment: equipmentList,
-//         testCondition: conditionList,
-//       };
-//     });
-//   };
-
-//   const selectAllTestNames = () => {
-//     const allTestNames = availableTestNames;
-//     const equipmentList: string[] = [];
-//     const conditionList: string[] = [];
-
-//     allTestNames.forEach(name => {
-//       const test = filteredData.find(item => item.testName === name);
-//       if (test) {
-//         equipmentList.push(test.equipment);
-//         conditionList.push(test.testCondition || "");
-//       }
-//     });
-
-//     setStage2Form(prev => ({
-//       ...prev,
-//       testName: allTestNames,
-//       equipment: equipmentList,
-//       testCondition: conditionList,
-//     }));
-//   };
-
-//   const clearAllTestNames = () => {
-//     setStage2Form(prev => ({
-//       ...prev,
-//       testName: [],
-//       equipment: [],
-//       testCondition: [],
-//     }));
-//   };
-
-//   // Project handlers - SIMPLIFIED to single selection only
-//   const handleProjectSelection = (project: string) => {
-//     setStage2Form(prev => ({
-//       ...prev,
-//       project,
-//       lines: [],
-//       selectedParts: []
-//     }));
-//   };
-
-//   const removeSelectedProject = () => {
-//     setStage2Form(prev => ({
-//       ...prev,
-//       project: "",
-//       lines: [],
-//       selectedParts: []
-//     }));
-//   };
-
-//   // Line handlers (remain the same)
-//   const handleLineSelection = (line: string) => {
-//     setStage2Form(prev => {
-//       const isSelected = prev.lines.includes(line);
-//       return {
-//         ...prev,
-//         lines: isSelected
-//           ? prev.lines.filter(l => l !== line)
-//           : [...prev.lines, line]
-//       };
-//     });
-//   };
-
-//   const removeSelectedLine = (line: string) => {
-//     setStage2Form(prev => ({
-//       ...prev,
-//       lines: prev.lines.filter(l => l !== line)
-//     }));
-//   };
-
-//   const selectAllLines = () => {
-//     setStage2Form(prev => ({
-//       ...prev,
-//       lines: [...availableLines]
-//     }));
-//   };
-
-//   const clearAllLines = () => {
-//     setStage2Form(prev => ({
-//       ...prev,
-//       lines: []
-//     }));
-//   };
-
-//   // Part handlers (remain the same)
-//   const handlePartSelection = (partNumber: string) => {
-//     setStage2Form(prev => {
-//       const isSelected = prev.selectedParts.includes(partNumber);
-//       return {
-//         ...prev,
-//         selectedParts: isSelected
-//           ? prev.selectedParts.filter(p => p !== partNumber)
-//           : [...prev.selectedParts, partNumber]
-//       };
-//     });
-//   };
-
-//   const removeSelectedPart = (partNumber: string) => {
-//     setStage2Form(prev => ({
-//       ...prev,
-//       selectedParts: prev.selectedParts.filter(p => p !== partNumber)
-//     }));
-//   };
-
-//   const selectAllParts = () => {
-//     setStage2Form(prev => ({
-//       ...prev,
-//       selectedParts: [...availableParts]
-//     }));
-//   };
-
-//   const clearAllParts = () => {
-//     setStage2Form(prev => ({
-//       ...prev,
-//       selectedParts: []
-//     }));
-//   };
-
-//   // Helper to get parts count
-//   const getAvailablePartsCount = () => {
-//     if (!stage2Form.project) return 0;
-
-//     let count = 0;
-//     ortLabRecords.forEach(record => {
-//       if (record.project === stage2Form.project) {
-//         const hasSelectedLine = stage2Form.lines.length === 0 ||
-//           (record.line && stage2Form.lines.includes(record.line));
-
-//         if (hasSelectedLine) {
-//           count += record.ortLab?.scannedParts?.length || 0;
-//         }
-//       }
-//     });
-
-//     return count;
-//   };
-
-//   const handleStage2Submit = () => {
-//     if (!selectedRecord) return;
-
-//     if (stage2Form.processStage.length === 0 || stage2Form.type.length === 0 ||
-//       stage2Form.testName.length === 0 || stage2Form.testCondition.length === 0) {
-//       toast({
-//         variant: "destructive",
-//         title: "Incomplete Form",
-//         description: "Please fill in all required fields.",
-//         duration: 2000,
-//       });
-//       return;
-//     }
-
-//     if (!stage2Form.project) {
-//       toast({
-//         variant: "destructive",
-//         title: "Missing Project",
-//         description: "Please select a project from ORT Lab data.",
-//         duration: 2000,
-//       });
-//       return;
-//     }
-
-//     if (stage2Form.selectedParts.length === 0) {
-//       toast({
-//         variant: "destructive",
-//         title: "No Parts Selected",
-//         description: "Please select at least one part.",
-//         duration: 2000,
-//       });
-//       return;
-//     }
-
-//     try {
-//       const stage2Data = {
-//         ...selectedRecord,
-//         stage2: {
-//           testMode: testMode,
-//           processStage: testMode === 'single' ? stage2Form.processStage[0] : stage2Form.processStage.join(', '),
-//           type: testMode === 'single' ? stage2Form.type[0] : stage2Form.type.join(', '),
-//           testName: stage2Form.testName.join(', '),
-//           testCondition: stage2Form.testCondition.join(', '),
-//           requiredQty: stage2Form.requiredQty,
-//           equipment: stage2Form.equipment.join(', '),
-//           checkpoint: Number(stage2Form.checkpoint),
-//           project: stage2Form.project, // Single string
-//           lines: stage2Form.lines,
-//           selectedParts: stage2Form.selectedParts,
-//           startTime: stage2Form.startDateTime,
-//           endTime: stage2Form.endDateTime,
-//           remark: stage2Form.remark,
-//           submittedAt: new Date().toISOString()
-//         }
-//       };
-
-//       const existingStage2Data = localStorage.getItem("stage2Records");
-//       const stage2Records = existingStage2Data ? JSON.parse(existingStage2Data) : [];
-
-//       stage2Records.push(stage2Data);
-//       localStorage.setItem("stage2Records", JSON.stringify(stage2Records));
-
-//       // Remove from testRecords
-//       const existingTestRecords = localStorage.getItem("testRecords");
-//       if (existingTestRecords) {
-//         const testRecords = JSON.parse(existingTestRecords);
-//         const updatedTestRecords = testRecords.filter(
-//           (record: TestRecord) => record.id !== selectedRecord.id
-//         );
-//         localStorage.setItem("testRecords", JSON.stringify(updatedTestRecords));
-//       }
-
-//       toast({
-//         title: "✅ Stage 2 Submitted",
-//         description: `Stage 2 data has been saved successfully!`,
-//         duration: 3000,
-//       });
-
-//       navigate("/stage2");
-
-//     } catch (error) {
-//       toast({
-//         variant: "destructive",
-//         title: "Submission Failed",
-//         description: "There was an error saving the Stage 2 data. Please try again.",
-//         duration: 3000,
-//       });
-//       console.error("Error saving Stage 2 data:", error);
-//     }
-//   };
-
-//   const isStage2SubmitEnabled = () => {
-//     return stage2Form.processStage.length > 0 &&
-//       stage2Form.type.length > 0 &&
-//       stage2Form.testName.length > 0 &&
-//       stage2Form.testCondition.length > 0 &&
-//       stage2Form.equipment.length > 0 &&
-//       stage2Form.checkpoint &&
-//       stage2Form.project &&
-//       stage2Form.selectedParts.length > 0;
-//   };
-
-//   if (!selectedRecord) {
-//     return null;
-//   }
-
-//   const unselectedProcessStages = processStages.filter(
-//     stage => !stage2Form.processStage.includes(stage)
-//   );
-
-//   const unselectedTypes = types.filter(
-//     type => !stage2Form.type.includes(type)
-//   );
-
-//   const unselectedLines = availableLines.filter(
-//     line => !stage2Form.lines.includes(line)
-//   );
-
-//   const unselectedParts = availableParts.filter(
-//     part => !stage2Form.selectedParts.includes(part)
-//   );
-
-//   return (
-//     <div className="container mx-auto p-6 max-w-6xl">
-//       <Button
-//         variant="ghost"
-//         onClick={() => navigate("/")}
-//         className="mb-4 hover:bg-gray-100"
-//       >
-//         <ArrowLeft className="mr-2 h-4 w-4" />
-//         Back to Live Test Checklist
-//       </Button>
-
-//       <Card>
-//         <CardHeader className="bg-[#e0413a] text-white">
-//           <CardTitle className="text-2xl">Stage 2 - Test Configuration</CardTitle>
-//         </CardHeader>
-//         <CardContent className="pt-6">
-//           {/* Record Information */}
-//           <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
-//             <h3 className="font-semibold text-lg mb-3 text-gray-700">Selected Record Information</h3>
-//             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-//               <div>
-//                 <span className="font-medium text-gray-600">Document Number:</span>
-//                 <p className="text-gray-800">{selectedRecord.documentNumber}</p>
-//               </div>
-//               <div>
-//                 <span className="font-medium text-gray-600">Project Name:</span>
-//                 <p className="text-gray-800">{selectedRecord.projectName}</p>
-//               </div>
-//               <div>
-//                 <span className="font-medium text-gray-600">Test Location:</span>
-//                 <p className="text-gray-800">{selectedRecord.testLocation}</p>
-//               </div>
-//             </div>
-//           </div>
-
-//           {/* Test Mode Selection */}
-//           <div className="space-y-2 md:col-span-2 mb-5">
-//             <Label htmlFor="testMode" className="text-base">
-//               Test Mode <span className="text-red-600">*</span>
-//             </Label>
-//             <Select
-//               value={testMode}
-//               onValueChange={(value: 'single' | 'multi') => {
-//                 setTestMode(value);
-//                 setStage2Form({
-//                   processStage: [],
-//                   type: [],
-//                   testName: [],
-//                   testCondition: [],
-//                   requiredQty: "",
-//                   equipment: [],
-//                   checkpoint: "",
-//                   startDateTime: "",
-//                   endDateTime: "",
-//                   remark: "",
-//                   project: "",
-//                   lines: [],
-//                   selectedParts: []
-//                 });
-//                 setFilteredData([]);
-//                 setAvailableTestNames([]);
-//               }}
-//             >
-//               <SelectTrigger className="h-11">
-//                 <SelectValue placeholder="Select Test Mode" />
-//               </SelectTrigger>
-//               <SelectContent>
-//                 <SelectItem value="single">Single Test</SelectItem>
-//                 <SelectItem value="multi">Multi Test</SelectItem>
-//               </SelectContent>
-//             </Select>
-//           </div>
-
-//           {/* Stage 2 Form Fields */}
-//           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-//             {/* Process Stage Selection - Single or Multi */}
-//             {testMode === 'single' ? (
-//               <div className="space-y-2">
-//                 <Label htmlFor="processStage" className="text-base">
-//                   Process Stage <span className="text-red-600">*</span>
-//                 </Label>
-//                 <Select
-//                   value={stage2Form.processStage[0] || ""}
-//                   onValueChange={(value) => handleProcessStageSelection(value)}
-//                 >
-//                   <SelectTrigger className="h-11">
-//                     <SelectValue placeholder="Select Process Stage" />
-//                   </SelectTrigger>
-//                   <SelectContent>
-//                     {processStages.map((stage) => (
-//                       <SelectItem key={stage} value={stage}>
-//                         {stage}
-//                       </SelectItem>
-//                     ))}
-//                   </SelectContent>
-//                 </Select>
-//               </div>
-//             ) : (
-//               <div className="space-y-2">
-//                 <div className="flex justify-between items-center">
-//                   <Label htmlFor="processStage" className="text-base">
-//                     Process Stages <span className="text-red-600">*</span>
-//                   </Label>
-//                   <div className="flex gap-2">
-//                     <Button
-//                       variant="outline"
-//                       size="sm"
-//                       onClick={selectAllProcessStages}
-//                       disabled={stage2Form.processStage.length === processStages.length}
-//                     >
-//                       Select All
-//                     </Button>
-//                     <Button
-//                       variant="outline"
-//                       size="sm"
-//                       onClick={clearAllProcessStages}
-//                       disabled={stage2Form.processStage.length === 0}
-//                     >
-//                       Clear All
-//                     </Button>
-//                   </div>
-//                 </div>
-//                 <Select
-//                   onValueChange={handleProcessStageSelection}
-//                   disabled={unselectedProcessStages.length === 0}
-//                 >
-//                   <SelectTrigger className="h-11">
-//                     <SelectValue placeholder={
-//                       stage2Form.processStage.length === processStages.length
-//                         ? "All stages selected"
-//                         : `Select from ${unselectedProcessStages.length} available stage(s)`
-//                     } />
-//                   </SelectTrigger>
-//                   <SelectContent>
-//                     {unselectedProcessStages.map((stage) => (
-//                       <SelectItem key={stage} value={stage}>
-//                         {stage}
-//                       </SelectItem>
-//                     ))}
-//                   </SelectContent>
-//                 </Select>
-//                 <p className="text-xs text-gray-500">
-//                   {stage2Form.processStage.length} of {processStages.length} stages selected
-//                 </p>
-
-//                 {/* Selected Process Stages Display */}
-//                 {stage2Form.processStage.length > 0 && (
-//                   <div className="space-y-2">
-//                     <Label className="text-base flex items-center gap-2">
-//                       Selected Process Stages
-//                       <span className="text-sm font-normal text-gray-500">
-//                         ({stage2Form.processStage.length} selected)
-//                       </span>
-//                     </Label>
-//                     <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
-//                       {stage2Form.processStage.map((stage) => (
-//                         <div
-//                           key={stage}
-//                           className="flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
-//                         >
-//                           <span>{stage}</span>
-//                           <button
-//                             onClick={() => removeSelectedProcessStage(stage)}
-//                             className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
-//                             title="Remove process stage"
-//                           >
-//                             <X size={14} />
-//                           </button>
-//                         </div>
-//                       ))}
-//                     </div>
-//                   </div>
-//                 )}
-//               </div>
-//             )}
-
-//             {/* Type Selection - Single or Multi */}
-//             {testMode === 'single' ? (
-//               <div className="space-y-2">
-//                 <Label htmlFor="type" className="text-base">
-//                   Type <span className="text-red-600">*</span>
-//                 </Label>
-//                 <Select
-//                   value={stage2Form.type[0] || ""}
-//                   onValueChange={(value) => handleTypeSelection(value)}
-//                   disabled={stage2Form.processStage.length === 0}
-//                 >
-//                   <SelectTrigger className="h-11">
-//                     <SelectValue placeholder="Select Type" />
-//                   </SelectTrigger>
-//                   <SelectContent>
-//                     {types.map((type) => (
-//                       <SelectItem key={type} value={type}>
-//                         {type}
-//                       </SelectItem>
-//                     ))}
-//                   </SelectContent>
-//                 </Select>
-//               </div>
-//             ) : (
-//               <div className="space-y-2">
-//                 <div className="flex justify-between items-center">
-//                   <Label htmlFor="type" className="text-base">
-//                     Types <span className="text-red-600">*</span>
-//                   </Label>
-//                   <div className="flex gap-2">
-//                     <Button
-//                       variant="outline"
-//                       size="sm"
-//                       onClick={selectAllTypes}
-//                       disabled={stage2Form.type.length === types.length || stage2Form.processStage.length === 0}
-//                     >
-//                       Select All
-//                     </Button>
-//                     <Button
-//                       variant="outline"
-//                       size="sm"
-//                       onClick={clearAllTypes}
-//                       disabled={stage2Form.type.length === 0}
-//                     >
-//                       Clear All
-//                     </Button>
-//                   </div>
-//                 </div>
-//                 <Select
-//                   onValueChange={handleTypeSelection}
-//                   disabled={stage2Form.processStage.length === 0 || unselectedTypes.length === 0}
-//                 >
-//                   <SelectTrigger className="h-11">
-//                     <SelectValue placeholder={
-//                       stage2Form.type.length === types.length
-//                         ? "All types selected"
-//                         : stage2Form.processStage.length === 0
-//                           ? "Select process stages first"
-//                           : `Select from ${unselectedTypes.length} available type(s)`
-//                     } />
-//                   </SelectTrigger>
-//                   <SelectContent>
-//                     {unselectedTypes.map((type) => (
-//                       <SelectItem key={type} value={type}>
-//                         {type}
-//                       </SelectItem>
-//                     ))}
-//                   </SelectContent>
-//                 </Select>
-//                 <p className="text-xs text-gray-500">
-//                   {stage2Form.type.length} of {types.length} types selected
-//                 </p>
-
-//                 {/* Selected Types Display */}
-//                 {stage2Form.type.length > 0 && (
-//                   <div className="space-y-2">
-//                     <Label className="text-base flex items-center gap-2">
-//                       Selected Types
-//                       <span className="text-sm font-normal text-gray-500">
-//                         ({stage2Form.type.length} selected)
-//                       </span>
-//                     </Label>
-//                     <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
-//                       {stage2Form.type.map((type) => (
-//                         <div
-//                           key={type}
-//                           className="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm"
-//                         >
-//                           <span>{type}</span>
-//                           <button
-//                             onClick={() => removeSelectedType(type)}
-//                             className="hover:bg-green-200 rounded-full p-0.5 transition-colors"
-//                             title="Remove type"
-//                           >
-//                             <X size={14} />
-//                           </button>
-//                         </div>
-//                       ))}
-//                     </div>
-//                   </div>
-//                 )}
-//               </div>
-//             )}
-
-//             {/* Test Name Selection - Single or Multi */}
-//             {testMode === 'single' ? (
-//               <div className="space-y-2">
-//                 <Label htmlFor="testName" className="text-base">
-//                   Test Name <span className="text-red-600">*</span>
-//                 </Label>
-//                 <Select
-//                   value={stage2Form.testName[0] || ""}
-//                   onValueChange={handleTestNameSelection}
-//                   disabled={availableTestNames.length === 0}
-//                 >
-//                   <SelectTrigger className="h-11">
-//                     <SelectValue placeholder="Select Test Name" />
-//                   </SelectTrigger>
-//                   <SelectContent>
-//                     {availableTestNames.map((name) => (
-//                       <SelectItem key={name} value={name}>
-//                         {name}
-//                       </SelectItem>
-//                     ))}
-//                   </SelectContent>
-//                 </Select>
-//               </div>
-//             ) : (
-//               <div className="space-y-2">
-//                 <div className="flex justify-between items-center">
-//                   <Label htmlFor="testName" className="text-base">
-//                     Test Names <span className="text-red-600">*</span>
-//                   </Label>
-//                   <div className="flex gap-2">
-//                     <Button
-//                       variant="outline"
-//                       size="sm"
-//                       onClick={selectAllTestNames}
-//                       disabled={stage2Form.testName.length === availableTestNames.length}
-//                     >
-//                       Select All
-//                     </Button>
-//                     <Button
-//                       variant="outline"
-//                       size="sm"
-//                       onClick={clearAllTestNames}
-//                       disabled={stage2Form.testName.length === 0}
-//                     >
-//                       Clear All
-//                     </Button>
-//                   </div>
-//                 </div>
-//                 <Select
-//                   onValueChange={handleTestNameSelection}
-//                   disabled={availableTestNames.filter(name => !stage2Form.testName.includes(name)).length === 0}
-//                 >
-//                   <SelectTrigger className="h-11">
-//                     <SelectValue placeholder={
-//                       stage2Form.testName.length === availableTestNames.length
-//                         ? "All tests selected"
-//                         : `Select from ${availableTestNames.filter(name => !stage2Form.testName.includes(name)).length} available test(s)`
-//                     } />
-//                   </SelectTrigger>
-//                   <SelectContent>
-//                     {availableTestNames
-//                       .filter(name => !stage2Form.testName.includes(name))
-//                       .map((name) => (
-//                         <SelectItem key={name} value={name}>
-//                           {name}
-//                         </SelectItem>
-//                       ))}
-//                   </SelectContent>
-//                 </Select>
-//                 <p className="text-xs text-gray-500">
-//                   {stage2Form.testName.length} of {availableTestNames.length} tests selected
-//                 </p>
-
-//                 {/* Selected Test Names Display */}
-//                 {stage2Form.testName.length > 0 && (
-//                   <div className="space-y-2">
-//                     <Label className="text-base flex items-center gap-2">
-//                       Selected Test Names
-//                       <span className="text-sm font-normal text-gray-500">
-//                         ({stage2Form.testName.length} selected)
-//                       </span>
-//                     </Label>
-//                     <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
-//                       {stage2Form.testName.map((name) => (
-//                         <div
-//                           key={name}
-//                           className="flex items-center gap-2 bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm"
-//                         >
-//                           <span>{name}</span>
-//                           <button
-//                             onClick={() => removeSelectedTestName(name)}
-//                             className="hover:bg-amber-200 rounded-full p-0.5 transition-colors"
-//                             title="Remove test"
-//                           >
-//                             <X size={14} />
-//                           </button>
-//                         </div>
-//                       ))}
-//                     </div>
-//                   </div>
-//                 )}
-//               </div>
-//             )}
-
-//             {/* Test Condition - Display only */}
-//             <div className="space-y-2">
-//               <Label htmlFor="testCondition" className="text-base">
-//                 Test Condition {testMode === 'multi' && 's'} <span className="text-red-600">*</span>
-//               </Label>
-//               <Input
-//                 id="testCondition"
-//                 value={stage2Form.testCondition.join(', ')}
-//                 placeholder={`Test condition${testMode === 'multi' ? 's' : ''} (auto-filled)`}
-//                 className="h-11"
-//                 disabled={true}
-//               />
-//             </div>
-
-//             {/* Equipment - Display only */}
-//             <div className="space-y-2">
-//               <Label htmlFor="equipment" className="text-base">
-//                 Equipment {testMode === 'multi' && '(s)'}
-//               </Label>
-//               <Input
-//                 id="equipment"
-//                 value={stage2Form.equipment.join(', ')}
-//                 placeholder={`Equipment${testMode === 'multi' ? '(s)' : ''} (auto-filled)`}
-//                 disabled={true}
-//                 className="h-11 bg-gray-50"
-//               />
-//             </div>
-
-//             <div className="space-y-2">
-//               <Label htmlFor="checkpoint" className="text-base">
-//                 CheckPoint <span className="text-red-600">*</span>
-//               </Label>
-//               <Input
-//                 id="checkpoint"
-//                 type="number"
-//                 value={stage2Form.checkpoint}
-//                 onChange={(e) => setStage2Form(prev => ({ ...prev, checkpoint: e.target.value }))}
-//                 placeholder="Enter the Hours"
-//                 className="h-11"
-//               />
-//             </div>
-
-//             <DateTimePicker
-//               label="Start Date & Time"
-//               value={stage2Form.startDateTime}
-//               onChange={(val) => setStage2Form(prev => ({ ...prev, startDateTime: val }))}
-//             />
-
-//             <DateTimePicker
-//               label="End Date & Time"
-//               value={stage2Form.endDateTime}
-//               onChange={(val) => setStage2Form(prev => ({ ...prev, endDateTime: val }))}
-//             />
-
-//             {/* Auto-populated ORT Lab Data — Read-only */}
-//             <div className="space-y-4 md:col-span-2">
-//               {/* Project */}
-//               <div className="space-y-2">
-//                 <Label className="text-base">Project <span className="text-red-600">*</span></Label>
-//                 <Input
-//                   value={stage2Form.project || selectedRecord?.projectName || "Loading..."}
-//                   disabled
-//                   className="h-11 bg-gray-100"
-//                 />
-//               </div>
-
-//               {/* Line */}
-//               <div className="space-y-2">
-//                 <Label className="text-base">Line</Label>
-//                 <Input
-//                   value={stage2Form.lines[0] || "No line found"}
-//                   disabled
-//                   className="h-11 bg-gray-100"
-//                 />
-//               </div>
-
-//               {/* Parts */}
-//               <div className="space-y-2">
-//                 <Label className="text-base">Parts <span className="text-red-600">*</span></Label>
-//                 <div className="p-3 bg-gray-50 rounded-lg border min-h-[3rem]">
-//                   {stage2Form.selectedParts.length > 0 ? (
-//                     <div className="flex flex-wrap gap-2">
-//                       {stage2Form.selectedParts.map((part) => (
-//                         <span
-//                           key={part}
-//                           className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-mono"
-//                         >
-//                           {part}
-//                         </span>
-//                       ))}
-//                     </div>
-//                   ) : (
-//                     <span className="text-gray-500 italic">No parts found</span>
-//                   )}
-//                 </div>
-//                 <p className="text-xs text-gray-500">
-//                   {stage2Form.selectedParts.length} parts loaded from ORT Lab for project "{stage2Form.project}"
-//                 </p>
-//               </div>
-//             </div>
-//           </div>
-
-//           {/* Action Buttons */}
-//           <div className="flex justify-end gap-4 mt-8 pt-2">
-//             <Button
-//               variant="outline"
-//               onClick={() => navigate("/")}
-//               className="px-6"
-//             >
-//               Cancel
-//             </Button>
-//             <Button
-//               onClick={handleStage2Submit}
-//               disabled={!isStage2SubmitEnabled()}
-//               className="bg-[#e0413a] text-white hover:bg-[#c53730] px-6"
-//             >
-//               Submit Stage 2
-//             </Button>
-//           </div>
-//         </CardContent>
-//       </Card>
-//     </div>
-//   );
-// };
-
-// export default Stage2FormPage;

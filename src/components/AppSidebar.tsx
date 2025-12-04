@@ -1,4 +1,4 @@
-import { Home, List, LogOut, Check, PenTool, Settings, Gauge, Flag, Calendar, Backpack, ReceiptText } from "lucide-react";
+import { Home, List, LogOut, Check, PenTool, Settings, Gauge, Flag, Calendar, Backpack, ReceiptText, ScanBarcode, Ticket } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import Logo from '../assets/logo.png';
@@ -19,12 +19,14 @@ import {
 const navigationItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "OQC Form", url: "/oqcpage", icon: List },
-  { title: "ORT Check List", url: "/qrtchecklist", icon: Check },
-  { title: "ORT Lab", url: "/ort-lab-form",  icon: Backpack},
-  { title: "ORT Lab Details", url: "/ort-lab-details",  icon: ReceiptText},
+  { title: "Barcode Scanner", url: "/barcode-scanner", icon: ScanBarcode },
+  { title: "Ticket Assignment", url: "/tickets", icon: Ticket },
+  //{ title: "ORT Check List", url: "/qrtchecklist", icon: Check },
+  { title: "ORT Lab", url: "/ort-lab-form", icon: Backpack },
+  //{ title: "ORT Lab Details", url: "/ort-lab-details", icon: ReceiptText },
   { title: "Stage 2 Form", url: "/stage2-form", icon: PenTool },
   { title: "Stage 2", url: "/stage2", icon: Flag },
- // { title: "Testing Dynamic", url: "/author", icon: Calendar },
+  // { title: "Testing Dynamic", url: "/author", icon: Calendar },
   { title: "Testing", url: "/form-default", icon: Settings },
   { title: "ORT Dashboard", url: "/settings", icon: Gauge },
   { title: "Planning Dashboard", url: "/planning-detail", icon: Calendar },
