@@ -720,10 +720,13 @@ const Dashboard = () => {
     const ortLabRecords = JSON.parse(localStorage.getItem('ortLabRecords') || '[]');
 
     // 🔹 Count Assigned Parts Across All Records
-    const totalAssignedParts = ortLabRecords.reduce((total: number, record: any) => {
-      const scannedParts = record.ortLab?.scannedParts || [];
+      const totalAssignedParts = ortLabRecords.reduce((total: number, record: any) => {
+      const scannedParts = record.stage2?.selectedParts || [];
+      console.log(scannedParts);
+     
       return total + scannedParts.length;
     }, 0);
+ 
 
 
     const totalSelectedParts = timeFilteredRecords.reduce((total: number, record: any) => {

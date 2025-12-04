@@ -869,7 +869,7 @@ const saveScanSession = (scannedBarcode: ScannedBarcode) => {
             </div>
 
             {/* Serial Number */}
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+            {/* <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <div className="flex justify-between items-center mb-2">
                 <div>
                   <div className="text-sm font-medium text-gray-700">Serial Number</div>
@@ -884,7 +884,7 @@ const saveScanSession = (scannedBarcode: ScannedBarcode) => {
                   Copy
                 </Button>
               </div>
-            </div>
+            </div> */}
 
             {/* Part Numbers */}
             <div className="mb-6">

@@ -9,7 +9,7 @@ export default function TestFormWithCropper() {
   const [currentView, setCurrentView] = useState("form"); // 'form' or 'cropper'
   const [formData, setFormData] = useState({
     testName: "",
-    documentNumber: "",
+    ticketCode: "",
     documentTitle: "",
     projectName: "",
     color: "#3b82f6",
@@ -133,7 +133,7 @@ export default function TestFormWithCropper() {
     // Reset form
     setFormData({
       testName: "",
-      documentNumber: "",
+      ticketCode: "",
       documentTitle: "",
       projectName: "",
       color: "#3b82f6",
@@ -318,8 +318,8 @@ export default function TestFormWithCropper() {
                   <label className="block text-sm font-medium mb-2">Document Number</label>
                   <input
                     type="text"
-                    name="documentNumber"
-                    value={formData.documentNumber}
+                    name="ticketCode"
+                    value={formData.ticketCode}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border rounded-lg"
                     placeholder="e.g., DOC-2025-001"
