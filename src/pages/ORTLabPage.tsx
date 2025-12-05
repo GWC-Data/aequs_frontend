@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -7,7 +6,7 @@ import {
   CardTitle,
   CardContent,
 } from "@/components/ui/card";
-import { Button } from "@//components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -40,6 +39,7 @@ interface TableRow {
   };
   inventoryRemarks: string;
   stage2Enabled: boolean;
+  assignmentId?: string;
 }
 
 // Define the incoming assignment format
@@ -52,26 +52,24 @@ interface StoredBarcodeData {
   partNumbers: string[];
   totalParts: number;
   rawBarcodeData?: string;
-  // Optional: isSubmitted, submittedAt — we ignore these for Stage 1
+  submitted?: boolean;
+  submittedAt?: string;
 }
 
 // Define OQC record structure (from "testRecords")
 interface OqcRecord {
   ticketCode: string;
-  totalQuantity: string; // note: it's string in your data
+  totalQuantity: string;
   assemblyAno: string;
   source: string;
   reason: string;
   project: string;
-  build: string;      // this is your "batch" equivalent
-  colour: string;     // UK spelling — from your data
+  build: string;
+  colour: string;
   dateTime: string;
   status: string;
   id: number;
   createdAt: string;
-  barcodeAssignments?: any[];
-  assignedParts?: number;
-  lastUpdated?: string;
 }
 
 const ORTLabPage = () => {
@@ -87,24 +85,46 @@ const ORTLabPage = () => {
     try {
       // Load barcode assignments
       const barcodeAssignmentsStr = localStorage.getItem("ticketBarcodeAssignments");
-     let barcodeAssignments: StoredBarcodeData[] = barcodeAssignmentsStr
-  ? JSON.parse(barcodeAssignmentsStr)
-  : [];
+      let barcodeAssignments: StoredBarcodeData[] = barcodeAssignmentsStr
+        ? JSON.parse(barcodeAssignmentsStr)
+        : [];
 
-// 🔥 NEW CONDITION: Keep only objects where `submitted === true`
-barcodeAssignments = barcodeAssignments.filter(item =>
-  Object.prototype.hasOwnProperty.call(item, "submitted") && item.submitted === true
-);
+      // 🔥 Filter: Keep only submitted assignments
+      barcodeAssignments = barcodeAssignments.filter(item =>
+        Object.prototype.hasOwnProperty.call(item, "submitted") && item.submitted === true
+      );
 
+      // 🔥 NEW: Load processed assignments (those that moved to Stage 2)
+      const processedAssignmentsStr = localStorage.getItem("processedStage1Assignments");
+      const processedAssignmentIds = new Set<string>(
+        processedAssignmentsStr ? JSON.parse(processedAssignmentsStr) : []
+      );
+
+      console.log("Already processed assignment IDs:", Array.from(processedAssignmentIds));
+
+      // 🔥 Filter out assignments that were already moved to Stage 2
+      barcodeAssignments = barcodeAssignments.filter(assignment => {
+        const isAlreadyProcessed = processedAssignmentIds.has(assignment.id);
+        if (isAlreadyProcessed) {
+          console.log(`Filtering out already processed assignment: ${assignment.id}`);
+        }
+        return !isAlreadyProcessed;
+      });
 
       if (barcodeAssignments.length === 0) {
         setTableData([]);
         return;
       }
+      
+      // 🔥 Load existing Stage 1 data to preserve user inputs (received, remarks)
+      const stage1DataStr = localStorage.getItem("stage1TableData");
+      const stage1Data: TableRow[] = stage1DataStr ? JSON.parse(stage1DataStr) : [];
+      const stage1Map = new Map(
+        stage1Data.map(row => [row.assignmentId, row])
+      );
 
       // Load OQC data for detailsBox
       const oqcDataStr = localStorage.getItem("testRecords");
-      console.log(oqcDataStr)
       const oqcRecords: OqcRecord[] = oqcDataStr ? JSON.parse(oqcDataStr) : [];
 
       // Build a map for fast lookup by ticketCode
@@ -116,8 +136,10 @@ barcodeAssignments = barcodeAssignments.filter(item =>
       // Generate table rows
       const rows: TableRow[] = barcodeAssignments.map((assignment, index) => {
         const oqcRecord = oqcMap.get(assignment.ticketCode);
+        
+        // 🔥 Check if this assignment has existing saved data
+        const existingRow = stage1Map.get(assignment.id);
 
-        // Map OQC fields to detailsBox using your actual schema
         const fallbackDetails = {
           totalQuantity: assignment.totalParts,
           ticketCodeRaised: assignment.ticketCode,
@@ -133,20 +155,20 @@ barcodeAssignments = barcodeAssignments.filter(item =>
           ? {
             totalQuantity: Number(oqcRecord.totalQuantity) || assignment.totalParts,
             ticketCodeRaised: oqcRecord.ticketCode,
-            // Combine date and (assumed) shift — you don't have shift, so just date
             dateShiftTime: oqcRecord.dateTime || "N/A",
             project: oqcRecord.project || "N/A",
-            // Use 'build' as 'batch' (since you don't have batch field)
             batch: oqcRecord.build || "N/A",
-            // Use 'colour' (UK spelling in your data)
             color: oqcRecord.colour || "N/A",
-            // Combine assemblyAno (you don't have OQC/Ano separate)
             assemblyOQCAno: oqcRecord.assemblyAno || "N/A",
             reason: oqcRecord.reason || "N/A",
           }
           : fallbackDetails;
 
-        return {
+        // 🔥 Restore previous state if exists, otherwise create new row
+        return existingRow ? {
+          ...existingRow,
+          id: index + 1, // Update ID for current table
+        } : {
           id: index + 1,
           ticketCode: assignment.ticketCode,
           partsBeingSent: assignment.totalParts,
@@ -154,6 +176,7 @@ barcodeAssignments = barcodeAssignments.filter(item =>
           inventoryRemarks: "",
           stage2Enabled: false,
           detailsBox,
+          assignmentId: assignment.id,
         };
       });
 
@@ -190,7 +213,7 @@ barcodeAssignments = barcodeAssignments.filter(item =>
             return {
               ...row,
               received: value,
-              status: "Received", // 🔥 <-- Add this line
+              status: "Received",
               date: getCurrentDate(),
               shiftTime: getCurrentShift(),
             };
@@ -198,7 +221,7 @@ barcodeAssignments = barcodeAssignments.filter(item =>
             return {
               ...row,
               received: value,
-              status: "", // 🔥 <-- Add this also
+              status: "",
               date: undefined,
               shiftTime: undefined,
               stage2Enabled: false,
@@ -215,36 +238,6 @@ barcodeAssignments = barcodeAssignments.filter(item =>
       prevData.map((row) => (row.id === id ? { ...row, inventoryRemarks: value } : row))
     );
   };
-
-  // const handleSave = () => {
-  //   const invalidRows = tableData.filter(
-  //     (row) => row.received === "Yes" && !row.inventoryRemarks.trim()
-  //   );
-
-  //   if (invalidRows.length > 0) {
-  //     toast({
-  //       variant: "destructive",
-  //       title: "Validation Error",
-  //       description: "Please fill in Inventory Remarks for all items marked as Received (Yes)",
-  //       duration: 3000,
-  //     });
-  //     return;
-  //   }
-
-  //   const updatedData = tableData.map((row) => ({
-  //     ...row,
-  //     stage2Enabled: row.received === "Yes" && row.inventoryRemarks.trim() !== "",
-  //   }));
-
-  //   setTableData(updatedData);
-  //   localStorage.setItem("stage1TableData", JSON.stringify(updatedData));
-
-  //   toast({
-  //     title: "Data Saved Successfully",
-  //     description: `Saved ${updatedData.filter((r) => r.stage2Enabled).length} record(s) with Stage 2 enabled`,
-  //     duration: 2000,
-  //   });
-  // };
 
   const handleSave = () => {
     // Validation: ensure all "Yes" rows have inventory remarks
@@ -268,24 +261,22 @@ barcodeAssignments = barcodeAssignments.filter(item =>
       stage2Enabled: row.received === "Yes" && row.inventoryRemarks.trim() !== "",
     }));
 
-    // Save stage1TableData (your existing behavior)
+    // 🔥 Save current state - DON'T merge, just overwrite with current table
     localStorage.setItem("stage1TableData", JSON.stringify(updatedData));
     setTableData(updatedData);
 
-    // 🔻 NEW: Update OQC records' status to "Received" if row.received === "Yes"
+    // Update OQC records' status to "Received" if row.received === "Yes"
     try {
       const oqcDataStr = localStorage.getItem("testRecords");
       if (oqcDataStr) {
         let oqcRecords: OqcRecord[] = JSON.parse(oqcDataStr);
 
-        // Create a set of ticketCodes that are marked as "Yes"
         const receivedTicketCodes = new Set(
           updatedData
             .filter(row => row.received === "Yes")
             .map(row => row.ticketCode)
         );
 
-        // Update status to "Received" for matching OQC records
         oqcRecords = oqcRecords.map(record => {
           if (receivedTicketCodes.has(record.ticketCode) && record.status !== "Received") {
             return { ...record, status: "Received" };
@@ -293,15 +284,13 @@ barcodeAssignments = barcodeAssignments.filter(item =>
           return record;
         });
 
-        // Save updated OQC data back to localStorage
         localStorage.setItem("testRecords", JSON.stringify(oqcRecords));
       }
     } catch (error) {
       console.error("Error updating OQC status:", error);
-      // Optional: show toast, but you didn't ask for it — so skip to stay minimal
     }
 
-    // Show success toast (your existing message)
+    // Show success toast
     toast({
       title: "Data Saved Successfully",
       description: `Saved ${updatedData.filter((r) => r.stage2Enabled).length} record(s) with Stage 2 enabled`,
@@ -310,13 +299,27 @@ barcodeAssignments = barcodeAssignments.filter(item =>
   };
 
   const handleStage2Navigate = (row: TableRow) => {
+    // 🔥 Mark this assignment as processed
+    const processedAssignmentsStr = localStorage.getItem("processedStage1Assignments");
+    const processedAssignmentIds: string[] = processedAssignmentsStr 
+      ? JSON.parse(processedAssignmentsStr) 
+      : [];
+    
+    if (row.assignmentId && !processedAssignmentIds.includes(row.assignmentId)) {
+      processedAssignmentIds.push(row.assignmentId);
+      localStorage.setItem("processedStage1Assignments", JSON.stringify(processedAssignmentIds));
+    }
+
+    // Save current table state before navigating
     localStorage.setItem("stage1TableData", JSON.stringify(tableData));
+    
     navigate("/stage2-form", {
       state: {
         record: row,
         fromStage1: true,
       },
     });
+    
     toast({
       title: "Navigating to Stage 2",
       description: `Opening Stage 2 for ticket ${row.ticketCode}`,
@@ -350,7 +353,7 @@ barcodeAssignments = barcodeAssignments.filter(item =>
         <CardContent className="p-6">
           {tableData.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              No barcode assignments found in storage.
+              No new barcode assignments found. All submissions have been processed.
             </div>
           ) : (
             <div className="overflow-x-auto">

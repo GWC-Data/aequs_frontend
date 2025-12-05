@@ -772,13 +772,13 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                       className="text-xs font-mono"
                       disabled={disabled || remainingParts <= 0 || currentIndex >= totalParts}
                     >
-                      {serialNumber} ({currentIndex}/{totalParts})
+                      {serialNumber}
                     </Button>
                   );
                 })}
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                💡 Click the button multiple times - each click scans one part sequentially
+                Click the button multiple times - each click scans one part sequentially
               </p>
             </div>
           </div>
