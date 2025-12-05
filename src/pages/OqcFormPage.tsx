@@ -4,7 +4,7 @@ import React from "react";
 import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Textarea } from "@/components/ui/textarea";
-
+ 
 // Form Component
 interface TestData {
   ticketCode: string;
@@ -18,7 +18,7 @@ interface TestData {
   dateTime: string;
   status: string;
 }
-
+ 
 const SOURCE_OPTIONS = ["Entire", "Line1", "Line2"];
 const PROJECT_OPTIONS = ["FLASH", "LIGHT", "HULK", "AQUA"];
 const BUILD_OPTIONS = ["J713", "J813", "N230", "N240"];
@@ -29,7 +29,7 @@ const REASON_OPTIONS = [
   "MP/NPI",
   "Other"
 ];
-
+ 
 const TestForm: React.FC = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = React.useState<TestData>({
@@ -44,7 +44,7 @@ const TestForm: React.FC = () => {
     dateTime: "",
     status: "In-Progress"
   });
-
+ 
   // Load existing data from localStorage on component mount
   React.useEffect(() => {
     const storedData = localStorage.getItem("testRecords");
@@ -65,10 +65,10 @@ const TestForm: React.FC = () => {
       console.log("No existing records found in localStorage");
     }
   }, []);
-
+ 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    
+   
     // Handle number input specifically
     if (name === "totalQuantity") {
       setFormData(prev => ({
@@ -82,16 +82,16 @@ const TestForm: React.FC = () => {
       }));
     }
   };
-
+ 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-  
-
+ 
+ 
+ 
     try {
       // Validate required fields
-      if (!formData.ticketCode || !formData.totalQuantity || !formData.source || 
-          !formData.reason || !formData.project || !formData.build || 
+      if (!formData.ticketCode || !formData.totalQuantity || !formData.source ||
+          !formData.reason || !formData.project || !formData.build ||
           !formData.colour || !formData.dateTime) {
         toast({
           variant: "destructive",
@@ -101,11 +101,11 @@ const TestForm: React.FC = () => {
         });
         return;
       }
-
+ 
       // Get existing data from localStorage
       const existingData = localStorage.getItem("testRecords");
       let records = [];
-      
+     
       if (existingData) {
         try {
           records = JSON.parse(existingData);
@@ -118,10 +118,10 @@ const TestForm: React.FC = () => {
           records = [];
         }
       }
-      
-
+     
+ 
         const currentDate = new Date().toISOString().split("T")[0];
-
+ 
 const newRecord = {
   ...formData,
   dateTime: currentDate,   // override to always save today's date
@@ -129,7 +129,7 @@ const newRecord = {
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString()
 };
-
+ 
       // Add new record
       // const newRecord = {
       //   ...formData,
@@ -137,15 +137,15 @@ const newRecord = {
       //   createdAt: new Date().toISOString(),
       //   updatedAt: new Date().toISOString()
       // };
-
+ 
       records.push(newRecord);
-
+ 
       // Save back to localStorage
       localStorage.setItem("testRecords", JSON.stringify(records));
-
+ 
       console.log("Record saved successfully:", newRecord);
       console.log("Total records now:", records.length);
-
+ 
       // Reset form
       setFormData({
         ticketCode: "",
@@ -159,14 +159,14 @@ const newRecord = {
         dateTime: "",
         status: "In-Progress"
       });
-
+ 
       // Success toast
       toast({
         title: "✅ Record Created",
         description: `Ticket ${formData.ticketCode} has been saved successfully!`,
         duration: 3000,
       });
-
+ 
       // Navigate to barcode-scanner after a short delay
       setTimeout(() => {
         navigate("/barcode-scanner", {
@@ -176,7 +176,7 @@ const newRecord = {
           }
         });
       }, 1000);
-
+ 
     } catch (error) {
       console.error("Error saving test data:", error);
       toast({
@@ -187,7 +187,7 @@ const newRecord = {
       });
     }
   };
-
+ 
   // Helper function to view all records (for debugging)
   const viewAllRecords = () => {
     const storedData = localStorage.getItem("testRecords");
@@ -212,7 +212,7 @@ const newRecord = {
       });
     }
   };
-
+ 
   // Helper function to clear all records (for debugging)
   const clearAllRecords = () => {
     if (window.confirm("Are you sure you want to clear ALL records? This cannot be undone.")) {
@@ -226,7 +226,7 @@ const newRecord = {
       });
     }
   };
-
+ 
   return (
     <div className="max-w-6xl mx-auto mt-6">
       <div className="px-6 py-4">
@@ -254,9 +254,9 @@ const newRecord = {
             </button>
           </div> */}
         </div>
-
+ 
         <form onSubmit={handleSubmit} className="space-y-6">
-
+ 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Ticket Code */}
             <div className="space-y-2">
@@ -273,7 +273,7 @@ const newRecord = {
                 required
               />
             </div>
-
+ 
             {/* Total Quantity */}
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
@@ -290,7 +290,7 @@ const newRecord = {
                 min="1"
               />
             </div>
-
+ 
             {/* Assembly/Ano */}
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
@@ -306,7 +306,7 @@ const newRecord = {
                 required
               />
             </div>
-
+ 
             {/* Source (entire/line1/line2) */}
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
@@ -327,28 +327,9 @@ const newRecord = {
                 ))}
               </select>
             </div>
-
-            {/* Reason */}
-            <div className="space-y-2">
-              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
-                Reason <span className="text-red-600">*</span>
-              </label>
-              <select
-                name="reason"
-                value={formData.reason}
-                onChange={handleInputChange}
-                className="h-14 w-full px-5 border-2 border-slate-500 rounded-xl font-medium text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm bg-white appearance-none pr-10"
-                required
-              >
-                <option value="">-- Select Reason --</option>
-                {REASON_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
-
+ 
+           
+ 
             {/* Project */}
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
@@ -369,7 +350,7 @@ const newRecord = {
                 ))}
               </select>
             </div>
-
+ 
             {/* Build */}
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
@@ -390,7 +371,7 @@ const newRecord = {
                 ))}
               </select>
             </div>
-
+ 
             {/* Colour */}
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
@@ -411,7 +392,7 @@ const newRecord = {
                 ))}
               </select>
             </div>
-
+ 
             {/* Date Time */}
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 mb-5 uppercase tracking-wide">
@@ -424,10 +405,25 @@ const newRecord = {
               readOnly
               className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
             />
-
+ 
+            </div>
+ 
+            {/* Reason */}
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">
+                Remarks <span className="text-red-600">*</span>
+              </label>
+              <Textarea
+                name="reason"
+                value={formData.reason}
+                onChange={handleInputChange}
+                placeholder="Enter reason..."
+                className="min-h-[56px] px-5 py-3 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm resize-y"
+                required
+              />
             </div>
           </div>
-
+ 
           <div className="flex justify-end gap-4">
             {/* <button
               type="button"
@@ -446,7 +442,7 @@ const newRecord = {
             </button>
           </div>
         </form>
-
+ 
         {/* Debug Info Panel */}
         {/* <div className="mt-8 p-4 border border-gray-200 rounded-lg bg-gray-50">
           <h3 className="font-semibold text-gray-700 mb-2">Debug Information</h3>
@@ -466,5 +462,6 @@ const newRecord = {
     </div>
   );
 };
-
+ 
 export default TestForm;
+ 
