@@ -1,4 +1,3 @@
- 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -44,7 +43,7 @@ interface OqcRecord {
     serialNumber: string;
     partNumbers: string[];
     totalParts: number;
-    rawBarcodeData?: string;  
+    rawBarcodeData?: string;
   }>;
   assignedParts?: number;
   lastUpdated?: string;
@@ -90,7 +89,7 @@ const Stage2FormPage: React.FC = () => {
   const [ortLabRecords, setOrtLabRecords] = useState<ORTLabRecord[]>([]);
  
   useEffect(() => {
-    const stored = localStorage.getItem("ortLabRecords");
+    const stored = localStorage.getItem("stage1TableData");
     if (stored) {
       try {
         const records: ORTLabRecord[] = JSON.parse(stored);
@@ -104,6 +103,7 @@ const Stage2FormPage: React.FC = () => {
   // Fetch OQC data and auto-populate project, line, parts on mount
   const [oqcDataLoaded, setOqcDataLoaded] = useState(false);
   const [totalQuantity, setTotalQuantity] = useState(50);
+  const [barcodeAssignments, setBarcodeAssignments] = useState<any[]>([]);
  
   const [stage2Form, setStage2Form] = useState({
     processStage: [] as string[],
@@ -119,53 +119,75 @@ const Stage2FormPage: React.FC = () => {
     project: "",
     lines: [] as string[],
     selectedParts: [] as string[],
+    partAssignments: {} as { [testName: string]: string[] },
     ticketCode: selectedRecord?.ticketCode || "TICKET-001"
   });
  
-  // 🔥 Load OQC data and populate project, line, parts ONCE on mount — NO PART GENERATION
+  // 🔥 Load Barcode Assignments and populate project, line, parts
   useEffect(() => {
     if (!selectedRecord?.ticketCode) return;
  
     const ticketCode = selectedRecord.ticketCode;
-    const oqcDataStr = localStorage.getItem("Oqcformdata");
+    
+    // Load OQC Records
+    const oqcDataStr = localStorage.getItem("testRecords");
     const oqcRecords: OqcRecord[] = oqcDataStr ? JSON.parse(oqcDataStr) : [];
-    console.log(oqcRecords)
+    console.log("OQC Records:", oqcRecords);
     const oqcMatch = oqcRecords.find(rec => rec.ticketCode === ticketCode);
+ 
+    // Load Barcode Assignments from ticketBarcodeAssignments
+    const barcodeDataStr = localStorage.getItem("ticketBarcodeAssignments");
+    const allBarcodeAssignments = barcodeDataStr ? JSON.parse(barcodeDataStr) : [];
+    console.log("All Barcode Assignments:", allBarcodeAssignments);
+    
+    // Filter barcode assignments for this ticket - match ticketCode
+    const ticketBarcodeAssignments = allBarcodeAssignments.filter(
+      (assignment: any) => assignment.ticketCode === ticketCode
+    );
+    console.log("Matching Barcode Assignments for ticket:", ticketCode, ticketBarcodeAssignments);
+    
+    setBarcodeAssignments(ticketBarcodeAssignments);
  
     let project = "";
     let lines: string[] = [];
-    let selectedParts: string[] = [];
-    let qty = 0;
+    let allParts: string[] = [];
+    let totalPartsCount = 0;
  
     if (oqcMatch) {
-      qty = parseInt(oqcMatch.totalQuantity, 10) || 0;
       project = oqcMatch.project || "";
       lines = [oqcMatch.source || ""];
- 
-      // ✅ ONLY use real partNumbers from barcodeAssignments — NO GENERATION
-      const firstAssignment = oqcMatch.barcodeAssignments?.[0];
-      if (firstAssignment && Array.isArray(firstAssignment.partNumbers)) {
-        selectedParts = firstAssignment.partNumbers
-          .filter(p => typeof p === 'string' && p.trim() !== '')
-          .map(p => {
-            // Convert "PART001" → "Part 001", keep others as-is
-            const match = p.match(/^PART(\d+)$/i);
-            if (match) {
-              const num = parseInt(match[1], 10);
-              return `Part ${String(num).padStart(3, '0')}`;
-            }
-            return p; // e.g., if it's already "Part 001" or custom name
-          });
-      }
-      // ❌ Do NOT fall back to generateParts() — respect real data only
     }
  
-    setTotalQuantity(qty);
+    // Collect ALL parts from ALL barcode assignments for this ticket (NO unique filter)
+    if (ticketBarcodeAssignments.length > 0) {
+      ticketBarcodeAssignments.forEach((assignment: any) => {
+        if (Array.isArray(assignment.partNumbers)) {
+          assignment.partNumbers.forEach((part: string) => {
+            if (typeof part === 'string' && part.trim() !== '') {
+              // Convert "PART001" → "Part 001", keep others as-is
+              const match = part.match(/^PART(\d+)$/i);
+              let displayPart = part;
+              if (match) {
+                const num = parseInt(match[1], 10);
+                displayPart = `Part ${String(num).padStart(3, '0')}`;
+              }
+              allParts.push(displayPart);
+            }
+          });
+          totalPartsCount += assignment.totalParts || 0;
+        }
+      });
+      
+      console.log("All Parts (with duplicates):", allParts);
+      console.log("Total Parts Count:", totalPartsCount);
+    }
+ 
+    setTotalQuantity(totalPartsCount);
     setStage2Form(prev => ({
       ...prev,
       project: project || "—",
       lines: lines.length > 0 && lines[0] ? lines : ["—"],
-      selectedParts,
+      selectedParts: allParts,
       ticketCode
     }));
     setOqcDataLoaded(true);
@@ -197,7 +219,8 @@ const Stage2FormPage: React.FC = () => {
           testName: [],
           testCondition: [],
           equipment: [],
-          requiredQty: ""
+          requiredQty: "",
+          partAssignments: {}
         };
       } else {
         return {
@@ -207,7 +230,8 @@ const Stage2FormPage: React.FC = () => {
           testName: [],
           testCondition: [],
           equipment: [],
-          requiredQty: ""
+          requiredQty: "",
+          partAssignments: {}
         };
       }
     });
@@ -221,7 +245,8 @@ const Stage2FormPage: React.FC = () => {
       testName: [],
       testCondition: [],
       equipment: [],
-      requiredQty: ""
+      requiredQty: "",
+      partAssignments: {}
     }));
     setFilteredData([]);
     setAvailableTestNames([]);
@@ -244,7 +269,8 @@ const Stage2FormPage: React.FC = () => {
       testName: [],
       testCondition: [],
       equipment: [],
-      requiredQty: ""
+      requiredQty: "",
+      partAssignments: {}
     }));
     setFilteredData([]);
     setAvailableTestNames([]);
@@ -271,7 +297,8 @@ const Stage2FormPage: React.FC = () => {
           testName: [],
           testCondition: [],
           equipment: [],
-          requiredQty: ""
+          requiredQty: "",
+          partAssignments: {}
         };
       } else {
         const filteredData = flaskData.filter(item =>
@@ -286,7 +313,8 @@ const Stage2FormPage: React.FC = () => {
           testName: [],
           testCondition: [],
           equipment: [],
-          requiredQty: ""
+          requiredQty: "",
+          partAssignments: {}
         };
       }
     });
@@ -312,7 +340,8 @@ const Stage2FormPage: React.FC = () => {
         testName: [],
         testCondition: [],
         equipment: [],
-        requiredQty: ""
+        requiredQty: "",
+        partAssignments: {}
       };
     });
   };
@@ -337,7 +366,8 @@ const Stage2FormPage: React.FC = () => {
       testName: [],
       testCondition: [],
       equipment: [],
-      requiredQty: ""
+      requiredQty: "",
+      partAssignments: {}
     }));
     setFilteredData([]);
     setAvailableTestNames([]);
@@ -359,41 +389,145 @@ const Stage2FormPage: React.FC = () => {
           testName: [testName],
           equipment: equipmentList,
           testCondition: [selectedTest.testCondition || ""],
-          requiredQty: requiredQtyStr
+          requiredQty: requiredQtyStr,
+          partAssignments: { [testName]: [...prev.selectedParts] }
         }));
       }
     } else {
       setStage2Form(prev => {
         const isSelected = prev.testName.includes(testName);
-        const newTestNames = isSelected
-          ? prev.testName.filter(t => t !== testName)
-          : [...prev.testName, testName];
+        let newTestNames: string[];
+        let newPartAssignments = { ...prev.partAssignments };
  
-        const equipmentList: string[] = [];
-        const conditionList: string[] = [];
+        if (isSelected) {
+          newTestNames = prev.testName.filter(t => t !== testName);
+          const removedParts = prev.partAssignments[testName] || [];
+          delete newPartAssignments[testName];
  
-        newTestNames.forEach(name => {
-          const test = filteredData.find(item => item.testName === name);
-          if (test) {
-            const eqs = test.equipment.split(',').map(eq => eq.trim());
-            equipmentList.push(...eqs);
-            conditionList.push(...Array(eqs.length).fill(test.testCondition || ""));
-          }
-        });
+          const newlyAvailableParts = [...prev.selectedParts, ...removedParts];
  
-        const totalEquipment = equipmentList.length;
-        const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(totalQuantity / totalEquipment) : 0;
-        const requiredQtyStr = Array(totalEquipment).fill(qtyPerEquipment).join(', ');
+          const equipmentList: string[] = [];
+          const conditionList: string[] = [];
  
-        return {
-          ...prev,
-          testName: newTestNames,
-          equipment: equipmentList,
-          testCondition: conditionList,
-          requiredQty: requiredQtyStr
-        };
+          newTestNames.forEach(name => {
+            const test = filteredData.find(item => item.testName === name);
+            if (test) {
+              const eqs = test.equipment.split(',').map(eq => eq.trim());
+              equipmentList.push(...eqs);
+              conditionList.push(...Array(eqs.length).fill(test.testCondition || ""));
+            }
+          });
+ 
+          const totalEquipment = equipmentList.length;
+          const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(newlyAvailableParts.length / totalEquipment) : 0;
+          const requiredQtyStr = Array(totalEquipment).fill(qtyPerEquipment).join(', ');
+ 
+          return {
+            ...prev,
+            testName: newTestNames,
+            equipment: equipmentList,
+            testCondition: conditionList,
+            requiredQty: requiredQtyStr,
+            selectedParts: newlyAvailableParts,
+            partAssignments: newPartAssignments
+          };
+        } else {
+          newTestNames = [...prev.testName, testName];
+          newPartAssignments = {
+            ...prev.partAssignments,
+            [testName]: []
+          };
+ 
+          const equipmentList: string[] = [];
+          const conditionList: string[] = [];
+ 
+          newTestNames.forEach(name => {
+            const test = filteredData.find(item => item.testName === name);
+            if (test) {
+              const eqs = test.equipment.split(',').map(eq => eq.trim());
+              equipmentList.push(...eqs);
+              conditionList.push(...Array(eqs.length).fill(test.testCondition || ""));
+            }
+          });
+ 
+          const totalEquipment = equipmentList.length;
+          const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(prev.selectedParts.length / totalEquipment) : 0;
+          const requiredQtyStr = Array(totalEquipment).fill(qtyPerEquipment).join(', ');
+ 
+          return {
+            ...prev,
+            testName: newTestNames,
+            equipment: equipmentList,
+            testCondition: conditionList,
+            requiredQty: requiredQtyStr,
+            partAssignments: newPartAssignments
+          };
+        }
       });
     }
+  };
+ 
+  const assignPartsToTest = (testName: string, partsToAssign: string[]) => {
+    setStage2Form(prev => {
+      if (!prev.testName.includes(testName)) return prev;
+ 
+      const currentAssigned = prev.partAssignments[testName] || [];
+      const newlyAssigned = partsToAssign.filter(part =>
+        !currentAssigned.includes(part) && prev.selectedParts.includes(part)
+      );
+ 
+      if (newlyAssigned.length === 0) return prev;
+ 
+      const updatedAssignments = {
+        ...prev.partAssignments,
+        [testName]: [...currentAssigned, ...newlyAssigned]
+      };
+ 
+      const updatedAvailableParts = prev.selectedParts.filter(
+        part => !newlyAssigned.includes(part)
+      );
+ 
+      return {
+        ...prev,
+        selectedParts: updatedAvailableParts,
+        partAssignments: updatedAssignments
+      };
+    });
+  };
+ 
+  const removeAssignedPart = (testName: string, partToRemove: string) => {
+    setStage2Form(prev => {
+      const currentAssigned = prev.partAssignments[testName] || [];
+      if (!currentAssigned.includes(partToRemove)) return prev;
+ 
+      const updatedAssignments = {
+        ...prev.partAssignments,
+        [testName]: currentAssigned.filter(part => part !== partToRemove)
+      };
+ 
+      const updatedAvailableParts = [...prev.selectedParts, partToRemove];
+ 
+      return {
+        ...prev,
+        selectedParts: updatedAvailableParts,
+        partAssignments: updatedAssignments
+      };
+    });
+  };
+ 
+  const clearTestAssignments = (testName: string) => {
+    setStage2Form(prev => {
+      const assignedParts = prev.partAssignments[testName] || [];
+      if (assignedParts.length === 0) return prev;
+ 
+      const { [testName]: removed, ...remainingAssignments } = prev.partAssignments;
+ 
+      return {
+        ...prev,
+        selectedParts: [...prev.selectedParts, ...assignedParts],
+        partAssignments: remainingAssignments
+      };
+    });
   };
  
   const removeSelectedTestName = (testName: string) => {
@@ -405,9 +539,17 @@ const Stage2FormPage: React.FC = () => {
           testName: [],
           equipment: [],
           testCondition: [],
-          requiredQty: ""
+          requiredQty: "",
+          partAssignments: {},
+          selectedParts: [
+            ...prev.selectedParts,
+            ...Object.values(prev.partAssignments).flat()
+          ]
         };
       }
+ 
+      const partsToReturn = prev.partAssignments[testName] || [];
+      const { [testName]: removed, ...remainingAssignments } = prev.partAssignments;
  
       const equipmentList: string[] = [];
       const conditionList: string[] = [];
@@ -422,7 +564,8 @@ const Stage2FormPage: React.FC = () => {
       });
  
       const totalEquipment = equipmentList.length;
-      const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(totalQuantity / totalEquipment) : 0;
+      const availableParts = [...prev.selectedParts, ...partsToReturn];
+      const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(availableParts.length / totalEquipment) : 0;
       const requiredQtyStr = Array(totalEquipment).fill(qtyPerEquipment).join(', ');
  
       return {
@@ -430,7 +573,9 @@ const Stage2FormPage: React.FC = () => {
         testName: newTestNames,
         equipment: equipmentList,
         testCondition: conditionList,
-        requiredQty: requiredQtyStr
+        requiredQty: requiredQtyStr,
+        selectedParts: availableParts,
+        partAssignments: remainingAssignments
       };
     });
   };
@@ -440,6 +585,7 @@ const Stage2FormPage: React.FC = () => {
  
     const equipmentList: string[] = [];
     const conditionList: string[] = [];
+    const partAssignments: { [testName: string]: string[] } = {};
  
     allTestNames.forEach(name => {
       const test = filteredData.find(item => item.testName === name);
@@ -447,11 +593,12 @@ const Stage2FormPage: React.FC = () => {
         const eqs = test.equipment.split(',').map(eq => eq.trim());
         equipmentList.push(...eqs);
         conditionList.push(...Array(eqs.length).fill(test.testCondition || ""));
+        partAssignments[name] = [];
       }
     });
  
     const totalEquipment = equipmentList.length;
-    const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(totalQuantity / totalEquipment) : 0;
+    const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(stage2Form.selectedParts.length / totalEquipment) : 0;
     const requiredQtyStr = Array(totalEquipment).fill(qtyPerEquipment).join(', ');
  
     setStage2Form(prev => ({
@@ -459,22 +606,45 @@ const Stage2FormPage: React.FC = () => {
       testName: allTestNames,
       equipment: equipmentList,
       testCondition: conditionList,
-      requiredQty: requiredQtyStr
+      requiredQty: requiredQtyStr,
+      partAssignments
     }));
   };
  
   const clearAllTestNames = () => {
-    setStage2Form(prev => ({
-      ...prev,
-      testName: [],
-      equipment: [],
-      testCondition: [],
-      requiredQty: ""
-    }));
+    setStage2Form(prev => {
+      const allAssignedParts = Object.values(prev.partAssignments).flat();
+      return {
+        ...prev,
+        testName: [],
+        equipment: [],
+        testCondition: [],
+        requiredQty: "",
+        selectedParts: [...prev.selectedParts, ...allAssignedParts],
+        partAssignments: {}
+      };
+    });
   };
  
   const handleStage2Submit = () => {
     if (!selectedRecord) return;
+ 
+    if (testMode === 'multi') {
+      const allTestsHaveParts = stage2Form.testName.every(
+        testName => (stage2Form.partAssignments[testName] || []).length > 0
+      );
+ 
+      if (!allTestsHaveParts) {
+        toast({
+          variant: "destructive",
+          title: "Missing Part Assignments",
+          description: "Please assign parts to all selected tests.",
+          duration: 2000,
+        });
+        return;
+      }
+    }
+ 
     if (
       stage2Form.processStage.length === 0 ||
       stage2Form.type.length === 0 ||
@@ -498,11 +668,11 @@ const Stage2FormPage: React.FC = () => {
       });
       return;
     }
-    if (stage2Form.selectedParts.length === 0) {
+    if (stage2Form.selectedParts.length === 0 && testMode === 'single') {
       toast({
         variant: "destructive",
         title: "No Parts Selected",
-        description: "Parts could not be generated.",
+        description: "Parts could not be loaded.",
         duration: 2000,
       });
       return;
@@ -522,7 +692,9 @@ const Stage2FormPage: React.FC = () => {
           checkpoint: Number(stage2Form.checkpoint),
           project: stage2Form.project,
           lines: stage2Form.lines,
-          selectedParts: stage2Form.selectedParts,
+          selectedParts: testMode === 'single'
+            ? stage2Form.selectedParts
+            : stage2Form.partAssignments,
           startTime: stage2Form.startDateTime,
           endTime: stage2Form.endDateTime,
           remark: stage2Form.remark,
@@ -562,7 +734,7 @@ const Stage2FormPage: React.FC = () => {
   };
  
   const isStage2SubmitEnabled = () => {
-    return (
+    const basicFieldsValid = (
       stage2Form.processStage.length > 0 &&
       stage2Form.type.length > 0 &&
       stage2Form.testName.length > 0 &&
@@ -570,8 +742,17 @@ const Stage2FormPage: React.FC = () => {
       stage2Form.equipment.length > 0 &&
       stage2Form.checkpoint !== "" &&
       stage2Form.project !== "" &&
-      stage2Form.selectedParts.length > 0
+      (testMode === 'single' ? stage2Form.selectedParts.length > 0 : true)
     );
+ 
+    if (testMode === 'single') {
+      return basicFieldsValid && stage2Form.selectedParts.length > 0;
+    } else {
+      const allTestsHaveParts = stage2Form.testName.every(
+        testName => (stage2Form.partAssignments[testName] || []).length > 0
+      );
+      return basicFieldsValid && allTestsHaveParts;
+    }
   };
  
   if (!selectedRecord) {
@@ -623,6 +804,7 @@ const Stage2FormPage: React.FC = () => {
                   project: stage2Form.project,
                   lines: stage2Form.lines,
                   selectedParts: stage2Form.selectedParts,
+                  partAssignments: {},
                   ticketCode: stage2Form.ticketCode
                 });
                 setFilteredData([]);
@@ -924,13 +1106,13 @@ const Stage2FormPage: React.FC = () => {
               </div>
  
               <div className="space-y-2">
-                <Label className="text-base">Parts <span className="text-red-600">*</span></Label>
+                <Label className="text-base">Total Available Parts <span className="text-red-600">*</span></Label>
                 <div className="p-3 bg-gray-50 rounded-lg border min-h-[3rem]">
                   {stage2Form.selectedParts.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
-                      {stage2Form.selectedParts.map(part => (
+                      {stage2Form.selectedParts.map((part, index) => (
                         <span
-                          key={part}
+                          key={`${part}-${index}`}
                           className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-mono"
                         >
                           {part}
@@ -938,15 +1120,117 @@ const Stage2FormPage: React.FC = () => {
                       ))}
                     </div>
                   ) : (
-                    <span className="text-gray-500 italic">Loading parts...</span>
+                    <span className="text-gray-500 italic">
+                      {testMode === 'multi' && stage2Form.testName.length > 0
+                        ? "All parts have been assigned to tests"
+                        : "Loading parts..."}
+                    </span>
                   )}
                 </div>
                 <p className="text-xs text-gray-500">
-                  {stage2Form.selectedParts.length} part(s) loaded
+                  {stage2Form.selectedParts.length} part(s) available • Total scanned: {totalQuantity} parts from {barcodeAssignments.length} barcode scan(s)
                 </p>
               </div>
             </div>
           </div>
+ 
+          {/* Part Assignment Section for Multi-Test Mode */}
+          {testMode === 'multi' && stage2Form.testName.length > 0 && (
+            <div className="space-y-4 md:col-span-2 mt-6">
+              <Label className="text-base font-semibold">Assign Parts to Tests</Label>
+              <p className="text-sm text-gray-600 mb-4">
+                Assign parts from the available pool to each test. Each part can only be assigned to one test.
+              </p>
+ 
+              {stage2Form.testName.map(testName => {
+                const assignedParts = stage2Form.partAssignments[testName] || [];
+                const availableForThisTest = stage2Form.selectedParts;
+ 
+                return (
+                  <div key={testName} className="p-4 border rounded-lg space-y-3 bg-white shadow-sm">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-medium text-gray-700">{testName}</h4>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (availableForThisTest.length > 0) {
+                              assignPartsToTest(testName, [availableForThisTest[0]]);
+                            }
+                          }}
+                          disabled={availableForThisTest.length === 0}
+                        >
+                          Assign One
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (availableForThisTest.length > 0) {
+                              assignPartsToTest(testName, [...availableForThisTest]);
+                            }
+                          }}
+                          disabled={availableForThisTest.length === 0}
+                        >
+                          Assign All Remaining
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => clearTestAssignments(testName)}
+                          disabled={assignedParts.length === 0}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          Clear All
+                        </Button>
+                      </div>
+                    </div>
+ 
+                    {/* Assigned parts display */}
+                    <div>
+                      <Label className="text-sm font-medium">Assigned Parts ({assignedParts.length})</Label>
+                      <div className="flex flex-wrap gap-2 mt-2 p-3 bg-blue-50 rounded min-h-[2.5rem] border border-blue-100">
+                        {assignedParts.length > 0 ? (
+                          assignedParts.map((part, idx) => (
+                            <div key={`${part}-${idx}`} className="flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                              {part}
+                              <button
+                                onClick={() => removeAssignedPart(testName, part)}
+                                className="hover:bg-blue-200 rounded-full p-0.5 ml-1"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          ))
+                        ) : (
+                          <span className="text-gray-500 text-sm italic">No parts assigned yet</span>
+                        )}
+                      </div>
+                    </div>
+ 
+                    {/* Available parts for assignment */}
+                    {availableForThisTest.length > 0 && (
+                      <div>
+                        <Label className="text-sm font-medium">Available Parts ({availableForThisTest.length})</Label>
+                        <div className="flex flex-wrap gap-2 mt-2 p-3 bg-gray-50 rounded min-h-[2.5rem] border">
+                          {availableForThisTest.map((part, idx) => (
+                            <button
+                              key={`${part}-${idx}`}
+                              onClick={() => assignPartsToTest(testName, [part])}
+                              className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-2 py-1 rounded text-xs transition-colors"
+                            >
+                              {part}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
  
           <div className="flex justify-end gap-4 mt-8 pt-2">
             <Button variant="outline" onClick={() => navigate("/")} className="px-6">
@@ -967,4 +1251,3 @@ const Stage2FormPage: React.FC = () => {
 };
  
 export default Stage2FormPage;
- 

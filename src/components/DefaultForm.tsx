@@ -93,18 +93,19 @@ interface Stage2Record {
         testCondition: string;
         requiredQty: string;
         equipment: string;
-        checkpoint?: number;  // ADD THIS LINE
+        checkpoint?: number;
         project: string[];
         lines: string[];
-        selectedParts: string[];
+        selectedParts: string[] | Record<string, string[]>; // Updated: Can be array or object
         startTime: string;
         endTime: string;
         remark: string;
         submittedAt: string;
+        testMode?: string; // Added: single or multi
     };
     forms?: any;
     completedTests?: string[];
-    timerData?: {  // ADD THIS ENTIRE BLOCK
+    timerData?: {
         [formKey: string]: {
             remainingSeconds: number;
             isRunning: boolean;
@@ -112,19 +113,6 @@ interface Stage2Record {
         };
     };
 }
-
-// interface FormRow {
-//     id: number;
-//     srNo: number;
-//     testDate: string;
-//     config: string;
-//     sampleId: string;
-//     status: string;
-//     partId: string; // New field to track which part this row belongs to
-//     cosmeticImage?: string;
-//     nonCosmeticImage?: string;
-//     [key: string]: any;
-// }
 
 interface FormRow {
     id: number;
@@ -134,13 +122,14 @@ interface FormRow {
     sampleId: string;
     status: string;
     partId: string;
-    part?: string; // ADD THIS
+    part?: string;
     cosmeticImage?: string;
     nonCosmeticImage?: string;
-    croppedImage?: string; // ADD THIS
-    regionLabel?: string; // ADD THIS
+    croppedImage?: string;
+    regionLabel?: string;
     [key: string]: any;
 }
+
 interface CustomColumn {
     id: string;
     label: string;
@@ -190,14 +179,14 @@ interface DefaultFormProps {
     updateRowField: (rowId: number, field: string, value: string) => void;
     addRow: (partId?: string) => void;
     selectedParts: string[];
-    checkpointHours: number;  // ADD THIS LINE
-    formKey: string;  // ADD THIS LINE
-    timerState: {  // ADD THIS BLOCK
+    checkpointHours: number;
+    formKey: string;
+    timerState: {
         remainingSeconds: number;
         isRunning: boolean;
     };
-    onTimerToggle: () => void;  // ADD THIS LINE
-    croppedRegions: CroppedRegion[];  // ADD THIS LINE
+    onTimerToggle: () => void;
+    croppedRegions: CroppedRegion[];
 }
 
 function DefaultForm({
@@ -206,19 +195,19 @@ function DefaultForm({
     updateRowField,
     addRow,
     selectedParts,
-    checkpointHours,  // ADD THIS LINE
-    formKey,  // ADD THIS LINE
-    timerState,  // ADD THIS LINE
-    onTimerToggle,  // ADD THIS LINE
+    checkpointHours,
+    formKey,
+    timerState,
+    onTimerToggle,
     croppedRegions
 }: DefaultFormProps) {
     const [showAddColumnModal, setShowAddColumnModal] = useState(false);
-    // Timer states for each form
     const [newColumn, setNewColumn] = useState({
         label: '',
         type: 'text' as 'text' | 'number' | 'date' | 'select' | 'textarea' | 'image',
         options: [] as string[]
     });
+    const [newOption, setNewOption] = useState('');
 
     // Format time display
     const formatTime = (seconds: number) => {
@@ -227,8 +216,6 @@ function DefaultForm({
         const secs = seconds % 60;
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
-
-    const [newOption, setNewOption] = useState('');
 
     const handleAddColumn = () => {
         if (!newColumn.label.trim()) return;
@@ -279,7 +266,7 @@ function DefaultForm({
     const handleImageUpload = (rowId: number, imageType: 'cosmetic' | 'nonCosmetic', file: File) => {
         const reader = new FileReader();
         reader.onload = (e) => {
-            updateRowField(rowId, imageType === 'cosmetic' ? 'cosmeticImage' : 'nonCosmeticImage', e.target?.result as string);
+            updateRowField(row.id, imageType === 'cosmetic' ? 'cosmeticImage' : 'nonCosmeticImage', e.target?.result as string);
         };
         reader.readAsDataURL(file);
     };
@@ -571,11 +558,6 @@ function DefaultForm({
                                                 Sample ID
                                             </th>
 
-                                            {/* <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-                                                Part
-                                            </th> */}
-
-
                                             {/* Cosmetic Image Column */}
                                             <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
                                                 Cosmetic Image
@@ -640,12 +622,6 @@ function DefaultForm({
                                                         className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                                     />
                                                 </td>
-                                                {/* Part Column */}
-                                                {/* <td className="px-4 py-4 border-r border-gray-200">
-                                                    <div className="px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg text-center">
-                                                        <span className="font-semibold text-purple-700">{row.partId}</span>
-                                                    </div>
-                                                </td> */}
 
                                                 {/* Cosmetic Image Upload */}
                                                 <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
@@ -811,8 +787,6 @@ function DefaultForm({
                             </div>
                         </div>
 
-
-
                         <div className="flex justify-end mt-3">
                             <button
                                 onClick={() => addRow(part)}
@@ -823,15 +797,6 @@ function DefaultForm({
                         </div>
                     </div>
                 ))}
-                {/* 
-                <div className="flex gap-4 mt-6">
-                    <button
-                        onClick={() => addRow()}
-                        className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                    >
-                        + Add Row to All Parts
-                    </button>
-                </div> */}
             </div>
 
             {/* Add Column Modal */}
@@ -947,7 +912,7 @@ declare global {
     interface Window {
         cv: any;
     }
-};
+}
 
 export default function MultiStageTestForm() {
     const [currentStage, setCurrentStage] = useState(0);
@@ -972,8 +937,34 @@ export default function MultiStageTestForm() {
     // Form data for all forms
     const [forms, setForms] = useState<FormsState>({});
 
-    // Get selected parts from current record
-    const selectedParts = currentRecord?.stage2?.selectedParts || [];
+    // Helper function to get selected parts based on test mode
+    const getSelectedPartsArray = (): string[] => {
+        if (!currentRecord?.stage2?.selectedParts) return [];
+        
+        const selectedParts = currentRecord.stage2.selectedParts;
+        
+        // For single test mode - it's already an array
+        if (Array.isArray(selectedParts)) {
+            return selectedParts;
+        }
+        
+        // For multi test mode - it's an object, need to flatten
+        if (typeof selectedParts === 'object' && selectedParts !== null) {
+            // Get unique parts across all tests
+            const allParts = new Set<string>();
+            Object.values(selectedParts).forEach((parts: any) => {
+                if (Array.isArray(parts)) {
+                    parts.forEach(part => allParts.add(part));
+                }
+            });
+            return Array.from(allParts);
+        }
+        
+        return [];
+    };
+
+    // Get selected parts as array
+    const selectedParts = getSelectedPartsArray();
 
     // Filter stages based on selected tests
     const filteredStages = React.useMemo(() => {
@@ -1067,27 +1058,71 @@ export default function MultiStageTestForm() {
                         }
 
                         // Initialize form data with rows for each part
-                        const initialRows: FormRow[] = [];
-                        let srNo = 1;
+                        // const initialRows: FormRow[] = [];
+                        // let srNo = 1;
 
-                        // ... rest of your existing code for creating rows ...
+                        // // Get parts for this specific test (for multi-mode) or all parts (for single-mode)
+                        // let partsForThisTest: string[] = [];
+                        
+                        // if (latestRecord.stage2.testMode === 'multi' && 
+                        //     typeof latestRecord.stage2.selectedParts === 'object' &&
+                        //     latestRecord.stage2.selectedParts[testName]) {
+                        //     // Multi mode: Get parts for this specific test
+                        //     partsForThisTest = (latestRecord.stage2.selectedParts as Record<string, string[]>)[testName] || [];
+                        // } else {
+                        //     // Single mode or fallback: Use all parts
+                        //     partsForThisTest = selectedParts;
+                        // }
 
-                        // Create one row per part initially
-                        latestRecord.stage2.selectedParts.forEach((part, partIndex) => {
-                            initialRows.push({
-                                id: srNo,
-                                srNo: srNo,
-                                testDate: "",
-                                config: "",
-                                sampleId: `${part}-${srNo}`,
-                                status: "Pass",
-                                partId: part,
-                                cosmeticImage: "",
-                                nonCosmeticImage: ""
-                            });
-                            srNo++;
-                        });
+                        // // Create one row per part initially
+                        // partsForThisTest.forEach((part, partIndex) => {
+                        //     initialRows.push({
+                        //         id: srNo,
+                        //         srNo: srNo,
+                        //         testDate: "",
+                        //         config: "",
+                        //         sampleId: `${part}-${srNo}`,
+                        //         status: "Pass",
+                        //         partId: part,
+                        //         cosmeticImage: "",
+                        //         nonCosmeticImage: ""
+                        //     });
+                        //     srNo++;
+                        // });
+                        // In the useEffect that loads stage2Records, update this section:
 
+// Initialize form data with rows for each part
+const initialRows: FormRow[] = [];
+let srNo = 1;
+
+// Get parts for this specific test (considering test mode)
+let partsForThisTest: string[] = [];
+
+if (latestRecord.stage2.testMode === 'multi' && 
+    typeof latestRecord.stage2.selectedParts === 'object') {
+    // Multi mode: Get parts for this specific test
+    const testParts = (latestRecord.stage2.selectedParts as Record<string, string[]>)[testName];
+    partsForThisTest = testParts || [];
+} else {
+    // Single mode or fallback: Use all parts
+    partsForThisTest = getSelectedPartsArray();
+}
+
+// Create one row per part initially
+partsForThisTest.forEach((part, partIndex) => {
+    initialRows.push({
+        id: srNo,
+        srNo: srNo,
+        testDate: "",
+        config: "",
+        sampleId: `${part}-${srNo}`,
+        status: "Pass",
+        partId: part,
+        cosmeticImage: "",
+        nonCosmeticImage: ""
+    });
+    srNo++;
+});
                         newForms[formKey] = {
                             testName: testName,
                             ers: latestRecord.stage2.processStage || "",
@@ -1115,7 +1150,7 @@ export default function MultiStageTestForm() {
 
                     // Initialize shared images by part
                     const initialImages: Record<string, { cosmetic: string | null, nonCosmetic: string | null }> = {};
-                    latestRecord.stage2.selectedParts.forEach(part => {
+                    selectedParts.forEach(part => {
                         initialImages[part] = { cosmetic: null, nonCosmetic: null };
                     });
                     setSharedImagesByPart(initialImages);
@@ -1196,23 +1231,6 @@ export default function MultiStageTestForm() {
         }
     }, [timerStates, currentRecord]);
 
-
-    // Handle image upload for specific part
-    // const handleImageUpload = (partId: string, type: 'cosmetic' | 'nonCosmetic', file: File) => {
-    //     const imageUrl = URL.createObjectURL(file);
-    //     setSharedImagesByPart(prev => ({
-    //         ...prev,
-    //         [partId]: {
-    //             ...prev[partId],
-    //             [type]: imageUrl
-    //         }
-    //     }));
-
-    //     if (type === "nonCosmetic") {
-    //         processNonCosmeticImage(file, partId);
-    //     }
-    // };
-
     // Handle image upload for specific part
     const handleImageUpload = (partId: string, type: 'cosmetic' | 'nonCosmetic', file: File) => {
         const reader = new FileReader();
@@ -1260,7 +1278,6 @@ export default function MultiStageTestForm() {
             setCroppedRegions(prev => prev.filter(region => !region.data.includes(partId)));
         }
     };
-
 
     const processNonCosmeticImage = (file: File, partId: string, nonCosmeticImageUrl: string) => {
         if (!cvLoaded) {
@@ -1377,7 +1394,7 @@ export default function MultiStageTestForm() {
                                 sampleId: `${partId}-${index + 1}`,
                                 status: "Pass",
                                 partId: partId,
-                                part: partId, // Add part column
+                                part: partId,
                                 cosmeticImage: cosmeticImage,
                                 nonCosmeticImage: nonCosmeticImageUrl,
                                 croppedImage: croppedImage.data,
@@ -1704,35 +1721,318 @@ export default function MultiStageTestForm() {
         }
     }, [currentStage, currentStageData?.formKey]);
 
-    const renderCurrentForm = () => {
-        if (!currentStageData?.formKey) return null;
+    // const renderCurrentForm = () => {
+    //     if (!currentStageData?.formKey) return null;
 
-        const formKey = currentStageData.formKey;
-        const formData = forms[formKey];
+    //     const formKey = currentStageData.formKey;
+    //     const formData = forms[formKey];
 
-        if (!formData) return null;
+    //     if (!formData) return null;
 
-        const checkpointHours = currentRecord?.stage2?.checkpoint || 0;
-        const timerState = timerStates[formKey] || { remainingSeconds: 0, isRunning: false };
+    //     const checkpointHours = currentRecord?.stage2?.checkpoint || 0;
+    //     const timerState = timerStates[formKey] || { remainingSeconds: 0, isRunning: false };
 
-        return (
-            <DefaultForm
-                formData={formData}
-                updateFormField={(field, value) => updateFormField(formKey, field, value)}
-                updateRowField={(rowId, field, value) => updateRowField(formKey, rowId, field, value)}
-                addRow={(partId) => addRow(formKey, partId)}
-                selectedParts={selectedParts}
-                checkpointHours={checkpointHours}
-                formKey={formKey}
-                timerState={timerState}
-                onTimerToggle={() => handleTimerToggle(formKey)}
-                croppedRegions={croppedRegions}
-            />
-        );
+    //     return (
+    //         <DefaultForm
+    //             formData={formData}
+    //             updateFormField={(field, value) => updateFormField(formKey, field, value)}
+    //             updateRowField={(rowId, field, value) => updateRowField(formKey, rowId, field, value)}
+    //             addRow={(partId) => addRow(formKey, partId)}
+    //             selectedParts={selectedParts}
+    //             checkpointHours={checkpointHours}
+    //             formKey={formKey}
+    //             timerState={timerState}
+    //             onTimerToggle={() => handleTimerToggle(formKey)}
+    //             croppedRegions={croppedRegions}
+    //         />
+    //     );
+    // };
+const renderCurrentForm = () => {
+    if (!currentStageData?.formKey) return null;
+
+    const formKey = currentStageData.formKey;
+    const formData = forms[formKey];
+
+    if (!formData) return null;
+
+    const checkpointHours = currentRecord?.stage2?.checkpoint || 0;
+    const timerState = timerStates[formKey] || { remainingSeconds: 0, isRunning: false };
+
+    // Get the test name for this form
+    const testName = formData.testName;
+    
+    // Get parts for this specific test (considering test mode)
+    let partsForThisTest: string[] = [];
+    
+    if (currentRecord?.stage2?.testMode === 'multi' && 
+        typeof currentRecord.stage2.selectedParts === 'object' &&
+        currentRecord.stage2.selectedParts[testName]) {
+        // Multi mode: Get parts for this specific test
+        partsForThisTest = (currentRecord.stage2.selectedParts as Record<string, string[]>)[testName] || [];
+    } else {
+        // Single mode: Use all parts
+        partsForThisTest = getSelectedPartsArray();
+    }
+
+    return (
+        <DefaultForm
+            formData={formData}
+            updateFormField={(field, value) => updateFormField(formKey, field, value)}
+            updateRowField={(rowId, field, value) => updateRowField(formKey, rowId, field, value)}
+            addRow={(partId) => addRow(formKey, partId)}
+            selectedParts={partsForThisTest} // Pass test-specific parts
+            checkpointHours={checkpointHours}
+            formKey={formKey}
+            timerState={timerState}
+            onTimerToggle={() => handleTimerToggle(formKey)}
+            croppedRegions={croppedRegions}
+        />
+    );
+};
+    // const renderImageUploadStage = () => {
+    //     // Get selected parts based on test mode
+    //     const getPartsArray = () => {
+    //         if (!currentRecord?.stage2?.selectedParts) return [];
+            
+    //         const selectedParts = currentRecord.stage2.selectedParts;
+            
+    //         // For single test mode - it's already an array
+    //         if (Array.isArray(selectedParts)) {
+    //             return selectedParts;
+    //         }
+            
+    //         // For multi test mode - it's an object, need to flatten
+    //         if (typeof selectedParts === 'object' && selectedParts !== null) {
+    //             // Get unique parts across all tests
+    //             const allParts = new Set<string>();
+    //             Object.values(selectedParts).forEach((parts: any) => {
+    //                 if (Array.isArray(parts)) {
+    //                     parts.forEach(part => allParts.add(part));
+    //                 }
+    //             });
+    //             return Array.from(allParts);
+    //         }
+            
+    //         return [];
+    //     };
+
+    //     const partsArray = getPartsArray();
+
+    //     return (
+    //         <div className="p-6">
+    //             <h2 className="text-2xl font-bold text-gray-800 mb-6">Step 1: Upload Images by Part</h2>
+
+    //             {/* Current Record Info */}
+    //             {currentRecord && (
+    //                 <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+    //                     <h3 className="font-semibold text-blue-800 mb-2">Current Test Record:</h3>
+    //                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+    //                         <div>
+    //                             <span className="text-gray-600">Ticket Code:</span>
+    //                             <div className="font-semibold">{currentRecord.ticketCode}</div>
+    //                         </div>
+    //                         <div>
+    //                             <span className="text-gray-600">Test Mode:</span>
+    //                             <div className="font-semibold">{currentRecord.stage2.testMode || 'single'}</div>
+    //                         </div>
+    //                         <div>
+    //                             <span className="text-gray-600">Process Stage:</span>
+    //                             <div className="font-semibold">{currentRecord.stage2.processStage}</div>
+    //                         </div>
+    //                         <div>
+    //                             <span className="text-gray-600">Parts:</span>
+    //                             <div className="font-semibold">{partsArray.length}</div>
+    //                         </div>
+    //                     </div>
+                        
+    //                     {/* Show test-specific parts for multi mode */}
+    //                     {currentRecord.stage2.testMode === 'multi' && typeof currentRecord.stage2.selectedParts === 'object' && (
+    //                         <div className="mt-4 pt-4 border-t border-blue-100">
+    //                             <h4 className="font-medium text-blue-700 mb-2">Test Distribution:</h4>
+    //                             {Object.entries(currentRecord.stage2.selectedParts).map(([testName, parts]) => (
+    //                                 <div key={testName} className="text-xs mb-1">
+    //                                     <span className="font-semibold text-blue-600">{testName}:</span>
+    //                                     <span className="ml-2 text-gray-600">{(parts as any[]).length} parts</span>
+    //                                 </div>
+    //                             ))}
+    //                         </div>
+    //                     )}
+    //                 </div>
+    //             )}
+
+    //             {/* Parts Image Upload Section */}
+    //             <div className="space-y-6">
+    //                 {partsArray.map((part, partIndex) => (
+    //                     <div key={part} className="bg-white rounded-lg border-2 border-gray-200 p-6 shadow-sm">
+    //                         <div className="flex items-center mb-4">
+    //                             <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mr-3">
+    //                                 <span className="font-semibold text-purple-600">{partIndex + 1}</span>
+    //                             </div>
+    //                             <div>
+    //                                 <h3 className="font-semibold text-gray-800">Part: {part}</h3>
+    //                                 <p className="text-xs text-gray-500">Upload separate images for this part</p>
+    //                             </div>
+    //                         </div>
+
+    //                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    //                             {/* Cosmetic Image for Part */}
+    //                             <div className="bg-gray-50 rounded-lg p-4">
+    //                                 <div className="flex items-center mb-3">
+    //                                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-2">
+    //                                         <Upload className="text-blue-600" size={16} />
+    //                                     </div>
+    //                                     <h4 className="font-medium text-gray-700">Cosmetic Image</h4>
+    //                                 </div>
+
+    //                                 <label className="flex flex-col items-center justify-center h-40 cursor-pointer border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-400 transition-colors bg-blue-50">
+    //                                     {sharedImagesByPart[part]?.cosmetic ? (
+    //                                         <div className="relative w-full h-full">
+    //                                             <img src={sharedImagesByPart[part].cosmetic!} alt={`Cosmetic ${part}`} className="w-full h-full object-contain p-2" />
+    //                                             <button
+    //                                                 onClick={(e) => {
+    //                                                     e.preventDefault();
+    //                                                     e.stopPropagation();
+    //                                                     clearImage(part, 'cosmetic');
+    //                                                 }}
+    //                                                 className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
+    //                                             >
+    //                                                 <X size={14} />
+    //                                             </button>
+    //                                         </div>
+    //                                     ) : (
+    //                                         <div className="text-center p-4">
+    //                                             <Upload className="mx-auto mb-2 text-blue-400" size={30} />
+    //                                             <span className="text-sm font-medium text-gray-700">Upload Cosmetic</span>
+    //                                             <span className="text-xs text-gray-500 block mt-1">For {part}</span>
+    //                                         </div>
+    //                                     )}
+    //                                     <input
+    //                                         type="file"
+    //                                         accept="image/*"
+    //                                         className="hidden"
+    //                                         onChange={(e) => e.target.files?.[0] && handleImageUpload(part, "cosmetic", e.target.files[0])}
+    //                                     />
+    //                                 </label>
+    //                             </div>
+
+    //                             {/* Non-Cosmetic Image for Part */}
+    //                             <div className="bg-gray-50 rounded-lg p-4">
+    //                                 <div className="flex items-center mb-3">
+    //                                     <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-2">
+    //                                         <Upload className="text-green-600" size={16} />
+    //                                     </div>
+    //                                     <h4 className="font-medium text-gray-700">Non-Cosmetic Image</h4>
+    //                                 </div>
+
+    //                                 <label className="flex flex-col items-center justify-center h-40 cursor-pointer border-2 border-dashed border-green-300 rounded-lg hover:border-green-400 transition-colors bg-green-50 relative">
+    //                                     {processing && (
+    //                                         <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center rounded-lg z-10">
+    //                                             <div className="text-white text-center">
+    //                                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+    //                                                 <span className="font-semibold text-xs">Processing...</span>
+    //                                             </div>
+    //                                         </div>
+    //                                     )}
+
+    //                                     {sharedImagesByPart[part]?.nonCosmetic ? (
+    //                                         <div className="relative w-full h-full">
+    //                                             <img src={sharedImagesByPart[part].nonCosmetic!} alt={`Non-Cosmetic ${part}`} className="w-full h-full object-contain p-2" />
+    //                                             <button
+    //                                                 onClick={(e) => {
+    //                                                     e.preventDefault();
+    //                                                     e.stopPropagation();
+    //                                                     clearImage(part, 'nonCosmetic');
+    //                                                 }}
+    //                                                 className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
+    //                                             >
+    //                                                 <X size={14} />
+    //                                             </button>
+    //                                         </div>
+    //                                     ) : (
+    //                                         <div className="text-center p-4">
+    //                                             <Upload className="mx-auto mb-2 text-green-400" size={30} />
+    //                                             <span className="text-sm font-medium text-gray-700">Upload Non-Cosmetic</span>
+    //                                             <span className="text-xs text-gray-500 block mt-1">For {part}</span>
+    //                                         </div>
+    //                                     )}
+    //                                     <input
+    //                                         type="file"
+    //                                         accept="image/*"
+    //                                         className="hidden"
+    //                                         onChange={(e) => e.target.files?.[0] && handleImageUpload(part, "nonCosmetic", e.target.files[0])}
+    //                                         disabled={processing || !cvLoaded}
+    //                                     />
+    //                                 </label>
+    //                             </div>
+    //                         </div>
+    //                     </div>
+    //                 ))}
+    //             </div>
+
+    //             <div className="flex justify-end mt-8">
+    //                 <button
+    //                     onClick={() => setCurrentStage(1)}
+    //                     disabled={partsArray.length === 0 || dynamicStages.length === 0}
+    //                     className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center font-semibold transition-colors"
+    //                 >
+    //                     Continue to Forms
+    //                     <ChevronRight size={20} className="ml-2" />
+    //                 </button>
+    //             </div>
+    //         </div>
+    //     );
+    // };
+
+    // Load OpenCV
+
+    // Add this helper function
+const getPartsForTest = (testName: string): string[] => {
+    if (!currentRecord?.stage2?.selectedParts) return [];
+    
+    const selectedParts = currentRecord.stage2.selectedParts;
+    
+    if (currentRecord.stage2.testMode === 'multi' && 
+        typeof selectedParts === 'object' &&
+        selectedParts[testName]) {
+        // Multi mode: Get parts for this specific test
+        return selectedParts[testName] as string[];
+    } else if (Array.isArray(selectedParts)) {
+        // Single mode: Use all parts
+        return selectedParts;
+    }
+    
+    return [];
+};
+ 
+    const renderImageUploadStage = () => {
+    // Helper to get all unique parts (for single mode or overview)
+    const getAllUniqueParts = () => {
+        if (!currentRecord?.stage2?.selectedParts) return [];
+        
+        const selectedParts = currentRecord.stage2.selectedParts;
+        
+        // For single test mode - it's already an array
+        if (Array.isArray(selectedParts)) {
+            return selectedParts;
+        }
+        
+        // For multi test mode - it's an object, need to flatten and get unique
+        if (typeof selectedParts === 'object' && selectedParts !== null) {
+            const allParts = new Set<string>();
+            Object.values(selectedParts).forEach((parts: any) => {
+                if (Array.isArray(parts)) {
+                    parts.forEach(part => allParts.add(part));
+                }
+            });
+            return Array.from(allParts);
+        }
+        
+        return [];
     };
 
+    const allUniqueParts = getAllUniqueParts();
 
-    const renderImageUploadStage = () => (
+    return (
         <div className="p-6">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Step 1: Upload Images by Part</h2>
 
@@ -1746,134 +2046,171 @@ export default function MultiStageTestForm() {
                             <div className="font-semibold">{currentRecord.ticketCode}</div>
                         </div>
                         <div>
-                            <span className="text-gray-600">Project:</span>
-                            <div className="font-semibold">{currentRecord.stage2.project}</div>
+                            <span className="text-gray-600">Test Mode:</span>
+                            <div className="font-semibold">{currentRecord.stage2.testMode || 'single'}</div>
                         </div>
                         <div>
                             <span className="text-gray-600">Process Stage:</span>
                             <div className="font-semibold">{currentRecord.stage2.processStage}</div>
                         </div>
                         <div>
-                            <span className="text-gray-600">Parts:</span>
-                            <div className="font-semibold">{selectedParts.length}</div>
+                            <span className="text-gray-600">Total Parts:</span>
+                            <div className="font-semibold">{allUniqueParts.length}</div>
                         </div>
                     </div>
+                    
+                    {/* Show test-specific parts for multi mode */}
+                    {currentRecord.stage2.testMode === 'multi' && typeof currentRecord.stage2.selectedParts === 'object' && (
+                        <div className="mt-4 pt-4 border-t border-blue-100">
+                            <h4 className="font-medium text-blue-700 mb-2">Test Distribution:</h4>
+                            {Object.entries(currentRecord.stage2.selectedParts).map(([testName, parts]) => (
+                                <div key={testName} className="text-xs mb-1">
+                                    <span className="font-semibold text-blue-600">{testName}:</span>
+                                    <span className="ml-2 text-gray-600">{(parts as any[]).length} parts</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 
             {/* Parts Image Upload Section */}
             <div className="space-y-6">
-                {selectedParts.map((part, partIndex) => (
-                    <div key={part} className="bg-white rounded-lg border-2 border-gray-200 p-6 shadow-sm">
-                        <div className="flex items-center mb-4">
-                            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mr-3">
-                                <span className="font-semibold text-purple-600">{partIndex + 1}</span>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-gray-800">Part: {part}</h3>
-                                <p className="text-xs text-gray-500">Upload separate images for this part</p>
-                            </div>
-                        </div>
+                {allUniqueParts.map((part, partIndex) => {
+                    // Find which tests this part belongs to (for multi mode)
+                    const testsForPart: string[] = [];
+                    if (currentRecord?.stage2?.testMode === 'multi' && 
+                        typeof currentRecord.stage2.selectedParts === 'object') {
+                        Object.entries(currentRecord.stage2.selectedParts).forEach(([testName, parts]) => {
+                            if ((parts as string[]).includes(part)) {
+                                testsForPart.push(testName);
+                            }
+                        });
+                    }
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Cosmetic Image for Part */}
-                            <div className="bg-gray-50 rounded-lg p-4">
-                                <div className="flex items-center mb-3">
-                                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-2">
-                                        <Upload className="text-blue-600" size={16} />
-                                    </div>
-                                    <h4 className="font-medium text-gray-700">Cosmetic Image</h4>
+                    return (
+                        <div key={part} className="bg-white rounded-lg border-2 border-gray-200 p-6 shadow-sm">
+                            <div className="flex items-center mb-4">
+                                <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mr-3">
+                                    <span className="font-semibold text-purple-600">{partIndex + 1}</span>
                                 </div>
-
-                                <label className="flex flex-col items-center justify-center h-40 cursor-pointer border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-400 transition-colors bg-blue-50">
-                                    {sharedImagesByPart[part]?.cosmetic ? (
-                                        <div className="relative w-full h-full">
-                                            <img src={sharedImagesByPart[part].cosmetic!} alt={`Cosmetic ${part}`} className="w-full h-full object-contain p-2" />
-                                            <button
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    clearImage(part, 'cosmetic');
-                                                }}
-                                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
-                                            >
-                                                <X size={14} />
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="text-center p-4">
-                                            <Upload className="mx-auto mb-2 text-blue-400" size={30} />
-                                            <span className="text-sm font-medium text-gray-700">Upload Cosmetic</span>
-                                            <span className="text-xs text-gray-500 block mt-1">For {part}</span>
-                                        </div>
-                                    )}
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={(e) => e.target.files?.[0] && handleImageUpload(part, "cosmetic", e.target.files[0])}
-                                    />
-                                </label>
-                            </div>
-
-                            {/* Non-Cosmetic Image for Part */}
-                            <div className="bg-gray-50 rounded-lg p-4">
-                                <div className="flex items-center mb-3">
-                                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-2">
-                                        <Upload className="text-green-600" size={16} />
-                                    </div>
-                                    <h4 className="font-medium text-gray-700">Non-Cosmetic Image</h4>
-                                </div>
-
-                                <label className="flex flex-col items-center justify-center h-40 cursor-pointer border-2 border-dashed border-green-300 rounded-lg hover:border-green-400 transition-colors bg-green-50 relative">
-                                    {processing && (
-                                        <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center rounded-lg z-10">
-                                            <div className="text-white text-center">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-                                                <span className="font-semibold text-xs">Processing...</span>
+                                <div className="flex-1">
+                                    <h3 className="font-semibold text-gray-800">Part: {part}</h3>
+                                    {testsForPart.length > 0 && (
+                                        <div className="mt-1">
+                                            <span className="text-xs font-medium text-gray-600">Assigned to:</span>
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                {testsForPart.map(testName => (
+                                                    <span key={testName} className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
+                                                        {testName}
+                                                    </span>
+                                                ))}
                                             </div>
                                         </div>
                                     )}
+                                </div>
+                            </div>
 
-                                    {sharedImagesByPart[part]?.nonCosmetic ? (
-                                        <div className="relative w-full h-full">
-                                            <img src={sharedImagesByPart[part].nonCosmetic!} alt={`Non-Cosmetic ${part}`} className="w-full h-full object-contain p-2" />
-                                            <button
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    clearImage(part, 'nonCosmetic');
-                                                }}
-                                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
-                                            >
-                                                <X size={14} />
-                                            </button>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Cosmetic Image for Part */}
+                                <div className="bg-gray-50 rounded-lg p-4">
+                                    <div className="flex items-center mb-3">
+                                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-2">
+                                            <Upload className="text-blue-600" size={16} />
                                         </div>
-                                    ) : (
-                                        <div className="text-center p-4">
-                                            <Upload className="mx-auto mb-2 text-green-400" size={30} />
-                                            <span className="text-sm font-medium text-gray-700">Upload Non-Cosmetic</span>
-                                            <span className="text-xs text-gray-500 block mt-1">For {part}</span>
+                                        <h4 className="font-medium text-gray-700">Cosmetic Image</h4>
+                                    </div>
+
+                                    <label className="flex flex-col items-center justify-center h-40 cursor-pointer border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-400 transition-colors bg-blue-50">
+                                        {sharedImagesByPart[part]?.cosmetic ? (
+                                            <div className="relative w-full h-full">
+                                                <img src={sharedImagesByPart[part].cosmetic!} alt={`Cosmetic ${part}`} className="w-full h-full object-contain p-2" />
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        clearImage(part, 'cosmetic');
+                                                    }}
+                                                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="text-center p-4">
+                                                <Upload className="mx-auto mb-2 text-blue-400" size={30} />
+                                                <span className="text-sm font-medium text-gray-700">Upload Cosmetic</span>
+                                                <span className="text-xs text-gray-500 block mt-1">For {part}</span>
+                                            </div>
+                                        )}
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={(e) => e.target.files?.[0] && handleImageUpload(part, "cosmetic", e.target.files[0])}
+                                        />
+                                    </label>
+                                </div>
+
+                                {/* Non-Cosmetic Image for Part */}
+                                <div className="bg-gray-50 rounded-lg p-4">
+                                    <div className="flex items-center mb-3">
+                                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-2">
+                                            <Upload className="text-green-600" size={16} />
                                         </div>
-                                    )}
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={(e) => e.target.files?.[0] && handleImageUpload(part, "nonCosmetic", e.target.files[0])}
-                                        disabled={processing || !cvLoaded}
-                                    />
-                                </label>
+                                        <h4 className="font-medium text-gray-700">Non-Cosmetic Image</h4>
+                                    </div>
+
+                                    <label className="flex flex-col items-center justify-center h-40 cursor-pointer border-2 border-dashed border-green-300 rounded-lg hover:border-green-400 transition-colors bg-green-50 relative">
+                                        {processing && (
+                                            <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center rounded-lg z-10">
+                                                <div className="text-white text-center">
+                                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                                                    <span className="font-semibold text-xs">Processing...</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {sharedImagesByPart[part]?.nonCosmetic ? (
+                                            <div className="relative w-full h-full">
+                                                <img src={sharedImagesByPart[part].nonCosmetic!} alt={`Non-Cosmetic ${part}`} className="w-full h-full object-contain p-2" />
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        clearImage(part, 'nonCosmetic');
+                                                    }}
+                                                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="text-center p-4">
+                                                <Upload className="mx-auto mb-2 text-green-400" size={30} />
+                                                <span className="text-sm font-medium text-gray-700">Upload Non-Cosmetic</span>
+                                                <span className="text-xs text-gray-500 block mt-1">For {part}</span>
+                                            </div>
+                                        )}
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={(e) => e.target.files?.[0] && handleImageUpload(part, "nonCosmetic", e.target.files[0])}
+                                            disabled={processing || !cvLoaded}
+                                        />
+                                    </label>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             <div className="flex justify-end mt-8">
                 <button
                     onClick={() => setCurrentStage(1)}
-                    disabled={selectedParts.length === 0 || dynamicStages.length === 0}
+                    disabled={allUniqueParts.length === 0 || dynamicStages.length === 0}
                     className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center font-semibold transition-colors"
                 >
                     Continue to Forms
@@ -1882,8 +2219,9 @@ export default function MultiStageTestForm() {
             </div>
         </div>
     );
+};
 
-    // Load OpenCV
+ 
     useEffect(() => {
         if (window.cv && window.cv.Mat) {
             setCvLoaded(true);

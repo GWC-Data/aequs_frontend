@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, ChevronLeft, ChevronRight, User, Shield, Activity } from "lucide-react";
@@ -10,51 +10,41 @@ interface Stage2Record {
   type: string;
   testName: string;
   testCondition: string;
-  quantity: string;
-  equipment: string;
   requiredQty: string;
-  projects: string[];
-  lines: string[];
-  selectedParts: string[];
+  equipment: string;
+  project: string;
   startTime: string;
   endTime: string;
   remark: string;
   submittedAt: string;
+  testMode?: "single" | "multi";
+  selectedParts?: any;
 }
 
 interface LocalStorageResponse {
   documentNumber: string;
-  documentTitle: string;
   projectName: string;
-  color: string;
-  testLocation: string;
   submissionDate: string;
-  sampleConfig: string;
   status: string;
   id: number;
   createdAt: string;
   stage2?: Stage2Record;
-  forms: any;
   completedAt: string;
-  sharedImages: any;
   quantity: string;
-  testCompletionDate: string;
-  completedTests: string[];
   detailsBox?: {
     project: string;
     batch: string;
-    totalQuantity?: number;
   };
+  ticketCode: string;
 }
-
 
 const PlanningModule = () => {
   const [userMode, setUserMode] = useState("admin");
   const [stage2Records, setStage2Records] = useState<LocalStorageResponse[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [editingMachine, setEditingMachine] = useState<any>(null);
   const [machineStatuses, setMachineStatuses] = useState<{ [key: string]: { [date: string]: string } }>({});
   const [editingCell, setEditingCell] = useState<{ machineKey: string, date: string } | null>(null);
+  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load stage2 records and machine statuses from localStorage
   useEffect(() => {
@@ -81,7 +71,7 @@ const PlanningModule = () => {
     return () => window.removeEventListener('storage', loadStage2Records);
   }, []);
 
-  // Generate days in the current month - For Admin: only past and current, For User: all days
+  // Generate days in the current month
   const monthDays = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -93,7 +83,6 @@ const PlanningModule = () => {
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
 
-      // For admin: only show past and current days
       if (userMode === "admin" && date > today) {
         continue;
       }
@@ -115,31 +104,52 @@ const PlanningModule = () => {
     stage2Records.forEach((record, index) => {
       if (record.stage2) {
         const stage2 = record.stage2;
+        
+        // Handle both single and multi test modes
+        if (stage2.testMode === "single") {
+          // Single test mode - simple split
+          const testNames = stage2.testName?.split(',').map(t => t.trim()) || [];
+          const equipment = stage2.equipment?.split(',').map(e => e.trim()) || [];
+          const testConditions = stage2.testCondition?.split(',').map(c => c.trim()) || [];
+          const requiredQtys = stage2.requiredQty?.split(',').map(q => q.trim()) || [];
 
-        // Split comma-separated values
-        const testNames = stage2.testName?.split(',').map(t => t.trim()) || [];
-        const equipment = stage2.equipment?.split(',').map(e => e.trim()) || [];
-        const testConditions = stage2.testCondition?.split(',').map(c => c.trim()) || [];
+          for (let i = 0; i < testNames.length; i++) {
+            data.push({
+              slNo: data.length + 1,
+              projectBuild: `${record.detailsBox?.project || "N/A"} - ${record.detailsBox?.batch || "N/A"}`,
+              testName: testNames[i] || "N/A",
+              testCondition: testConditions[i] || testConditions[0] || "RT",
+              qty: requiredQtys[i] || requiredQtys[0] || "N/A",
+              machineEquipment: equipment[i] || equipment[0] || "N/A",
+              startDate: stage2.startTime?.split('T')[0] || record.createdAt?.split('T')[0] || "",
+              endDate: stage2.endTime?.split('T')[0] || record.completedAt?.split('T')[0] || "",
+              status: record.status || "Scheduled",
+              documentNumber: record.ticketCode || record.id?.toString(),
+              stage2: stage2
+            });
+          }
+        } else {
+          // Multi test mode - handle comma-separated values
+          const testNames = stage2.testName?.split(',').map(t => t.trim()) || [];
+          const equipment = stage2.equipment?.split(',').map(e => e.trim()) || [];
+          const testConditions = stage2.testCondition?.split(',').map(c => c.trim()) || [];
+          const requiredQtys = stage2.requiredQty?.split(',').map(q => q.trim()) || [];
 
-        // Create a row for each test
-        const maxLength = Math.max(testNames.length, equipment.length);
-
-        for (let i = 0; i < maxLength; i++) {
-          data.push({
-            slNo: data.length + 1,
-            projectBuild: `${record.detailsBox?.project || "N/A"} - ${record.detailsBox?.batch || "N/A"}`,
-            testName: testNames[i] || testNames[0] || "N/A",
-            testCondition: testConditions[i] || testConditions[0] || "RT",
-            qty: stage2.requiredQty || "N/A",
-            machineEquipment: equipment[i] || equipment[0] || "N/A",
-            machineEquipment2: equipment[i + 1] || "",
-            durationOfTesting: "24",
-            startDate: record.submissionDate || record.createdAt?.split('T')[0] || "",
-            endDate: stage2.endTime?.split('T')[0] || record.completedAt?.split('T')[0] || "",
-            status: record.status || "Scheduled",
-            documentNumber: record.documentNumber
-          });
-
+          for (let i = 0; i < testNames.length; i++) {
+            data.push({
+              slNo: data.length + 1,
+              projectBuild: `${record.detailsBox?.project || "N/A"} - ${record.detailsBox?.batch || "N/A"}`,
+              testName: testNames[i] || "N/A",
+              testCondition: testConditions[i] || testConditions[0] || "RT",
+              qty: requiredQtys[i] || requiredQtys[0] || "N/A",
+              machineEquipment: equipment[i] || equipment[0] || "N/A",
+              startDate: stage2.startTime?.split('T')[0] || record.createdAt?.split('T')[0] || "",
+              endDate: stage2.endTime?.split('T')[0] || record.completedAt?.split('T')[0] || "",
+              status: record.status || "Scheduled",
+              documentNumber: record.ticketCode || record.id?.toString(),
+              stage2: stage2
+            });
+          }
         }
       }
     });
@@ -148,19 +158,210 @@ const PlanningModule = () => {
   }, [stage2Records]);
 
   // Check if a date falls within a task's range
-  const isDateInRange = (dateStr: string, startDate: string, endDate: string) => {
-    if (!startDate || !endDate) return false;
+  const isDateInRange = (dateStr: string, startTime: string, endTime: string) => {
+    if (!startTime || !endTime) return false;
+    
     const date = new Date(dateStr);
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    
     // Set to start/end of day for proper comparison
     date.setHours(0, 0, 0, 0);
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
+    
     return date >= start && date <= end;
   };
 
-  // Get cell color based on status and position
+  // Build machine status data
+  const machineStatusData = useMemo(() => {
+    const machines: any[] = [];
+
+    flaskData.forEach((item: FlaskItem, index: number) => {
+      const machineKey = `${item.equipment}-${item.testName}`;
+
+      // Find matching records for this machine
+      const matchingRecords = stage2Records.filter(record => {
+        if (!record.stage2) return false;
+        const stage2 = record.stage2;
+        
+        // Handle both single and multi modes
+        const storedTestNames = stage2.testName?.split(',').map(t => t.trim()) || [];
+        const storedEquipment = stage2.equipment?.split(',').map(e => e.trim()) || [];
+        
+        const testNameMatch = storedTestNames.some(name => name === item.testName?.trim());
+        const equipmentMatch = storedEquipment.some(eq => eq === item.equipment?.trim());
+        
+        return testNameMatch && equipmentMatch;
+      });
+
+      // Check which records are currently occupying this machine
+      const occupiedRecords = matchingRecords.filter(r => {
+        if (!r.stage2) return false;
+        // Occupied if status is Received or In Progress AND time range includes current date
+        const isStatusOccupied = r.status === "Received" || r.status === "In Progress" || r.status === "Scheduled";
+        if (!isStatusOccupied) return false;
+        
+        // For each day in the month, check if this record occupies the machine
+        return monthDays.some(day => {
+          return r.stage2?.startTime && r.stage2?.endTime && 
+                 isDateInRange(day.dateStr, r.stage2.startTime, r.stage2.endTime);
+        });
+      });
+
+      const isOccupied = occupiedRecords.length > 0;
+
+      // Get overall status for the machine
+      let overallStatus = "Occupied";
+
+      if (isOccupied) {
+        overallStatus = "Occupied";
+      } else if (machineStatuses[machineKey]) {
+        // Check if admin has set any status
+        const dateStatuses = Object.values(machineStatuses[machineKey] || {});
+        if (dateStatuses.length > 0) {
+          const statusCounts: { [key: string]: number } = {};
+          dateStatuses.forEach((s: string) => {
+            statusCounts[s] = (statusCounts[s] || 0) + 1;
+          });
+
+          const mostFrequent = Object.keys(statusCounts).reduce((a, b) =>
+            statusCounts[a] > statusCounts[b] ? a : b
+          );
+          overallStatus = mostFrequent;
+        }
+      }
+
+      // Check if there are any records at all for this machine
+      if (matchingRecords.length === 0 && !machineStatuses[machineKey]) {
+        overallStatus = "Available";
+      }
+
+      machines.push({
+        slNo: index + 1,
+        machineKey: machineKey,
+        equipment: item.equipment,
+        processStage: item.processStage,
+        type: item.type,
+        testName: item.testName,
+        testCondition: item.testCondition,
+        requiredQty: item.requiredQty,
+        status: overallStatus,
+        currentProject: occupiedRecords[0]?.detailsBox?.project || "-",
+        documentNumber: occupiedRecords[0]?.ticketCode || "",
+        allMatchingRecords: matchingRecords
+      });
+    });
+
+    return machines;
+  }, [stage2Records, machineStatuses, monthDays]);
+
+  // Check machine status for a specific date
+  const getMachineStatusForDate = (machine: any, dateStr: string) => {
+    const today = new Date(dateStr);
+    today.setHours(0, 0, 0, 0);
+
+    // Check all matching records for occupancy on this specific date
+    for (const record of machine.allMatchingRecords || []) {
+      if (record.stage2?.startTime && record.stage2?.endTime) {
+        const startDate = new Date(record.stage2.startTime);
+        const endDate = new Date(record.stage2.endTime);
+
+        // Check if today is within the occupied range
+        if (today >= startDate && today <= endDate) {
+          // Check if the record status indicates occupancy
+          if (record.status === "Received" || record.status === "In Progress" || record.status === "Scheduled") {
+            return {
+              status: "Occupied",
+              record,
+              isOccupiedByRecord: true
+            };
+          }
+        }
+      }
+    }
+
+    // Check if admin has manually set a status for this date
+    if (machineStatuses[machine.machineKey] && machineStatuses[machine.machineKey][dateStr]) {
+      return {
+        status: machineStatuses[machine.machineKey][dateStr],
+        record: null,
+        isOccupiedByRecord: false
+      };
+    }
+
+    // Default to Available if no record occupies it and no admin status set
+    // But if there are no records at all, it's Idle
+    if (machine.allMatchingRecords.length === 0) {
+      return {
+        status: "Available",
+        record: null,
+        isOccupiedByRecord: false
+      };
+    }
+
+    return {
+      status: "Occupied",
+      record: null,
+      isOccupiedByRecord: false
+    };
+  };
+
+  const handleCellStatusChange = (machineKey: string, date: string, newStatus: string) => {
+    const updatedStatuses = { ...machineStatuses };
+
+    if (!updatedStatuses[machineKey]) {
+      updatedStatuses[machineKey] = {};
+    }
+
+    if (newStatus === "Available") {
+      updatedStatuses[machineKey][date] = "Available";
+    } else if (newStatus === "Idle") {
+      updatedStatuses[machineKey][date] = "Idle";
+    }
+
+    setMachineStatuses(updatedStatuses);
+    localStorage.setItem('machineStatuses', JSON.stringify(updatedStatuses));
+    setEditingCell(null);
+  };
+
+  // Fix for edit icon click bug
+  const handleCellClick = (machineKey: string, date: string, isOccupiedByRecord: boolean) => {
+    if (isOccupiedByRecord) return;
+    
+    // Clear any existing timeout
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current);
+    }
+    
+    // Set editing cell immediately
+    setEditingCell({ machineKey, date });
+  };
+
+  const handleSelectBlur = () => {
+    // Small delay to prevent immediate closing
+    clickTimeoutRef.current = setTimeout(() => {
+      setEditingCell(null);
+    }, 100);
+  };
+
+  const getMachineCellColor = (status: string, isOccupiedByRecord?: boolean) => {
+    if (isOccupiedByRecord) {
+      return "bg-red-500";
+    }
+
+    switch (status) {
+      case "Occupied":
+        return "bg-red-400";
+      case "Available":
+        return "bg-green-400";
+      case "Idle":
+        return "bg-blue-400";
+      default:
+        return "bg-gray-400";
+    }
+  };
+
   const getCellColor = (dateStr: string, startDate: string, endDate: string, status: string) => {
     if (!isDateInRange(dateStr, startDate, endDate)) return "";
 
@@ -177,80 +378,6 @@ const PlanningModule = () => {
         return "bg-gray-400";
     }
   };
-
-  // Build machine status data
-  const machineStatusData = useMemo(() => {
-    const machines: any[] = [];
-
-    flaskData.forEach((item: FlaskItem, index: number) => {
-      const machineKey = `${item.equipment}-${item.testName}`;
-
-      // Find matching records in localStorage for this specific test
-      const matchingRecords = stage2Records.filter(record => {
-        const stage2 = record.stage2;
-        if (!stage2) return false;
-
-        const storedTestNames = stage2.testName?.split(',').map(t => t.trim()) || [];
-        const storedEquipment = stage2.equipment?.split(',').map(e => e.trim()) || [];
-        const storedTypes = stage2.type?.split(',').map(t => t.trim()) || [];
-
-        const testNameMatch = storedTestNames.some(name => name === item.testName?.trim());
-        const equipmentMatch = storedEquipment.some(eq => eq === item.equipment?.trim());
-        const typeMatch = storedTypes.some(type => type === item.type?.trim());
-
-        return testNameMatch && equipmentMatch && typeMatch;
-      });
-
-      // Check status - only "Received" or "In Progress" = Occupied
-      const occupiedRecords = matchingRecords.filter(r =>
-        r.status === "Received" || r.status === "In Progress" || r.status === "Scheduled"
-      );
-      const completedRecords = matchingRecords.filter(r => r.status === "Completed");
-
-      const isOccupied = occupiedRecords.length > 0;
-      const hasCompleted = completedRecords.length > 0;
-
-      // Get overall status for the machine
-      let overallStatus = "Available"; // Default to Available
-
-      if (isOccupied) {
-        overallStatus = "Occupied";
-      } else if (machineStatuses[machineKey]) {
-        // Check if admin has set any status
-        const dateStatuses = Object.values(machineStatuses[machineKey] || {});
-        if (dateStatuses.length > 0) {
-          // Get the most common status
-          const statusCounts: { [key: string]: number } = {};
-          dateStatuses.forEach((s: string) => {
-            statusCounts[s] = (statusCounts[s] || 0) + 1;
-          });
-
-          const mostFrequent = Object.keys(statusCounts).reduce((a, b) =>
-            statusCounts[a] > statusCounts[b] ? a : b
-          );
-          overallStatus = mostFrequent;
-        }
-      }
-
-      machines.push({
-        slNo: index + 1,
-        machineKey: machineKey,
-        equipment: item.equipment,
-        processStage: item.processStage,
-        type: item.type,
-        testName: item.testName,
-        testCondition: item.testCondition,
-        requiredQty: item.requiredQty,
-        status: overallStatus,
-        currentProject: occupiedRecords[0]?.projectName || "-",
-        documentNumber: occupiedRecords[0]?.documentNumber || "",
-        occupiedRecords: occupiedRecords,
-        allMatchingRecords: matchingRecords // Store all records for date checks
-      });
-    });
-
-    return machines;
-  }, [stage2Records, machineStatuses]);
 
   const refreshStage2Records = () => {
     try {
@@ -274,104 +401,6 @@ const PlanningModule = () => {
 
   const nextMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
-  };
-
-  const handleCellStatusChange = (machineKey: string, date: string, newStatus: string) => {
-    const updatedStatuses = { ...machineStatuses };
-
-    // First check if this date is occupied by any record
-    const machine = machineStatusData.find(m => m.machineKey === machineKey);
-    if (machine) {
-      const { isOccupiedByRecord } = getMachineStatusForDate(machine, date);
-      if (isOccupiedByRecord && newStatus !== "Occupied") {
-        alert("Cannot change status - This date is occupied by a scheduled test!");
-        setEditingCell(null);
-        return;
-      }
-    }
-
-    if (!updatedStatuses[machineKey]) {
-      updatedStatuses[machineKey] = {};
-    }
-
-    if (newStatus === "Available") {
-      updatedStatuses[machineKey][date] = "Available";
-    } else if (newStatus === "Idle") {
-      updatedStatuses[machineKey][date] = "Idle";
-    } else if (newStatus === "Occupied") {
-      // Can only be Occupied by records, not manually set
-      alert("Occupied status is automatically determined by test schedules");
-      setEditingCell(null);
-      return;
-    }
-
-    setMachineStatuses(updatedStatuses);
-    localStorage.setItem('machineStatuses', JSON.stringify(updatedStatuses));
-    setEditingCell(null);
-  };
-
-  // Check machine status for a specific date
-  const getMachineStatusForDate = (machine: any, dateStr: string) => {
-    const today = new Date(dateStr);
-    today.setHours(0, 0, 0, 0);
-
-    // Check all matching records for occupancy on this specific date
-    for (const record of machine.allMatchingRecords || []) {
-      if (record.stage2 && record.stage2.startTime && record.stage2.endTime) {
-        const startDate = new Date(record.stage2.startTime);
-        const endDate = new Date(record.stage2.endTime);
-
-        // Set times for proper comparison
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
-
-        // Check if today is within the occupied range
-        if (today >= startDate && today <= endDate) {
-          // Check if the record status indicates occupancy
-          if (record.status === "Received" || record.status === "In Progress" || record.status === "Scheduled") {
-            return {
-              status: "Occupied",
-              record,
-              isOccupiedByRecord: true // Flag to indicate record-based occupancy
-            };
-          }
-        }
-      }
-    }
-
-    // Check if admin has manually set a status for this date
-    if (machineStatuses[machine.machineKey] && machineStatuses[machine.machineKey][dateStr]) {
-      return {
-        status: machineStatuses[machine.machineKey][dateStr],
-        record: null,
-        isOccupiedByRecord: false
-      };
-    }
-
-    // Default to Available if no record occupies it and no admin status set
-    return {
-      status: "Available",
-      record: null,
-      isOccupiedByRecord: false
-    };
-  };
-
-  // Get background color for machine status cell
-  const getMachineCellColor = (status: string, isOccupiedByRecord?: boolean) => {
-    if (isOccupiedByRecord) {
-      return "bg-red-500"; // Darker red for record-based occupancy
-    }
-
-    switch (status) {
-      case "Occupied":
-        return "bg-red-400";
-      case "Available":
-        return "bg-green-400";
-      case "Idle":
-        return "bg-blue-400";
-      default:
-        return "bg-gray-400";
-    }
   };
 
   return (
@@ -506,40 +535,34 @@ const PlanningModule = () => {
                               <td
                                 key={day.dateStr}
                                 className={`border border-gray-300 p-0 ${cellColor} relative group`}
-                                title={`${status}: ${machine.equipment} - ${machine.testName}${record ? ` (${record.projectName})` : ''}`}
-                                onClick={(e) => {
-                                  // ONLY allow editing if NOT occupied by a record
-                                  if (!isOccupiedByRecord) {
-                                    e.stopPropagation();
-                                    setEditingCell({ machineKey: machine.machineKey, date: day.dateStr });
-                                  }
-                                }}
+                                title={`${status}: ${machine.equipment} - ${machine.testName}${record ? ` (${record.detailsBox?.project})` : ''}`}
+                                onClick={() => handleCellClick(machine.machineKey, day.dateStr, isOccupiedByRecord)}
                               >
                                 {isEditing ? (
                                   <select
-                                    className="w-full h-full text-[10px] border-0 p-1"
-                                    value={status}
+                                    className="w-full h-full text-[10px] border-0 p-1 appearance-none bg-white"
+                                    value={status === "Occupied" ? "Available" : status}
                                     onChange={(e) => handleCellStatusChange(machine.machineKey, day.dateStr, e.target.value)}
-                                    onBlur={() => setEditingCell(null)}
+                                    onBlur={handleSelectBlur}
                                     autoFocus
+                                    onClick={(e) => e.stopPropagation()}
                                   >
                                     <option value="Available">Available</option>
                                     <option value="Idle">Idle</option>
-                                    <option value="Occupied" disabled>Occupied (Auto)</option>
                                   </select>
                                 ) : (
-                                  <div className="h-6 w-full flex items-center justify-center">
+                                  <div className="h-6 w-full flex items-center justify-center cursor-pointer">
                                     {status === "Occupied" ? (
                                       <div className="flex flex-col items-center">
                                         <span className="text-[10px] font-bold text-white">●</span>
                                         {record && (
                                           <span className="text-[8px] text-white bg-black bg-opacity-50 px-0.5 rounded mt-0.5">
-                                            {record.documentNumber?.slice(-4)}
+                                            {record.ticketCode?.slice(-4) || record.id}
                                           </span>
                                         )}
                                       </div>
                                     ) : (
-                                      <span className={`text-[10px] text-white bg-black bg-opacity-50 px-1 rounded opacity-0 group-hover:opacity-100 ${isOccupiedByRecord ? 'hidden' : ''}`}>
+                                      <span className={`text-[10px] text-white bg-black bg-opacity-50 px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${isOccupiedByRecord ? 'hidden' : ''}`}>
                                         ✏️
                                       </span>
                                     )}
@@ -580,13 +603,13 @@ const PlanningModule = () => {
           </Card>
         )}
 
-        {/* Month Navigation */}
+        {/* Month Navigation and Schedule Timeline */}
         <Card className="shadow-sm rounded-xl">
           <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-blue-600" />
-                {userMode === "admin" ? "Machine Availability" : "Schedule Timeline (All Days)"}
+                {userMode === "admin" ? "Schedule Timeline (Past & Current Days)" : "Schedule Timeline (All Days)"}
               </CardTitle>
               <div className="flex items-center gap-4">
                 <Button variant="outline" size="sm" onClick={refreshStage2Records}>
@@ -614,6 +637,10 @@ const PlanningModule = () => {
                 <span className="text-sm text-gray-700">Scheduled</span>
               </div>
               <div className="flex items-center gap-2">
+                <div className="w-6 h-4 bg-yellow-400 border border-gray-300"></div>
+                <span className="text-sm text-gray-700">Received</span>
+              </div>
+              <div className="flex items-center gap-2">
                 <div className="w-6 h-4 bg-orange-400 border border-gray-300"></div>
                 <span className="text-sm text-gray-700">In Progress</span>
               </div>
@@ -634,8 +661,6 @@ const PlanningModule = () => {
                     <th className="border border-gray-400 p-2 min-w-[100px]">Test Condition</th>
                     <th className="border border-gray-400 p-2 min-w-[60px]">Qty</th>
                     <th className="border border-gray-400 p-2 min-w-[120px]">Machine / Equipment</th>
-                    <th className="border border-gray-400 p-2 min-w-[120px]">Machine / Equipment_2</th>
-                    <th className="border border-gray-400 p-2 min-w-[80px]">Duration of testing</th>
                     <th className="border border-gray-400 p-2 min-w-[100px] bg-cyan-600">Start date</th>
                     <th className="border border-gray-400 p-2 min-w-[100px] bg-cyan-600">End date</th>
                     {monthDays.map((day) => (
@@ -659,8 +684,6 @@ const PlanningModule = () => {
                         <td className="border border-gray-300 p-2">{row.testCondition}</td>
                         <td className="border border-gray-300 p-2 text-center">{row.qty}</td>
                         <td className="border border-gray-300 p-2">{row.machineEquipment}</td>
-                        <td className="border border-gray-300 p-2">{row.machineEquipment2}</td>
-                        <td className="border border-gray-300 p-2 text-center">{row.durationOfTesting}</td>
                         <td className="border border-gray-300 p-2 text-center bg-cyan-100">{row.startDate}</td>
                         <td className="border border-gray-300 p-2 text-center bg-cyan-100">{row.endDate}</td>
                         {monthDays.map((day) => {
@@ -679,7 +702,7 @@ const PlanningModule = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={10 + monthDays.length} className="border border-gray-300 p-8 text-center text-gray-500">
+                      <td colSpan={8 + monthDays.length} className="border border-gray-300 p-8 text-center text-gray-500">
                         No scheduled tests found. Please add test records in localStorage.
                       </td>
                     </tr>
@@ -696,11 +719,16 @@ const PlanningModule = () => {
                   {scheduleData.filter(r => r.status === "Scheduled").length}
                 </div>
               </div>
-
+              <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                <div className="text-sm text-gray-600">Received</div>
+                <div className="text-2xl font-bold text-yellow-600">
+                  {scheduleData.filter(r => r.status === "Received").length}
+                </div>
+              </div>
               <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
                 <div className="text-sm text-gray-600">In Progress</div>
                 <div className="text-2xl font-bold text-orange-600">
-                  {scheduleData.filter(r => r.status === "Received").length}
+                  {scheduleData.filter(r => r.status === "In Progress").length}
                 </div>
               </div>
               <div className="bg-pink-50 p-3 rounded-lg border border-pink-200">

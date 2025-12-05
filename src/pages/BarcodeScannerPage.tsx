@@ -268,14 +268,15 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
 
       const totalQuantity = getTotalQuantity();
       const alreadyAssignedParts = storedEntries.reduce((total, entry) => total + entry.totalParts, 0);
-      const remainingQuantity = totalQuantity - alreadyAssignedParts;
+      const currentScannedParts = scannedBarcode ? scannedBarcode.partNumbers.length : 0;
+      const remainingQuantity = totalQuantity - alreadyAssignedParts - currentScannedParts;
       
       if (remainingQuantity <= 0) {
         toast({
           variant: "destructive",
           title: "Quantity Limit Reached",
-          description: `All ${totalQuantity} parts have already been assigned to this ticket.`,
-          duration: 3000,
+          description: `Cannot scan more parts. Remaining parts: 0. Please submit current scan first or reduce scanned parts.`,
+          duration: 4000,
         });
         return;
       }
@@ -305,6 +306,17 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       }));
 
       if (scannedBarcode && scannedBarcode.serialNumber === serialNumber) {
+        // Check if adding this part would exceed the limit
+        if (remainingQuantity < 1) {
+          toast({
+            variant: "destructive",
+            title: "Cannot Add More Parts",
+            description: `Remaining quantity: ${remainingQuantity}. Cannot add another part. Please submit current scan first.`,
+            duration: 4000,
+          });
+          return;
+        }
+
         // Same serial - add the new part to existing parts
         const newBarcode: ScannedBarcode = {
           serialNumber,
@@ -315,7 +327,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
         
         toast({
           title: "Part Added",
-          description: `Added ${nextPart} (Part ${currentIndex + 1} of ${partNumbers.length}) to serial ${serialNumber}`,
+          description: `Added ${nextPart} (Part ${currentIndex + 1} of ${partNumbers.length}) to serial ${serialNumber}. Remaining: ${remainingQuantity - 1}`,
           duration: 2000,
         });
       } else if (scannedBarcode && scannedBarcode.serialNumber !== serialNumber) {
@@ -353,16 +365,17 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
         
         toast({
           title: "Part Scanned",
-          description: `Scanned ${nextPart} (Part ${currentIndex + 1} of ${partNumbers.length}) from serial ${serialNumber}`,
+          description: `Scanned ${nextPart} (Part ${currentIndex + 1} of ${partNumbers.length}) from serial ${serialNumber}. Remaining: ${remainingQuantity - 1}`,
           duration: 2000,
         });
       }
 
-      const newTotalAssigned = alreadyAssignedParts + partsToUse.length;
+      const currentScannedTotal = (scannedBarcode?.partNumbers.length || 0) + partsToUse.length;
+      const newTotalAssigned = alreadyAssignedParts + currentScannedTotal;
       if (newTotalAssigned >= totalQuantity) {
         toast({
           title: "✅ Ticket Requirement Met!",
-          description: `All ${totalQuantity} parts have been assigned to ticket ${getTicketCode()}`,
+          description: `All ${totalQuantity} parts have been assigned to ticket ${getTicketCode()}. Please submit now.`,
           duration: 4000,
         });
       }
@@ -648,8 +661,9 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   };
 
   const assignedParts = storedEntries.reduce((total, entry) => total + entry.totalParts, 0);
+  const currentScannedParts = scannedBarcode ? scannedBarcode.partNumbers.length : 0;
   const totalQuantity = getTotalQuantity();
-  const remainingParts = Math.max(0, totalQuantity - assignedParts);
+  const remainingParts = Math.max(0, totalQuantity - assignedParts - currentScannedParts);
 
   if (!currentTicket) {
     return (
@@ -705,8 +719,12 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
               <div className="font-bold text-lg text-green-600">{assignedParts}</div>
             </div>
             <div>
-              <div className="text-sm font-medium text-blue-700">Remaining</div>
-              <div className={`font-bold text-lg ${remainingParts > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+              <div className="text-sm font-medium text-blue-700">Current Scan</div>
+              <div className="font-bold text-lg text-purple-600">{currentScannedParts}</div>
+            </div>
+            <div className="md:col-span-4">
+              <div className="text-sm font-medium text-blue-700">Remaining to Scan</div>
+              <div className={`font-bold text-2xl ${remainingParts > 0 ? 'text-orange-600' : 'text-green-600'}`}>
                 {remainingParts}
               </div>
             </div>
@@ -752,7 +770,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                       size="sm"
                       onClick={() => testWithStaticBarcode(serialNumber)}
                       className="text-xs font-mono"
-                      disabled={disabled || assignedParts >= totalQuantity || currentIndex >= totalParts}
+                      disabled={disabled || remainingParts <= 0 || currentIndex >= totalParts}
                     >
                       {serialNumber} ({currentIndex}/{totalParts})
                     </Button>
@@ -839,7 +857,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
               <div className="pt-6 border-t">
                 <Button
                   onClick={handleSubmit}
-                  disabled={isSubmitting || !scannedBarcode || assignedParts >= totalQuantity}
+                  disabled={isSubmitting || !scannedBarcode || remainingParts < 0}
                   className="w-40 bg-green-600 hover:bg-green-700 text-white py-6 text-lg font-medium"
                   size="lg"
                 >
@@ -852,7 +870,8 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                     <>
                       <Save className="mr-3 h-5 w-5" />
                       Submit
-                    </>                  )}
+                    </>
+                  )}
                 </Button>
               </div>
             )}
