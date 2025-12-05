@@ -55,7 +55,7 @@ interface StoredBarcodeData {
 }
 
 const STATIC_BARCODE_DATA = [
-  "SN001:PART001,PART002,PART003,PART004,PART005,PART006,PART007,PART008,PART009,PART010,PART011,PART012,PART013,PART014,PART015,PART016,PART017,PART018,PART019,PART020"
+  "SN001"
 ];
 
 const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
@@ -179,17 +179,16 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     let partNumbers: string[] = [];
 
     const staticBarcode = STATIC_BARCODE_DATA.find(barcode =>
-      barcode.split(':')[0] === data.toUpperCase()
+      barcode === data.toUpperCase()
     );
 
     if (staticBarcode) {
-      const parts = staticBarcode.split(':');
-      serialNumber = parts[0].trim();
-      if (parts.length > 1) {
-        partNumbers = parts[1].split(',')
-          .map(p => p.trim())
-          .filter(p => p.length > 0);
-      }
+      serialNumber = staticBarcode.trim();
+      // Generate dynamic part numbers based on total quantity
+      const totalQuantity = getTotalQuantity();
+      partNumbers = Array.from({ length: totalQuantity }, (_, i) => 
+        `PART${String(i + 1).padStart(3, '0')}`
+      );
     }
     else if (data.includes(':') && data.includes(',')) {
       const parts = data.split(':');
@@ -481,7 +480,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const simulateCameraScan = () => {
     if (disabled || !currentTicket) return;
     
-    const testBarcode = STATIC_BARCODE_DATA[0].split(':')[0];
+    const testBarcode = STATIC_BARCODE_DATA[0];
     processBarcode(testBarcode);
   };
 
@@ -759,9 +758,9 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
               </Label>
               <div className="flex flex-wrap gap-2">
                 {STATIC_BARCODE_DATA.map((barcode, index) => {
-                  const serialNumber = barcode.split(':')[0];
+                  const serialNumber = barcode;
                   const currentIndex = serialPartIndex[serialNumber] || 0;
-                  const totalParts = barcode.split(':')[1]?.split(',').length || 0;
+                  const totalParts = getTotalQuantity();
                   
                   return (
                     <Button
@@ -832,20 +831,8 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                       onClick={() => copyToClipboard(partNumber)}
                       className="w-full p-3 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg transition-all hover:shadow-sm text-left group"
                     >
-                      <div className="flex justify-between items-center mb-1">
-                        <div className="font-mono text-sm font-medium truncate">
-                          {partNumber}
-                        </div>
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                          {copiedPart === partNumber ? (
-                            <Check className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <Copy className="h-4 w-4 text-gray-400" />
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Part {index + 1}
+                      <div className="text-xs text-gray-500 font-mono">
+                        {partNumber}
                       </div>
                     </button>
                   </div>
