@@ -8,7 +8,7 @@ import { toast } from '@/components/ui/use-toast';
 import { ArrowLeft, X } from 'lucide-react';
 import DateTimePicker from '@/components/DatePicker';
 import { flaskData } from '@/data/flaskData';
- 
+
 interface TestRecord {
   ticketCode: string;
   documentTitle: string;
@@ -22,7 +22,7 @@ interface TestRecord {
   id: number;
   createdAt: string;
 }
- 
+
 interface OqcRecord {
   ticketCode: string;
   totalQuantity: string;
@@ -48,7 +48,7 @@ interface OqcRecord {
   assignedParts?: number;
   lastUpdated?: string;
 }
- 
+
 interface ORTLabRecord {
   ticketCode: string;
   documentTitle: string;
@@ -78,7 +78,7 @@ interface ORTLabRecord {
     submittedAt: string;
   };
 }
- 
+
 const Stage2FormPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -87,7 +87,7 @@ const Stage2FormPage: React.FC = () => {
   const [filteredData, setFilteredData] = useState<typeof flaskData>([]);
   const [availableTestNames, setAvailableTestNames] = useState<string[]>([]);
   const [ortLabRecords, setOrtLabRecords] = useState<ORTLabRecord[]>([]);
- 
+
   useEffect(() => {
     const stored = localStorage.getItem("stage1TableData");
     if (stored) {
@@ -99,12 +99,12 @@ const Stage2FormPage: React.FC = () => {
       }
     }
   }, []);
- 
+
   // Fetch OQC data and auto-populate project, line, parts on mount
   const [oqcDataLoaded, setOqcDataLoaded] = useState(false);
   const [totalQuantity, setTotalQuantity] = useState(50);
   const [barcodeAssignments, setBarcodeAssignments] = useState<any[]>([]);
- 
+
   const [stage2Form, setStage2Form] = useState({
     processStage: [] as string[],
     type: [] as string[],
@@ -122,66 +122,73 @@ const Stage2FormPage: React.FC = () => {
     partAssignments: {} as { [testName: string]: string[] },
     ticketCode: selectedRecord?.ticketCode || "TICKET-001"
   });
- 
-  // 🔥 Load Barcode Assignments and populate project, line, parts
+
+  //Load Barcode Assignments and populate project, line, parts
   useEffect(() => {
     if (!selectedRecord?.ticketCode) return;
- 
+
     const ticketCode = selectedRecord.ticketCode;
-    
+
     // Load OQC Records
     const oqcDataStr = localStorage.getItem("testRecords");
     const oqcRecords: OqcRecord[] = oqcDataStr ? JSON.parse(oqcDataStr) : [];
     console.log("OQC Records:", oqcRecords);
     const oqcMatch = oqcRecords.find(rec => rec.ticketCode === ticketCode);
- 
+
     // Load Barcode Assignments from ticketBarcodeAssignments
     const barcodeDataStr = localStorage.getItem("ticketBarcodeAssignments");
     const allBarcodeAssignments = barcodeDataStr ? JSON.parse(barcodeDataStr) : [];
     console.log("All Barcode Assignments:", allBarcodeAssignments);
-    
+
     // Filter barcode assignments for this ticket - match ticketCode
     const ticketBarcodeAssignments = allBarcodeAssignments.filter(
       (assignment: any) => assignment.ticketCode === ticketCode
     );
     console.log("Matching Barcode Assignments for ticket:", ticketCode, ticketBarcodeAssignments);
-    
-    setBarcodeAssignments(ticketBarcodeAssignments);
- 
+
+    // 🔥 FIX: Get only the MOST RECENT submitted barcode assignment
+    const submittedAssignments = ticketBarcodeAssignments
+      .filter((assignment: any) => assignment.submitted === true)
+      .sort((a: any, b: any) => new Date(b.submittedAt || b.timestamp).getTime() - new Date(a.submittedAt || a.timestamp).getTime());
+
+    const latestSubmission = submittedAssignments.length > 0 ? [submittedAssignments[0]] : [];
+
+    console.log("Latest Submitted Assignment:", latestSubmission);
+    setBarcodeAssignments(latestSubmission);
+
     let project = "";
     let lines: string[] = [];
     let allParts: string[] = [];
     let totalPartsCount = 0;
- 
+
     if (oqcMatch) {
       project = oqcMatch.project || "";
       lines = [oqcMatch.source || ""];
     }
- 
-    // Collect ALL parts from ALL barcode assignments for this ticket (NO unique filter)
-    if (ticketBarcodeAssignments.length > 0) {
-      ticketBarcodeAssignments.forEach((assignment: any) => {
-        if (Array.isArray(assignment.partNumbers)) {
-          assignment.partNumbers.forEach((part: string) => {
-            if (typeof part === 'string' && part.trim() !== '') {
-              // Convert "PART001" → "Part 001", keep others as-is
-              const match = part.match(/^PART(\d+)$/i);
-              let displayPart = part;
-              if (match) {
-                const num = parseInt(match[1], 10);
-                displayPart = `Part ${String(num).padStart(3, '0')}`;
-              }
-              allParts.push(displayPart);
+
+    // Collect parts from ONLY the latest submitted barcode assignment
+    if (latestSubmission.length > 0) {
+      const assignment = latestSubmission[0];
+      if (Array.isArray(assignment.partNumbers)) {
+        assignment.partNumbers.forEach((part: string) => {
+          if (typeof part === 'string' && part.trim() !== '') {
+            // Convert "PART001" → "Part 001", keep others as-is
+            const match = part.match(/^PART(\d+)$/i);
+            let displayPart = part;
+            if (match) {
+              const num = parseInt(match[1], 10);
+              displayPart = `Part ${String(num).padStart(3, '0')}`;
             }
-          });
-          totalPartsCount += assignment.totalParts || 0;
-        }
-      });
-      
-      console.log("All Parts (with duplicates):", allParts);
+            allParts.push(displayPart);
+          }
+        });
+        totalPartsCount = assignment.totalParts || 0;
+      }
+
+      console.log("Parts from Latest Submission:", allParts);
       console.log("Total Parts Count:", totalPartsCount);
     }
- 
+
     setTotalQuantity(totalPartsCount);
     setStage2Form(prev => ({
       ...prev,
@@ -192,9 +199,9 @@ const Stage2FormPage: React.FC = () => {
     }));
     setOqcDataLoaded(true);
   }, [selectedRecord?.ticketCode]);
- 
+
   const processStages = Array.from(new Set(flaskData.map(item => item.processStage)));
- 
+
   const getFilteredTypes = () => {
     if (stage2Form.processStage.length === 0) return [];
     const filteredTypes = flaskData
@@ -202,9 +209,9 @@ const Stage2FormPage: React.FC = () => {
       .map(item => item.type);
     return Array.from(new Set(filteredTypes));
   };
- 
+
   const types = getFilteredTypes();
- 
+
   const handleProcessStageSelection = (stage: string) => {
     setStage2Form(prev => {
       if (testMode === 'multi') {
@@ -236,7 +243,7 @@ const Stage2FormPage: React.FC = () => {
       }
     });
   };
- 
+
   const removeSelectedProcessStage = (stage: string) => {
     setStage2Form(prev => ({
       ...prev,
@@ -251,7 +258,7 @@ const Stage2FormPage: React.FC = () => {
     setFilteredData([]);
     setAvailableTestNames([]);
   };
- 
+
   const selectAllProcessStages = () => {
     if (testMode === 'multi') {
       setStage2Form(prev => ({
@@ -260,7 +267,7 @@ const Stage2FormPage: React.FC = () => {
       }));
     }
   };
- 
+
   const clearAllProcessStages = () => {
     setStage2Form(prev => ({
       ...prev,
@@ -275,7 +282,7 @@ const Stage2FormPage: React.FC = () => {
     setFilteredData([]);
     setAvailableTestNames([]);
   };
- 
+
   const handleTypeSelection = (type: string) => {
     setStage2Form(prev => {
       if (testMode === 'multi') {
@@ -319,7 +326,7 @@ const Stage2FormPage: React.FC = () => {
       }
     });
   };
- 
+
   const removeSelectedType = (type: string) => {
     setStage2Form(prev => {
       const newTypes = prev.type.filter(t => t !== type);
@@ -345,7 +352,7 @@ const Stage2FormPage: React.FC = () => {
       };
     });
   };
- 
+
   const selectAllTypes = () => {
     if (testMode === 'multi' && stage2Form.processStage.length > 0) {
       const filteredTypes = flaskData
@@ -358,7 +365,7 @@ const Stage2FormPage: React.FC = () => {
       }));
     }
   };
- 
+
   const clearAllTypes = () => {
     setStage2Form(prev => ({
       ...prev,
@@ -372,10 +379,10 @@ const Stage2FormPage: React.FC = () => {
     setFilteredData([]);
     setAvailableTestNames([]);
   };
- 
+
   const handleTestNameSelection = (testName: string) => {
     if (!oqcDataLoaded) return;
- 
+
     if (testMode === 'single') {
       const selectedTest = filteredData.find(item => item.testName === testName);
       if (selectedTest) {
@@ -383,7 +390,7 @@ const Stage2FormPage: React.FC = () => {
         const numEquipment = equipmentList.length;
         const qtyPerEquipment = numEquipment > 0 ? Math.ceil(totalQuantity / numEquipment) : 0;
         const requiredQtyStr = Array(numEquipment).fill(qtyPerEquipment).join(', ');
- 
+
         setStage2Form(prev => ({
           ...prev,
           testName: [testName],
@@ -398,17 +405,17 @@ const Stage2FormPage: React.FC = () => {
         const isSelected = prev.testName.includes(testName);
         let newTestNames: string[];
         let newPartAssignments = { ...prev.partAssignments };
- 
+
         if (isSelected) {
           newTestNames = prev.testName.filter(t => t !== testName);
           const removedParts = prev.partAssignments[testName] || [];
           delete newPartAssignments[testName];
- 
+
           const newlyAvailableParts = [...prev.selectedParts, ...removedParts];
- 
+
           const equipmentList: string[] = [];
           const conditionList: string[] = [];
- 
+
           newTestNames.forEach(name => {
             const test = filteredData.find(item => item.testName === name);
             if (test) {
@@ -417,11 +424,11 @@ const Stage2FormPage: React.FC = () => {
               conditionList.push(...Array(eqs.length).fill(test.testCondition || ""));
             }
           });
- 
+
           const totalEquipment = equipmentList.length;
           const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(newlyAvailableParts.length / totalEquipment) : 0;
           const requiredQtyStr = Array(totalEquipment).fill(qtyPerEquipment).join(', ');
- 
+
           return {
             ...prev,
             testName: newTestNames,
@@ -437,10 +444,10 @@ const Stage2FormPage: React.FC = () => {
             ...prev.partAssignments,
             [testName]: []
           };
- 
+
           const equipmentList: string[] = [];
           const conditionList: string[] = [];
- 
+
           newTestNames.forEach(name => {
             const test = filteredData.find(item => item.testName === name);
             if (test) {
@@ -449,11 +456,11 @@ const Stage2FormPage: React.FC = () => {
               conditionList.push(...Array(eqs.length).fill(test.testCondition || ""));
             }
           });
- 
+
           const totalEquipment = equipmentList.length;
           const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(prev.selectedParts.length / totalEquipment) : 0;
           const requiredQtyStr = Array(totalEquipment).fill(qtyPerEquipment).join(', ');
- 
+
           return {
             ...prev,
             testName: newTestNames,
@@ -466,27 +473,27 @@ const Stage2FormPage: React.FC = () => {
       });
     }
   };
- 
+
   const assignPartsToTest = (testName: string, partsToAssign: string[]) => {
     setStage2Form(prev => {
       if (!prev.testName.includes(testName)) return prev;
- 
+
       const currentAssigned = prev.partAssignments[testName] || [];
       const newlyAssigned = partsToAssign.filter(part =>
         !currentAssigned.includes(part) && prev.selectedParts.includes(part)
       );
- 
+
       if (newlyAssigned.length === 0) return prev;
- 
+
       const updatedAssignments = {
         ...prev.partAssignments,
         [testName]: [...currentAssigned, ...newlyAssigned]
       };
- 
+
       const updatedAvailableParts = prev.selectedParts.filter(
         part => !newlyAssigned.includes(part)
       );
- 
+
       return {
         ...prev,
         selectedParts: updatedAvailableParts,
@@ -494,19 +501,19 @@ const Stage2FormPage: React.FC = () => {
       };
     });
   };
- 
+
   const removeAssignedPart = (testName: string, partToRemove: string) => {
     setStage2Form(prev => {
       const currentAssigned = prev.partAssignments[testName] || [];
       if (!currentAssigned.includes(partToRemove)) return prev;
- 
+
       const updatedAssignments = {
         ...prev.partAssignments,
         [testName]: currentAssigned.filter(part => part !== partToRemove)
       };
- 
+
       const updatedAvailableParts = [...prev.selectedParts, partToRemove];
- 
+
       return {
         ...prev,
         selectedParts: updatedAvailableParts,
@@ -514,14 +521,14 @@ const Stage2FormPage: React.FC = () => {
       };
     });
   };
- 
+
   const clearTestAssignments = (testName: string) => {
     setStage2Form(prev => {
       const assignedParts = prev.partAssignments[testName] || [];
       if (assignedParts.length === 0) return prev;
- 
+
       const { [testName]: removed, ...remainingAssignments } = prev.partAssignments;
- 
+
       return {
         ...prev,
         selectedParts: [...prev.selectedParts, ...assignedParts],
@@ -529,7 +536,7 @@ const Stage2FormPage: React.FC = () => {
       };
     });
   };
- 
+
   const removeSelectedTestName = (testName: string) => {
     setStage2Form(prev => {
       const newTestNames = prev.testName.filter(t => t !== testName);
@@ -547,13 +554,13 @@ const Stage2FormPage: React.FC = () => {
           ]
         };
       }
- 
+
       const partsToReturn = prev.partAssignments[testName] || [];
       const { [testName]: removed, ...remainingAssignments } = prev.partAssignments;
- 
+
       const equipmentList: string[] = [];
       const conditionList: string[] = [];
- 
+
       newTestNames.forEach(name => {
         const test = filteredData.find(item => item.testName === name);
         if (test) {
@@ -562,12 +569,12 @@ const Stage2FormPage: React.FC = () => {
           conditionList.push(...Array(eqs.length).fill(test.testCondition || ""));
         }
       });
- 
+
       const totalEquipment = equipmentList.length;
       const availableParts = [...prev.selectedParts, ...partsToReturn];
       const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(availableParts.length / totalEquipment) : 0;
       const requiredQtyStr = Array(totalEquipment).fill(qtyPerEquipment).join(', ');
- 
+
       return {
         ...prev,
         testName: newTestNames,
@@ -579,14 +586,14 @@ const Stage2FormPage: React.FC = () => {
       };
     });
   };
- 
+
   const selectAllTestNames = () => {
     const allTestNames = availableTestNames;
- 
+
     const equipmentList: string[] = [];
     const conditionList: string[] = [];
     const partAssignments: { [testName: string]: string[] } = {};
- 
+
     allTestNames.forEach(name => {
       const test = filteredData.find(item => item.testName === name);
       if (test) {
@@ -596,11 +603,11 @@ const Stage2FormPage: React.FC = () => {
         partAssignments[name] = [];
       }
     });
- 
+
     const totalEquipment = equipmentList.length;
     const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(stage2Form.selectedParts.length / totalEquipment) : 0;
     const requiredQtyStr = Array(totalEquipment).fill(qtyPerEquipment).join(', ');
- 
+
     setStage2Form(prev => ({
       ...prev,
       testName: allTestNames,
@@ -610,7 +617,7 @@ const Stage2FormPage: React.FC = () => {
       partAssignments
     }));
   };
- 
+
   const clearAllTestNames = () => {
     setStage2Form(prev => {
       const allAssignedParts = Object.values(prev.partAssignments).flat();
@@ -625,15 +632,15 @@ const Stage2FormPage: React.FC = () => {
       };
     });
   };
- 
+
   const handleStage2Submit = () => {
     if (!selectedRecord) return;
- 
+
     if (testMode === 'multi') {
       const allTestsHaveParts = stage2Form.testName.every(
         testName => (stage2Form.partAssignments[testName] || []).length > 0
       );
- 
+
       if (!allTestsHaveParts) {
         toast({
           variant: "destructive",
@@ -644,7 +651,7 @@ const Stage2FormPage: React.FC = () => {
         return;
       }
     }
- 
+
     if (
       stage2Form.processStage.length === 0 ||
       stage2Form.type.length === 0 ||
@@ -677,7 +684,7 @@ const Stage2FormPage: React.FC = () => {
       });
       return;
     }
- 
+
     try {
       const stage2Data = {
         ...selectedRecord,
@@ -701,12 +708,12 @@ const Stage2FormPage: React.FC = () => {
           submittedAt: new Date().toISOString()
         }
       };
- 
+
       const existingStage2Data = localStorage.getItem("stage2Records");
       const stage2Records = existingStage2Data ? JSON.parse(existingStage2Data) : [];
       stage2Records.push(stage2Data);
       localStorage.setItem("stage2Records", JSON.stringify(stage2Records));
- 
+
       const existingTestRecords = localStorage.getItem("testRecords");
       if (existingTestRecords) {
         const testRecords = JSON.parse(existingTestRecords);
@@ -715,7 +722,7 @@ const Stage2FormPage: React.FC = () => {
         );
         localStorage.setItem("testRecords", JSON.stringify(updatedTestRecords));
       }
- 
+
       toast({
         title: "✅ Stage 2 Submitted",
         description: `Stage 2 data has been saved successfully!`,
@@ -732,7 +739,7 @@ const Stage2FormPage: React.FC = () => {
       console.error("Error saving Stage 2 data:", error);
     }
   };
- 
+
   const isStage2SubmitEnabled = () => {
     const basicFieldsValid = (
       stage2Form.processStage.length > 0 &&
@@ -744,7 +751,7 @@ const Stage2FormPage: React.FC = () => {
       stage2Form.project !== "" &&
       (testMode === 'single' ? stage2Form.selectedParts.length > 0 : true)
     );
- 
+
     if (testMode === 'single') {
       return basicFieldsValid && stage2Form.selectedParts.length > 0;
     } else {
@@ -754,18 +761,18 @@ const Stage2FormPage: React.FC = () => {
       return basicFieldsValid && allTestsHaveParts;
     }
   };
- 
+
   if (!selectedRecord) {
     return null;
   }
- 
+
   const unselectedProcessStages = processStages.filter(
     stage => !stage2Form.processStage.includes(stage)
   );
   const unselectedTypes = types.filter(
     type => !stage2Form.type.includes(type)
   );
- 
+
   return (
     <div className="container mx-auto p-6 max-w-6xl">
       <Button
@@ -816,7 +823,7 @@ const Stage2FormPage: React.FC = () => {
               <option value="multi">Multi Test</option>
             </select>
           </div>
- 
+
           <div className="space-y-2 mb-4">
             <Label className="text-base">Ticket Code <span className="text-red-600">*</span></Label>
             <Input
@@ -825,7 +832,7 @@ const Stage2FormPage: React.FC = () => {
               className="h-11 bg-gray-100"
             />
           </div>
- 
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Process Stage */}
             {testMode === 'single' ? (
@@ -892,7 +899,7 @@ const Stage2FormPage: React.FC = () => {
                 )}
               </div>
             )}
- 
+
             {/* Type */}
             {testMode === 'single' ? (
               <div className="space-y-2">
@@ -961,7 +968,7 @@ const Stage2FormPage: React.FC = () => {
                 )}
               </div>
             )}
- 
+
             {/* Test Name */}
             {testMode === 'single' ? (
               <div className="space-y-2">
@@ -1030,7 +1037,7 @@ const Stage2FormPage: React.FC = () => {
                 )}
               </div>
             )}
- 
+
             <div className="space-y-2">
               <Label className="text-base">
                 Test Condition{testMode === 'multi' && 's'} <span className="text-red-600">*</span>
@@ -1042,7 +1049,7 @@ const Stage2FormPage: React.FC = () => {
                 className="h-11"
               />
             </div>
- 
+
             <div className="space-y-2">
               <Label className="text-base">Equipment{testMode === 'multi' && '(s)'}</Label>
               <Input
@@ -1052,7 +1059,7 @@ const Stage2FormPage: React.FC = () => {
                 className="h-11 bg-gray-50"
               />
             </div>
- 
+
             <div className="space-y-2">
               <Label className="text-base">Required Quantity per Equipment</Label>
               <Input
@@ -1062,7 +1069,7 @@ const Stage2FormPage: React.FC = () => {
                 className="h-11 bg-gray-50"
               />
             </div>
- 
+
             <div className="space-y-2">
               <Label className="text-base">CheckPoint <span className="text-red-600">*</span></Label>
               <Input
@@ -1073,19 +1080,19 @@ const Stage2FormPage: React.FC = () => {
                 className="h-11"
               />
             </div>
- 
+
             <DateTimePicker
               label="Start Date & Time"
               value={stage2Form.startDateTime ? new Date(stage2Form.startDateTime) : null}
               onChange={(val) => setStage2Form(prev => ({ ...prev, startDateTime: val ? val.toISOString() : "" }))}
             />
- 
+
             <DateTimePicker
               label="End Date & Time"
               value={stage2Form.endDateTime ? new Date(stage2Form.endDateTime) : null}
               onChange={(val) => setStage2Form(prev => ({ ...prev, endDateTime: val ? val.toISOString() : "" }))}
             />
- 
+
             <div className="space-y-4 md:col-span-2">
               <div className="space-y-2">
                 <Label className="text-base">Project <span className="text-red-600">*</span></Label>
@@ -1095,7 +1102,7 @@ const Stage2FormPage: React.FC = () => {
                   className="h-11 bg-gray-100"
                 />
               </div>
- 
+
               <div className="space-y-2">
                 <Label className="text-base">Line</Label>
                 <Input
@@ -1104,7 +1111,7 @@ const Stage2FormPage: React.FC = () => {
                   className="h-11 bg-gray-100"
                 />
               </div>
- 
+
               <div className="space-y-2">
                 <Label className="text-base">Total Available Parts <span className="text-red-600">*</span></Label>
                 <div className="p-3 bg-gray-50 rounded-lg border min-h-[3rem]">
@@ -1133,7 +1140,7 @@ const Stage2FormPage: React.FC = () => {
               </div>
             </div>
           </div>
- 
+
           {/* Part Assignment Section for Multi-Test Mode */}
           {testMode === 'multi' && stage2Form.testName.length > 0 && (
             <div className="space-y-4 md:col-span-2 mt-6">
@@ -1141,11 +1148,11 @@ const Stage2FormPage: React.FC = () => {
               <p className="text-sm text-gray-600 mb-4">
                 Assign parts from the available pool to each test. Each part can only be assigned to one test.
               </p>
- 
+
               {stage2Form.testName.map(testName => {
                 const assignedParts = stage2Form.partAssignments[testName] || [];
                 const availableForThisTest = stage2Form.selectedParts;
- 
+
                 return (
                   <div key={testName} className="p-4 border rounded-lg space-y-3 bg-white shadow-sm">
                     <div className="flex justify-between items-center">
@@ -1186,7 +1193,7 @@ const Stage2FormPage: React.FC = () => {
                         </Button>
                       </div>
                     </div>
- 
+
                     {/* Assigned parts display */}
                     <div>
                       <Label className="text-sm font-medium">Assigned Parts ({assignedParts.length})</Label>
@@ -1208,7 +1215,7 @@ const Stage2FormPage: React.FC = () => {
                         )}
                       </div>
                     </div>
- 
+
                     {/* Available parts for assignment */}
                     {availableForThisTest.length > 0 && (
                       <div>
@@ -1231,7 +1238,7 @@ const Stage2FormPage: React.FC = () => {
               })}
             </div>
           )}
- 
+
           <div className="flex justify-end gap-4 mt-8 pt-2">
             <Button variant="outline" onClick={() => navigate("/")} className="px-6">
               Cancel
@@ -1249,5 +1256,5 @@ const Stage2FormPage: React.FC = () => {
     </div>
   );
 };
- 
+
 export default Stage2FormPage;
