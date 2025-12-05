@@ -696,32 +696,32 @@ const TicketAssignmentsTable: React.FC = () => {
                       });
 
                       // Add New Scan Row if remaining parts
-                      if (ticket.remainingParts > 0) {
-                        rows.push(
-                          <TableRow key={`new-scan-${ticket.ticketCode}`} className="bg-orange-50 hover:bg-orange-100">
-                            <TableCell></TableCell>
-                            <TableCell colSpan={8}>
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
-                                  <span className="font-medium text-orange-700">
-                                    {ticket.remainingParts} parts remaining to scan
-                                  </span>
-                                </div>
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => handleScanClick(ticket.ticketCode)}
-                                  className="bg-orange-600 hover:bg-orange-700 flex items-center gap-1"
-                                >
-                                  <Scan className="h-3 w-3" />
-                                  Start New Scan Session
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      }
+                      // if (ticket.remainingParts > 0) {
+                      //   rows.push(
+                      //     <TableRow key={`new-scan-${ticket.ticketCode}`} className="bg-orange-50 hover:bg-orange-100">
+                      //       <TableCell></TableCell>
+                      //       <TableCell colSpan={8}>
+                      //         <div className="flex items-center justify-between">
+                      //           <div className="flex items-center gap-2">
+                      //             <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
+                      //             <span className="font-medium text-orange-700">
+                      //               {ticket.remainingParts} parts remaining to scan
+                      //             </span>
+                      //           </div>
+                      //           <Button
+                      //             variant="default"
+                      //             size="sm"
+                      //             onClick={() => handleScanClick(ticket.ticketCode)}
+                      //             className="bg-orange-600 hover:bg-orange-700 flex items-center gap-1"
+                      //           >
+                      //             <Scan className="h-3 w-3" />
+                      //             Start New Scan Session
+                      //           </Button>
+                      //         </div>
+                      //       </TableCell>
+                      //     </TableRow>
+                      //   );
+                      // }
                     }
                     
                     return rows;

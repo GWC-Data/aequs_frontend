@@ -48,6 +48,11 @@ const TestForm: React.FC = () => {
   // Load existing data from localStorage on component mount
   React.useEffect(() => {
     const storedData = localStorage.getItem("testRecords");
+    const today = new Date().toISOString().split("T")[0];
+  setFormData(prev => ({
+    ...prev,
+    dateTime: today
+  }));
     if (storedData) {
       try {
         const parsedData = JSON.parse(storedData);
@@ -81,6 +86,8 @@ const TestForm: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+  
+
     try {
       // Validate required fields
       if (!formData.ticketCode || !formData.totalQuantity || !formData.source || 
@@ -111,14 +118,25 @@ const TestForm: React.FC = () => {
           records = [];
         }
       }
+      
+
+        const currentDate = new Date().toISOString().split("T")[0];
+
+const newRecord = {
+  ...formData,
+  dateTime: currentDate,   // override to always save today's date
+  id: Date.now(),
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+};
 
       // Add new record
-      const newRecord = {
-        ...formData,
-        id: Date.now(), // Add unique ID
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+      // const newRecord = {
+      //   ...formData,
+      //   id: Date.now(), // Add unique ID
+      //   createdAt: new Date().toISOString(),
+      //   updatedAt: new Date().toISOString()
+      // };
 
       records.push(newRecord);
 
@@ -214,7 +232,7 @@ const TestForm: React.FC = () => {
       <div className="px-6 py-4">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Test Data Form</h1>
-          <div className="flex gap-2">
+          {/* <div className="flex gap-2">
             <button
               type="button"
               onClick={viewAllRecords}
@@ -234,7 +252,7 @@ const TestForm: React.FC = () => {
             >
               Clear All
             </button>
-          </div>
+          </div> */}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -399,26 +417,26 @@ const TestForm: React.FC = () => {
               <label className="block text-sm font-bold text-slate-800 mb-5 uppercase tracking-wide">
                 Date Time <span className="text-red-600">*</span>
               </label>
-              <Input
-                type="date"
-                name="dateTime"
-                value={formData.dateTime}
-                onChange={handleInputChange}
-                className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
-                required
-              />
+             <Input
+              type="date"
+              name="dateTime"
+              value={formData.dateTime}
+              readOnly
+              className="h-14 px-5 border-2 border-slate-300 rounded-xl font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
+            />
+
             </div>
           </div>
 
           <div className="flex justify-end gap-4">
-            <button
+            {/* <button
               type="button"
               onClick={() => navigate(-1)}
               className="flex items-center w-fit border border-gray-300 rounded-full bg-white text-gray-700 py-2 px-4 hover:bg-gray-50 transition-colors"
             >
               <X className="w-5 h-5 mr-2" />
               <span>Cancel</span>
-            </button>
+            </button> */}
             <button
               type="submit"
               className="flex items-center w-fit border rounded-full bg-[#f35b62] text-white py-2 px-4 hover:bg-[#EE161F] hover:text-white transition-colors"
@@ -430,7 +448,7 @@ const TestForm: React.FC = () => {
         </form>
 
         {/* Debug Info Panel */}
-        <div className="mt-8 p-4 border border-gray-200 rounded-lg bg-gray-50">
+        {/* <div className="mt-8 p-4 border border-gray-200 rounded-lg bg-gray-50">
           <h3 className="font-semibold text-gray-700 mb-2">Debug Information</h3>
           <div className="text-sm text-gray-600 space-y-1">
             <p>Current form data:</p>
@@ -443,7 +461,7 @@ const TestForm: React.FC = () => {
               return stored ? JSON.parse(stored).length : 0;
             })()}</strong></p>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );

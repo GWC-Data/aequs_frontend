@@ -55,7 +55,7 @@ interface StoredBarcodeData {
   // Optional: isSubmitted, submittedAt — we ignore these for Stage 1
 }
 
-// Define OQC record structure (from "Oqcformdata")
+// Define OQC record structure (from "testRecords")
 interface OqcRecord {
   ticketCode: string;
   totalQuantity: string; // note: it's string in your data
@@ -87,9 +87,15 @@ const ORTLabPage = () => {
     try {
       // Load barcode assignments
       const barcodeAssignmentsStr = localStorage.getItem("ticketBarcodeAssignments");
-      const barcodeAssignments: StoredBarcodeData[] = barcodeAssignmentsStr
-        ? JSON.parse(barcodeAssignmentsStr)
-        : [];
+     let barcodeAssignments: StoredBarcodeData[] = barcodeAssignmentsStr
+  ? JSON.parse(barcodeAssignmentsStr)
+  : [];
+
+// 🔥 NEW CONDITION: Keep only objects where `submitted === true`
+barcodeAssignments = barcodeAssignments.filter(item =>
+  Object.prototype.hasOwnProperty.call(item, "submitted") && item.submitted === true
+);
+
 
       if (barcodeAssignments.length === 0) {
         setTableData([]);
@@ -97,7 +103,7 @@ const ORTLabPage = () => {
       }
 
       // Load OQC data for detailsBox
-      const oqcDataStr = localStorage.getItem("Oqcformdata");
+      const oqcDataStr = localStorage.getItem("testRecords");
       console.log(oqcDataStr)
       const oqcRecords: OqcRecord[] = oqcDataStr ? JSON.parse(oqcDataStr) : [];
 
@@ -268,7 +274,7 @@ const ORTLabPage = () => {
 
     // 🔻 NEW: Update OQC records' status to "Received" if row.received === "Yes"
     try {
-      const oqcDataStr = localStorage.getItem("Oqcformdata");
+      const oqcDataStr = localStorage.getItem("testRecords");
       if (oqcDataStr) {
         let oqcRecords: OqcRecord[] = JSON.parse(oqcDataStr);
 
@@ -288,7 +294,7 @@ const ORTLabPage = () => {
         });
 
         // Save updated OQC data back to localStorage
-        localStorage.setItem("Oqcformdata", JSON.stringify(oqcRecords));
+        localStorage.setItem("testRecords", JSON.stringify(oqcRecords));
       }
     } catch (error) {
       console.error("Error updating OQC status:", error);
