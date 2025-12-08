@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Package, TestTube, Upload, TrendingUp, Search, Clock, CheckCircle2, AlertCircle, Activity, Calendar, Filter } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
+import * as XLSX from 'xlsx';
 
 const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -279,7 +280,7 @@ const Dashboard = () => {
 
         equipmentList.forEach((equipment: string, index: number) => {
           // For multi-mode, get test name at index; for single, use the single test name
-          const testName = record.stage2.testMode === "multi" 
+          const testName = record.stage2.testMode === "multi"
             ? (testNames[index] || '-')
             : (testNames[0] || record.stage2.testName || '-');
 
@@ -291,12 +292,12 @@ const Dashboard = () => {
             testMode: record.stage2.testMode || 'single',
             testName: testName,
             processStage: record.stage2.processStage || '-',
-            requiredQty: record.stage2.requiredQty ? 
-              (record.stage2.testMode === "multi" 
+            requiredQty: record.stage2.requiredQty ?
+              (record.stage2.testMode === "multi"
                 ? record.stage2.requiredQty.split(',')[index]?.trim()
                 : record.stage2.requiredQty
               ) : '-',
-            testCondition: record.stage2.testCondition ? 
+            testCondition: record.stage2.testCondition ?
               (record.stage2.testMode === "multi"
                 ? record.stage2.testCondition.split(',')[index]?.trim()
                 : record.stage2.testCondition
@@ -370,12 +371,118 @@ const Dashboard = () => {
     }
   };
 
+  // ✅ Export FULL stage2Records data (raw, unfiltered)
+  const exportAllStage2DataToExcel = () => {
+    const rawRecords = JSON.parse(localStorage.getItem('stage2Records') || '[]');
+
+    if (!Array.isArray(rawRecords) || rawRecords.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
+
+    // Flatten each record for Excel (handle nested stage2, etc.)
+    const flattenedData = rawRecords.map((record: any, index: number) => {
+      // Safely extract stage2 fields (if exists)
+      const stage2 = record.stage2 || {};
+
+      return {
+        // Top-level fields
+        "Id": record.id || `Record_${index + 1}`,
+        "Ticket Code": record.ticketCode || "N/A",
+        "Parts Being Sent": record.partsBeingSent || "N/A",
+        "Received": record.received || "N/A",
+        "Inventory Remarks": record.inventoryRemarks || "N/A",
+        "Status": record.status || "N/A",
+        "Total Quantity": record.detailsBox?.totalQuantity || "N/A",
+        "Batch": record.detailsBox?.batch || "N/A",
+        "Color": record.detailsBox?.color || "N/A",
+        "Assembly OQC No": record.detailsBox?.assemblyOQCNo || "N/A",
+        "Reason": record.detailsBox?.reason || "N/A",
+        "Shift Time": record.shiftTime || "N/A",
+        "Test Location": record.testLocation || "N/A",
+        "Sample Qty": record.sampleQty || "N/A",
+        "Test Start Date": record.testStartDate || "N/A",
+        "Test Completion Date": record.testCompletionDate || "N/A",
+        "Created Date": record.createdDate || "N/A",
+        "Submitted At": record.submittedAt || "N/A",
+
+        // Stage2 fields (flattened)
+        "Project": stage2.project || "N/A",
+        "Test Mode": stage2.testMode || "N/A",
+        "Test Name": Array.isArray(stage2.testName)
+          ? stage2.testName.join(', ')
+          : typeof stage2.testName === 'string'
+            ? stage2.testName
+            : "N/A",
+        "Test Type": Array.isArray(stage2.type)
+          ? stage2.type.join(', ')
+          : typeof stage2.type === 'string'
+            ? stage2.type
+            : "N/A",
+        "Checkpoint": stage2.checkpoint || "N/A",
+        "Lines": stage2.lines || "N/A",
+        "Equipment": Array.isArray(stage2.equipment)
+          ? stage2.equipment.join(', ')
+          : typeof stage2.equipment === 'string'
+            ? stage2.equipment
+            : "N/A",
+
+        "Process Stage": stage2.processStage || "N/A",
+        "Required Qty": Array.isArray(stage2.requiredQty)
+          ? stage2.requiredQty.join(', ')
+          : typeof stage2.requiredQty === 'string'
+            ? stage2.requiredQty
+            : "N/A",
+
+        "Test Condition": Array.isArray(stage2.testCondition)
+          ? stage2.testCondition.join(', ')
+          : typeof stage2.testCondition === 'string'
+            ? stage2.testCondition
+            : "N/A",
+
+        "Selected Parts (Raw)": JSON.stringify(stage2.selectedParts || null),
+
+        // Add more if needed...
+      };
+    });
+
+    // Create worksheet and workbook
+    const worksheet = XLSX.utils.json_to_sheet(flattenedData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Stage2 Records");
+
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
+    const filename = `ORT_Stage2_Records_${timestamp}.xlsx`;
+
+    // Trigger download
+    XLSX.writeFile(workbook, filename);
+  };
+
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="p-6 space-y-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-bold text-gray-800 tracking-tight">ORT Digitalization Dashboard</h1>
-          <p className="text-sm text-gray-500">Real-time product testing and quality control</p>
+        <div className="p-6 space-y-6">
+          {/* HEADER + BUTTON ROW */}
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-1">
+              <h1 className="text-3xl font-bold text-gray-800 tracking-tight">
+                ORT Digitalization Dashboard
+              </h1>
+              <p className="text-sm text-gray-500">
+                Real-time product testing and quality control
+              </p>
+            </div>
+
+            <Button
+              variant="outline"
+              className="flex items-center gap-2 text-white bg-green-600 hover:bg-green-500"
+              onClick={exportAllStage2DataToExcel}
+            >
+              <Upload className="h-4 w-4" />
+              Export Data (Excel)
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -513,7 +620,7 @@ const Dashboard = () => {
                   ) : (
                     filteredProducts.map((product, index) => {
                       const stage2Record = timeFilteredRecords.find((record: any) => record.documentNumber === product.id);
-                      
+
                       // Get selected parts information using helper function
                       const { count: selectedPartsCount, display: selectedPartsDisplay } = getSelectedPartsInfo(stage2Record);
 
@@ -541,7 +648,7 @@ const Dashboard = () => {
                             <div><span className="text-gray-500">📅 QQC:</span> <span>{product.qqc || "N/A"}</span></div>
                             <div><span className="text-gray-500">🕐 CMR:</span> <span>{product.cmr}</span></div>
                             <div>
-                              <span className="text-gray-500">📦 Selected Parts:</span> 
+                              <span className="text-gray-500">📦 Selected Parts:</span>
                               <span className="font-medium block truncate" title={selectedPartsDisplay}>
                                 {selectedPartsDisplay}
                               </span>

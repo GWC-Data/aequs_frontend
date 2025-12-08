@@ -42,15 +42,16 @@ interface Stage2Record {
     testCondition: string;
     requiredQty: string;
     equipment: string;
-    checkpoint: number; // Added from JSON
-    project: string; // Single project
-    lines: string[]; // Array from JSON
-    selectedParts: string[];
+    checkpoint: number;
+    project: string;
+    lines: string[];
+    selectedParts: string[] | Record<string, string[]>; // Can be array or object
     startTime: string;
     endTime: string;
     remark: string;
     submittedAt: string;
-  };
+    testMode?: "single" | "multi";
+  }
   detailsBox: {
     color: string;
   }
@@ -170,37 +171,41 @@ const Stage2DetailRecords: React.FC = () => {
 
   // const handleEdit = (record: Stage2Record) => {
   //   setEditingRecord(record);
+
+  //   const selectedProject = record.stage2.project ? [record.stage2.project] : [];
+  //   const selectedLines = Array.isArray(record.stage2.lines) ? record.stage2.lines : [];
+  //   console.log(selectedLines);
+
+  //   const selectedParts = Array.isArray(record.stage2.selectedParts)
+  //     ? record.stage2.selectedParts.map((part: any) =>
+  //       typeof part === "string" ? part : part.part
+  //     )
+  //     : [];
+  //   console.log(selectedLines);
+
   //   setEditForm({
   //     color: record.detailsBox.color,
   //     testLocation: record.testLocation,
-  //     testStartDate: record.testStartDate,
-  //     testCompletionDate: record.testCompletionDate,
+  //     testStartDate: record.testStartDate || "",
+  //     testCompletionDate: record.testCompletionDate || "",
   //     sampleConfig: record.sampleConfig,
   //     status: record.status,
   //     processStage: record.stage2.processStage,
   //     type: record.stage2.type,
   //     testName: record.stage2.testName,
-  //     project: record.stage2.project,
+  //     project: record.stage2.project, // single value
   //     testCondition: record.stage2.testCondition,
   //     requiredQty: record.stage2.requiredQty,
   //     equipment: record.stage2.equipment,
-  //     projects: Array.isArray(record.stage2.project) ? record.stage2.project : [],
-  //     lines: Array.isArray(record.stage2.lines) ? record.stage2.lines : [],
-  //     selectedParts: Array.isArray(record.stage2.selectedParts)
-  //       ? record.stage2.selectedParts.map((part: any) =>
-  //         typeof part === 'string' ? part : part.part
-  //       )
-  //       : [],
+  //     projects: selectedProject,
+  //     lines: selectedLines,
+  //     selectedParts: selectedParts,
   //     startTime: record.stage2.startTime || "",
   //     endTime: record.stage2.endTime || "",
   //     remark: record.stage2.remark || ""
   //   });
 
-  //   // Update available lines and parts based on selected projects
-  //   updateAvailableLinesAndParts(
-  //     Array.isArray(record.stage2.project) ? record.stage2.project : [],
-  //     Array.isArray(record.stage2.lines) ? record.stage2.lines : []
-  //   );
+  //   updateAvailableLinesAndParts(selectedProject, selectedLines);
 
   //   setIsEditModalOpen(true);
   // };
@@ -210,14 +215,17 @@ const Stage2DetailRecords: React.FC = () => {
 
     const selectedProject = record.stage2.project ? [record.stage2.project] : [];
     const selectedLines = Array.isArray(record.stage2.lines) ? record.stage2.lines : [];
-    console.log(selectedLines);
 
-    const selectedParts = Array.isArray(record.stage2.selectedParts)
-      ? record.stage2.selectedParts.map((part: any) =>
-        typeof part === "string" ? part : part.part
-      )
-      : [];
-    console.log(selectedLines);
+    // Handle both single and multi test mode parts
+    let selectedParts: string[] = [];
+
+    if (Array.isArray(record.stage2.selectedParts)) {
+      // Single test mode
+      selectedParts = record.stage2.selectedParts;
+    } else if (typeof record.stage2.selectedParts === 'object') {
+      // Multi test mode - flatten all parts
+      selectedParts = Object.values(record.stage2.selectedParts).flat();
+    }
 
     setEditForm({
       color: record.detailsBox.color,
@@ -229,23 +237,21 @@ const Stage2DetailRecords: React.FC = () => {
       processStage: record.stage2.processStage,
       type: record.stage2.type,
       testName: record.stage2.testName,
-      project: record.stage2.project, // single value
+      project: record.stage2.project,
       testCondition: record.stage2.testCondition,
       requiredQty: record.stage2.requiredQty,
       equipment: record.stage2.equipment,
       projects: selectedProject,
       lines: selectedLines,
-      selectedParts: selectedParts,
+      selectedParts: selectedParts, // Flattened parts
       startTime: record.stage2.startTime || "",
       endTime: record.stage2.endTime || "",
       remark: record.stage2.remark || ""
     });
 
     updateAvailableLinesAndParts(selectedProject, selectedLines);
-
     setIsEditModalOpen(true);
   };
-
 
   const updateAvailableLinesAndParts = (selectedProjects: string[], selectedLines: string[]) => {
     if (selectedProjects.length > 0) {
@@ -364,6 +370,70 @@ const Stage2DetailRecords: React.FC = () => {
     }));
   };
 
+  // const handleSaveEdit = () => {
+  //   if (!editingRecord) return;
+
+  //   // Validation
+  //   if (editForm.selectedParts.length === 0) {
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Validation Error",
+  //       description: "At least one part must be selected.",
+  //       duration: 3000,
+  //     });
+  //     return;
+  //   }
+
+  //   try {
+  //     const updatedRecord: Stage2Record = {
+  //       ...editingRecord,
+  //       detailsBox: {
+  //         color: editForm.color
+  //       },
+  //       testLocation: editForm.testLocation,
+  //       testStartDate: editForm.testStartDate,
+  //       testCompletionDate: editForm.testCompletionDate,
+  //       sampleConfig: editForm.sampleConfig,
+  //       status: editForm.status,
+  //       stage2: {
+  //         ...editingRecord.stage2,
+  //         processStage: editForm.processStage,
+  //         type: editForm.type,
+  //         testName: editForm.testName,
+  //         testCondition: editForm.testCondition,
+  //         requiredQty: editForm.requiredQty,
+  //         equipment: editForm.equipment,
+  //         project: editForm.project,
+  //         lines: editForm.lines,
+  //         selectedParts: editForm.selectedParts,
+  //         startTime: editForm.startTime,
+  //         endTime: editForm.endTime,
+  //         remark: editForm.remark,
+  //         submittedAt: editingRecord.stage2.submittedAt
+  //       }
+  //     };
+
+  //     const updatedRecords = stage2Records.map(record =>
+  //       record.id === editingRecord.id ? updatedRecord : record
+  //     );
+
+  //     setStage2Records(updatedRecords);
+  //     localStorage.setItem("stage2Records", JSON.stringify(updatedRecords));
+
+  //     setIsEditModalOpen(false);
+  //     setEditingRecord(null);
+
+  //   } catch (error) {
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Update Failed",
+  //       description: "There was an error updating the record. Please try again.",
+  //       duration: 3000,
+  //     });
+  //     console.error("Error updating record:", error);
+  //   }
+  // };
+
   const handleSaveEdit = () => {
     if (!editingRecord) return;
 
@@ -379,6 +449,20 @@ const Stage2DetailRecords: React.FC = () => {
     }
 
     try {
+      // Preserve the original selectedParts structure for multi-test mode
+      let updatedSelectedParts: string[] | Record<string, string[]>;
+
+      if (editingRecord.stage2.testMode === 'multi' &&
+        typeof editingRecord.stage2.selectedParts === 'object') {
+        // Keep the original multi-test structure, but update with new parts if needed
+        // For now, we'll convert to the edited flat array
+        // You can enhance this to maintain the test-part mapping
+        updatedSelectedParts = editForm.selectedParts;
+      } else {
+        // Single test mode - simple array
+        updatedSelectedParts = editForm.selectedParts;
+      }
+
       const updatedRecord: Stage2Record = {
         ...editingRecord,
         detailsBox: {
@@ -399,11 +483,12 @@ const Stage2DetailRecords: React.FC = () => {
           equipment: editForm.equipment,
           project: editForm.project,
           lines: editForm.lines,
-          selectedParts: editForm.selectedParts,
+          selectedParts: updatedSelectedParts, // Use the preserved structure
           startTime: editForm.startTime,
           endTime: editForm.endTime,
           remark: editForm.remark,
-          submittedAt: editingRecord.stage2.submittedAt
+          submittedAt: editingRecord.stage2.submittedAt,
+          testMode: editingRecord.stage2.testMode // Preserve test mode
         }
       };
 
@@ -413,6 +498,12 @@ const Stage2DetailRecords: React.FC = () => {
 
       setStage2Records(updatedRecords);
       localStorage.setItem("stage2Records", JSON.stringify(updatedRecords));
+
+      toast({
+        title: "Success",
+        description: "Record updated successfully.",
+        duration: 3000,
+      });
 
       setIsEditModalOpen(false);
       setEditingRecord(null);
@@ -697,20 +788,67 @@ const Stage2DetailRecords: React.FC = () => {
                 </div>
 
                 {/* Selected Parts */}
+                {/* Replace the existing "Selected Parts" section with this enhanced version */}
                 <div>
-                  <label className="text-sm font-medium text-gray-600 mb-2 block">Selected Parts ({selectedRecord.stage2.selectedParts?.length || 0})</label>
-                  <div className="flex flex-wrap gap-2">
-                    {Array.isArray(selectedRecord.stage2.selectedParts) && selectedRecord.stage2.selectedParts.length > 0 ? (
-                      selectedRecord.stage2.selectedParts.map((part, index) => (
+                  <label className="text-sm font-medium text-gray-600 mb-2 block">
+                    Selected Parts ({
+                      Array.isArray(selectedRecord.stage2.selectedParts)
+                        ? selectedRecord.stage2.selectedParts.length
+                        : Object.values(selectedRecord.stage2.selectedParts).flat().length
+                    })
+                  </label>
+
+                  {/* Single Test Mode - Simple List */}
+                  {Array.isArray(selectedRecord.stage2.selectedParts) ? (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRecord.stage2.selectedParts.map((part, index) => (
                         <Badge key={index} variant="secondary" className="bg-purple-100 text-purple-800 font-mono">
                           {part}
                         </Badge>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-500">No parts selected</p>
-                    )}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* Multi Test Mode - Grouped by Test */
+                    <div className="space-y-4">
+                      {Object.entries(selectedRecord.stage2.selectedParts).map(([testName, parts], testIndex) => (
+                        <div key={testIndex} className="p-3 bg-white rounded-lg border border-purple-200">
+                          <div className="flex items-center gap-2 mb-2">
+                            {/* <span className="text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-1 rounded">
+                              Test {testIndex + 1}
+                            </span> */}
+                            <span className="text-sm font-medium text-gray-700">{testName}</span>
+                            {/* <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-xs">
+                              {(parts as string[]).length} parts
+                            </Badge> */}
+                          </div>
+                          <div className="flex flex-wrap gap-2 justify-start items-start">
+                            {(parts as string[]).map((part, partIndex) => (
+                              <Badge
+                                key={partIndex}
+                                variant="secondary"
+                                className="bg-purple-50 text-purple-800 font-mono text-xs"
+                              >
+                                {part}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              {/* Add this at the beginning of Stage 2 Configuration grid */}
+              <div>
+                <label className="text-sm font-medium text-gray-600">Test Mode</label>
+                <Badge variant="secondary" className={
+                  selectedRecord.stage2.testMode === 'multi'
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-gray-100 text-gray-800'
+                }>
+                  {selectedRecord.stage2.testMode === 'multi' ? 'Multi Test' : 'Single Test'}
+                </Badge>
               </div>
 
               {/* Stage 2 Configuration */}
@@ -749,13 +887,13 @@ const Stage2DetailRecords: React.FC = () => {
                   <div>
                     <label className="text-sm font-medium text-gray-600">Start Time</label>
                     <p className="text-sm">
-                      {selectedRecord.stage2.startTime ? selectedRecord.stage2.startTime : "Not specified"}
+                      {selectedRecord.stage2.startTime ? selectedRecord.stage2.startTime.split("T")[0] : "Not specified"}
                     </p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">End Time</label>
                     <p className="text-sm">
-                      {selectedRecord.stage2.endTime ? selectedRecord.stage2.endTime : "Not specified"}
+                      {selectedRecord.stage2.endTime ? selectedRecord.stage2.endTime.split("T")[0] : "Not specified"}
                     </p>
                   </div>
                   <div>
@@ -1008,14 +1146,38 @@ const Stage2DetailRecords: React.FC = () => {
 
 
                 {/* Parts */}
-                <div className="space-y-2">
+                {/* Parts Section - Enhanced for Multi-Test Mode */}
+                <div className="col-span-2 space-y-2">
                   <div className="flex justify-between items-center">
                     <label className="text-sm font-medium text-gray-600">
                       Parts ({editForm.selectedParts.length} selected) <span className="text-red-600">*</span>
                     </label>
+
+                    {/* Show test mode indicator */}
+                    {editingRecord?.stage2?.testMode === 'multi' && (
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
+                        Multi-Test Mode
+                      </Badge>
+                    )}
                   </div>
 
-                  {/* Available Parts */}
+                  {/* Show original test-part mapping if multi-test mode */}
+                  {editingRecord?.stage2?.testMode === 'multi' &&
+                    typeof editingRecord.stage2.selectedParts === 'object' && (
+                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 space-y-2">
+                        <label className="text-xs font-semibold text-blue-800">Original Test Distribution:</label>
+                        {Object.entries(editingRecord.stage2.selectedParts).map(([testName, parts], idx) => (
+                          <div key={idx} className="text-xs text-blue-700 flex items-start gap-2">
+                            <span className="font-medium min-w-[120px]">{testName}:</span>
+                            <span className="text-blue-600">
+                              {(parts as string[]).join(', ')}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                  {/* Available Parts to Add */}
                   <div className="space-y-2">
                     <label className="text-xs text-gray-500">Add Parts:</label>
                     <div className="flex flex-wrap gap-2 p-2 bg-gray-50 rounded border max-h-[150px] overflow-y-auto">
@@ -1037,9 +1199,9 @@ const Stage2DetailRecords: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Selected Parts */}
+                  {/* Selected Parts - Now Editable */}
                   <div className="space-y-2">
-                    <label className="text-xs text-gray-500">Selected Parts:</label>
+                    <label className="text-xs text-gray-500">Currently Selected Parts (Editable):</label>
                     <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem] max-h-[200px] overflow-y-auto">
                       {editForm.selectedParts.length > 0 ? (
                         editForm.selectedParts.map((part) => (
@@ -1051,6 +1213,7 @@ const Stage2DetailRecords: React.FC = () => {
                             <button
                               onClick={() => removeEditPart(part)}
                               className="hover:bg-purple-200 rounded-full p-0.5 transition-colors"
+                              title="Remove part"
                             >
                               <X size={14} />
                             </button>
@@ -1061,6 +1224,14 @@ const Stage2DetailRecords: React.FC = () => {
                       )}
                     </div>
                   </div>
+
+                  {/* Warning message for multi-test mode */}
+                  {editingRecord?.stage2?.testMode === 'multi' && (
+                    <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                      <strong>Note:</strong> In multi-test mode, editing parts here will update the overall selection.
+                      The original test-to-part mapping shown above is for reference only.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
