@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Upload, X, ChevronRight, ChevronLeft, CheckCircle, AlertCircle, Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 // Reference image dimensions
 const REFERENCE_IMAGE_WIDTH = 480;
@@ -962,6 +963,7 @@ export default function MultiStageTestForm() {
 
     // Form data for all forms
     const [forms, setForms] = useState<FormsState>({});
+    const navigate = useNavigate();
 
     // Helper function to get selected parts based on test mode
     const getSelectedPartsArray = (): string[] => {
@@ -1720,6 +1722,11 @@ export default function MultiStageTestForm() {
                     });
 
                     alert("✅ All Forms Completed! Record with part-based structure has been saved successfully");
+
+                    // 🔁 Delay 2 Seconds then Navigate to /settings
+                    setTimeout(() => {
+                        navigate("/settings");
+                    }, 1500);
 
                 } else {
                     alert("❌ Record Not Found - Current record not found in storage");
