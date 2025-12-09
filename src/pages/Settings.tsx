@@ -371,7 +371,9 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ Export stage2Records data grouped by testName into separate worksheets
+  // Enhanced Excel Export Function for Test Reports
+  // This function creates Excel sheets with structured headers and test results table
+
   const exportAllStage2DataToExcel = () => {
     const rawRecords = JSON.parse(localStorage.getItem('stage2Records') || '[]');
 
@@ -380,152 +382,35 @@ const Dashboard = () => {
       return;
     }
 
-    // Create workbook
     const workbook = XLSX.utils.book_new();
+    const recordsByTest = {};
 
     // Group records by test name
-    const recordsByTest: { [key: string]: any[] } = {};
-
-    rawRecords.forEach((record: any) => {
+    rawRecords.forEach((record) => {
       const stage2 = record.stage2 || {};
       const testMode = stage2.testMode || "single";
 
       if (testMode === "single") {
-        // Single test mode - one test name
         const testName = stage2.testName || "Unknown Test";
         if (!recordsByTest[testName]) {
           recordsByTest[testName] = [];
         }
-
-        // Create flattened record for this test
-        recordsByTest[testName].push(createFlattenedRecord(record, null));
+        recordsByTest[testName].push({ record, testIndex: null });
       } else {
-        // Multi test mode - multiple test names
         const testNames = Array.isArray(stage2.testName)
           ? stage2.testName
-          : (stage2.testName || "").split(',').map((t: string) => t.trim());
+          : (stage2.testName || "").split(',').map((t) => t.trim());
 
-        const equipment = Array.isArray(stage2.equipment)
-          ? stage2.equipment
-          : (stage2.equipment || "").split(',').map((e: string) => e.trim());
-
-        const requiredQty = Array.isArray(stage2.requiredQty)
-          ? stage2.requiredQty
-          : (stage2.requiredQty || "").split(',').map((q: string) => q.trim());
-
-        const testCondition = Array.isArray(stage2.testCondition)
-          ? stage2.testCondition
-          : (stage2.testCondition || "").split(',').map((c: string) => c.trim());
-
-        const types = Array.isArray(stage2.type)
-          ? stage2.type
-          : (stage2.type || "").split(',').map((t: string) => t.trim());
-
-        // Create a separate row for each test
-        testNames.forEach((testName: string, index: number) => {
+        testNames.forEach((testName, index) => {
           if (!testName) return;
-
           if (!recordsByTest[testName]) {
             recordsByTest[testName] = [];
           }
-
-          // Create flattened record with specific test index
-          recordsByTest[testName].push(createFlattenedRecord(record, index));
+          recordsByTest[testName].push({ record, testIndex: index });
         });
       }
     });
 
-    // Helper function to create flattened record
-    function createFlattenedRecord(record: any, testIndex: number | null) {
-      const stage2 = record.stage2 || {};
-      const testMode = stage2.testMode || "single";
-
-      let testName, equipment, requiredQty, testCondition, testType, selectedParts;
-
-      if (testMode === "single" || testIndex === null) {
-        testName = stage2.testName || "N/A";
-        equipment = stage2.equipment || "N/A";
-        requiredQty = stage2.requiredQty || "N/A";
-        testCondition = stage2.testCondition || "N/A";
-        testType = stage2.type || "N/A";
-
-        // For single mode, selectedParts is an array
-        if (Array.isArray(stage2.selectedParts)) {
-          selectedParts = stage2.selectedParts.join(', ') || "N/A";
-        } else {
-          selectedParts = "N/A";
-        }
-      } else {
-        // Multi mode with specific test index
-        const testNames = Array.isArray(stage2.testName)
-          ? stage2.testName
-          : (stage2.testName || "").split(',').map((t: string) => t.trim());
-
-        const equipmentList = Array.isArray(stage2.equipment)
-          ? stage2.equipment
-          : (stage2.equipment || "").split(',').map((e: string) => e.trim());
-
-        const qtyList = Array.isArray(stage2.requiredQty)
-          ? stage2.requiredQty
-          : (stage2.requiredQty || "").split(',').map((q: string) => q.trim());
-
-        const conditionList = Array.isArray(stage2.testCondition)
-          ? stage2.testCondition
-          : (stage2.testCondition || "").split(',').map((c: string) => c.trim());
-
-        const typeList = Array.isArray(stage2.type)
-          ? stage2.type
-          : (stage2.type || "").split(',').map((t: string) => t.trim());
-
-        testName = testNames[testIndex] || "N/A";
-        equipment = equipmentList[testIndex] || "N/A";
-        requiredQty = qtyList[testIndex] || "N/A";
-        testCondition = conditionList[testIndex] || "N/A";
-        testType = typeList[testIndex] || "N/A";
-
-        // For multi mode, selectedParts is an object with test names as keys
-        if (stage2.selectedParts && typeof stage2.selectedParts === 'object') {
-          const parts = stage2.selectedParts[testName];
-          selectedParts = Array.isArray(parts) ? parts.join(', ') : "N/A";
-        } else {
-          selectedParts = "N/A";
-        }
-      }
-
-      return {
-        "ID": record.id || "N/A",
-        "Ticket Code": record.ticketCode || "N/A",
-        "Project": stage2.project || "N/A",
-        "Test Mode": testMode,
-        "Test Name": testName,
-        "Test Type": testType,
-        "Equipment/Machine": equipment,
-        "Process Stage": stage2.processStage || "N/A",
-        "Checkpoint": stage2.checkpoint || "N/A",
-        "Lines": stage2.lines || "N/A",
-        "Required Qty": requiredQty,
-        "Test Condition": testCondition,
-        "Selected Parts": selectedParts,
-        "Sample Qty": record.sampleQty || "N/A",
-        "Status": record.status || "N/A",
-        "Test Location": record.testLocation || "N/A",
-        "Shift Time": record.shiftTime || "N/A",
-        "Test Start Date": record.testStartDate || "N/A",
-        "Test Completion Date": record.testCompletionDate || "N/A",
-        "Parts Being Sent": record.partsBeingSent || "N/A",
-        "Received": record.received || "N/A",
-        "Inventory Remarks": record.inventoryRemarks || "N/A",
-        "Batch": record.detailsBox?.batch || "N/A",
-        "Color": record.detailsBox?.color || "N/A",
-        "Total Quantity": record.detailsBox?.totalQuantity || "N/A",
-        "Assembly OQC No": record.detailsBox?.assemblyOQCNo || "N/A",
-        "Reason": record.detailsBox?.reason || "N/A",
-        "Created Date": record.createdDate || "N/A",
-        "Submitted At": record.submittedAt || "N/A",
-      };
-    }
-
-    // Create a worksheet for each test name
     const testNames = Object.keys(recordsByTest).sort();
 
     if (testNames.length === 0) {
@@ -533,51 +418,277 @@ const Dashboard = () => {
       return;
     }
 
+    // Create worksheets for each test
     testNames.forEach((testName) => {
       const records = recordsByTest[testName];
 
-      // Create worksheet from records
-      const worksheet = XLSX.utils.json_to_sheet(records);
+      // Create worksheet data with structured format
+      const wsData = [];
 
-      // Set column widths for better readability
-      const columnWidths = [
-        { wch: 15 }, // Document Number
-        { wch: 12 }, // Ticket Code
-        { wch: 15 }, // Project
-        { wch: 10 }, // Test Mode
-        { wch: 20 }, // Test Name
-        { wch: 15 }, // Test Type
-        { wch: 20 }, // Equipment
-        { wch: 15 }, // Process Stage
-        { wch: 12 }, // Checkpoint
-        { wch: 10 }, // Lines
-        { wch: 12 }, // Required Qty
-        { wch: 20 }, // Test Condition
-        { wch: 30 }, // Selected Parts
-        { wch: 12 }, // Sample Qty
-        { wch: 12 }, // Status
-        { wch: 15 }, // Test Location
-        { wch: 12 }, // Shift Time
-        { wch: 18 }, // Test Start Date
-        { wch: 18 }, // Test Completion Date
-        { wch: 15 }, // Parts Being Sent
-        { wch: 12 }, // Received
-        { wch: 20 }, // Inventory Remarks
-        { wch: 12 }, // Batch
-        { wch: 10 }, // Color
-        { wch: 12 }, // Total Quantity
-        { wch: 15 }, // Assembly OQC No
-        { wch: 15 }, // Reason
-        { wch: 18 }, // Created Date
-        { wch: 18 }, // Submitted At
+      records.forEach((item, recordIdx) => {
+        const { record, testIndex } = item;
+        const stage2 = record.stage2 || {};
+        const testMode = stage2.testMode || "single";
+
+        // Extract test-specific data
+        let testType, equipment, requiredQty, testCondition, selectedParts;
+
+        if (testMode === "single" || testIndex === null) {
+          testType = stage2.type || "N/A";
+          equipment = stage2.equipment || "N/A";
+          requiredQty = stage2.requiredQty || "N/A";
+          testCondition = stage2.testCondition || "N/A";
+          selectedParts = Array.isArray(stage2.selectedParts)
+            ? stage2.selectedParts
+            : [];
+        } else {
+          const typeList = Array.isArray(stage2.type)
+            ? stage2.type
+            : (stage2.type || "").split(',').map((t) => t.trim());
+          const equipmentList = Array.isArray(stage2.equipment)
+            ? stage2.equipment
+            : (stage2.equipment || "").split(',').map((e) => e.trim());
+          const qtyList = Array.isArray(stage2.requiredQty)
+            ? stage2.requiredQty
+            : (stage2.requiredQty || "").split(',').map((q) => q.trim());
+          const conditionList = Array.isArray(stage2.testCondition)
+            ? stage2.testCondition
+            : (stage2.testCondition || "").split(',').map((c) => c.trim());
+
+          testType = typeList[testIndex] || "N/A";
+          equipment = equipmentList[testIndex] || "N/A";
+          requiredQty = qtyList[testIndex] || "N/A";
+          testCondition = conditionList[testIndex] || "N/A";
+
+          if (stage2.selectedParts && typeof stage2.selectedParts === 'object') {
+            const parts = stage2.selectedParts[testName];
+            selectedParts = Array.isArray(parts) ? parts : [];
+          } else {
+            selectedParts = [];
+          }
+        }
+
+        // Add separator between records
+        if (recordIdx > 0) {
+          wsData.push(Array(17).fill('')); // Empty row
+        }
+
+        // Row 1: Test Name, EHS, Test Condition, Date
+        wsData.push([
+          'Test Name :-',
+          testName,
+          '',
+          'EHS :-',
+          equipment,
+          '',
+          '',
+          'Test condition:-',
+          testCondition,
+          '',
+          '',
+          'Date:-',
+          record.stage2?.submittedAt ? new Date(record.stage2.submittedAt).toLocaleDateString() : record.testStartDate || 'N/A',
+          '', '', '', ''
+        ]);
+
+        // Row 2: Failure Criteria, Test Stage, Project, Sample Qty
+        wsData.push([
+          'Failure criteria:',
+          stage2.checkpoint ? `Checkpoint ${stage2.checkpoint}` : 'N/A',
+          '',
+          'Test Stage:-',
+          stage2.processStage || 'N/A',
+          '',
+          '',
+          'Project:-',
+          stage2.project || record.detailsBox?.project || 'N/A',
+          '',
+          '',
+          'Sample Qty:-',
+          requiredQty,
+          '', '', '', ''
+        ]);
+
+        // Row 3: Section header - Cosmetic Inspection
+        wsData.push([
+          'Cosmetic Inspection',
+          '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+        ]);
+
+        // Row 4: Main column headers
+        wsData.push([
+          'Sr.No',
+          'Test date',
+          'Sample I\'d',
+          'Visual',
+          'T0 Picture',
+          '',
+          'After Heat Soak',
+          '',
+          'After Foot Survivability',
+          '',
+          'Cosmetic Inspection',
+          '',
+          'Status',
+          '', '', '', ''
+        ]);
+
+        // Row 5: Sub-headers
+        wsData.push([
+          '',
+          '',
+          '',
+          '',
+          'Cosmetic',
+          'Non-cosmetic',
+          'Cosmetic',
+          'Non-cosmetic',
+          'Cosmetic',
+          'Non-cosmetic',
+          'Pre-test',
+          'Post-test',
+          '',
+          '', '', '', ''
+        ]);
+
+        // Data rows for each selected part
+        if (selectedParts.length > 0) {
+          selectedParts.forEach((partId, idx) => {
+            wsData.push([
+              idx + 1,
+              record.testStartDate || new Date().toLocaleDateString(),
+              partId,
+              'Ok',
+              '', // Cosmetic (T0)
+              '', // Non-cosmetic (T0)
+              '', // Cosmetic (Heat Soak)
+              '', // Non-cosmetic (Heat Soak)
+              '', // Cosmetic (Foot)
+              '', // Non-cosmetic (Foot)
+              'No damage found on the foot',
+              'No damage found on the foot',
+              'Pass',
+              '', '', '', ''
+            ]);
+          });
+        } else {
+          // Add at least one empty row
+          wsData.push([
+            1,
+            record.testStartDate || new Date().toLocaleDateString(),
+            'N/A',
+            'N/A',
+            '', '', '', '', '', '',
+            'No parts assigned',
+            '',
+            'N/A',
+            '', '', '', ''
+          ]);
+        }
+      });
+
+      // Create worksheet from array of arrays
+      const worksheet = XLSX.utils.aoa_to_sheet(wsData);
+
+      // Apply merges
+      const merges = [];
+      let currentRow = 0;
+
+      records.forEach((item, recordIdx) => {
+        if (recordIdx > 0) {
+          currentRow++; // Skip separator row
+        }
+
+        // Row 1 merges: Test Name row
+        merges.push(
+          { s: { r: currentRow, c: 1 }, e: { r: currentRow, c: 2 } }, // Test name value
+          { s: { r: currentRow, c: 4 }, e: { r: currentRow, c: 6 } }, // EHS value
+          { s: { r: currentRow, c: 8 }, e: { r: currentRow, c: 10 } }, // Test condition value
+          { s: { r: currentRow, c: 12 }, e: { r: currentRow, c: 16 } }  // Date value
+        );
+        currentRow++;
+
+        // Row 2 merges: Failure criteria row
+        merges.push(
+          { s: { r: currentRow, c: 1 }, e: { r: currentRow, c: 2 } }, // Failure criteria value
+          { s: { r: currentRow, c: 4 }, e: { r: currentRow, c: 6 } }, // Test Stage value
+          { s: { r: currentRow, c: 8 }, e: { r: currentRow, c: 10 } }, // Project value
+          { s: { r: currentRow, c: 12 }, e: { r: currentRow, c: 16 } }  // Sample Qty value
+        );
+        currentRow++;
+
+        // Row 3 merge: Cosmetic Inspection header
+        merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 16 } });
+        currentRow++;
+
+        // Row 4 merges: Main column headers
+        merges.push(
+          { s: { r: currentRow, c: 4 }, e: { r: currentRow, c: 5 } },   // T0 Picture
+          { s: { r: currentRow, c: 6 }, e: { r: currentRow, c: 7 } },   // After Heat Soak
+          { s: { r: currentRow, c: 8 }, e: { r: currentRow, c: 9 } },   // After Foot Survivability
+          { s: { r: currentRow, c: 10 }, e: { r: currentRow, c: 11 } }  // Cosmetic Inspection
+        );
+        currentRow += 2; // Skip to data rows (header + subheader)
+
+        // Count data rows
+        const { record, testIndex } = item;
+        const stage2 = record.stage2 || {};
+        let selectedParts = [];
+
+        if (testIndex === null) {
+          selectedParts = Array.isArray(stage2.selectedParts) ? stage2.selectedParts : [];
+        } else {
+          if (stage2.selectedParts && typeof stage2.selectedParts === 'object') {
+            const parts = stage2.selectedParts[testName];
+            selectedParts = Array.isArray(parts) ? parts : [];
+          }
+        }
+
+        currentRow += Math.max(selectedParts.length, 1);
+      });
+
+      worksheet['!merges'] = merges;
+
+      // Set column widths
+      worksheet['!cols'] = [
+        { wch: 8 },   // Sr.No
+        { wch: 12 },  // Test date
+        { wch: 20 },  // Sample I'd
+        { wch: 10 },  // Visual
+        { wch: 12 },  // Cosmetic (T0)
+        { wch: 15 },  // Non-cosmetic (T0)
+        { wch: 12 },  // Cosmetic (Heat Soak)
+        { wch: 15 },  // Non-cosmetic (Heat Soak)
+        { wch: 12 },  // Cosmetic (Foot)
+        { wch: 15 },  // Non-cosmetic (Foot)
+        { wch: 25 },  // Pre-test
+        { wch: 25 },  // Post-test
+        { wch: 10 },  // Status
+        { wch: 5 },   // Extra columns for spacing
+        { wch: 5 },
+        { wch: 5 },
+        { wch: 5 }
       ];
 
-      worksheet['!cols'] = columnWidths;
+      // Add borders to all cells with data
+      const range = XLSX.utils.decode_range(worksheet['!ref']);
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+          if (!worksheet[cellAddress]) continue;
 
-      // Sanitize sheet name (Excel has restrictions on sheet names)
+          if (!worksheet[cellAddress].s) worksheet[cellAddress].s = {};
+          worksheet[cellAddress].s.border = {
+            top: { style: 'thin', color: { rgb: '000000' } },
+            bottom: { style: 'thin', color: { rgb: '000000' } },
+            left: { style: 'thin', color: { rgb: '000000' } },
+            right: { style: 'thin', color: { rgb: '000000' } }
+          };
+        }
+      }
+
+      // Sanitize sheet name
       let sheetName = testName.replace(/[:\\\/\?\*\[\]]/g, '_').substring(0, 31);
-
-      // Ensure unique sheet name
       let finalSheetName = sheetName;
       let counter = 1;
       while (workbook.SheetNames.includes(finalSheetName)) {
@@ -588,25 +699,31 @@ const Dashboard = () => {
       XLSX.utils.book_append_sheet(workbook, worksheet, finalSheetName);
     });
 
-    // Create a summary sheet
+    // Create summary sheet
     const summaryData = testNames.map((testName) => ({
       "Test Name": testName,
       "Total Records": recordsByTest[testName].length,
-      "Completed": recordsByTest[testName].filter((r: any) => r.Status === "Completed").length,
-      "Under Testing": recordsByTest[testName].filter((r: any) => r.Status === "Received" || r.Status === "Under Testing").length,
-      "Scheduled": recordsByTest[testName].filter((r: any) => r.Status === "Scheduled").length,
+      "Total Parts": recordsByTest[testName].reduce((sum, item) => {
+        const { record, testIndex } = item;
+        const stage2 = record.stage2 || {};
+        let selectedParts = [];
+
+        if (testIndex === null) {
+          selectedParts = Array.isArray(stage2.selectedParts) ? stage2.selectedParts : [];
+        } else {
+          if (stage2.selectedParts && typeof stage2.selectedParts === 'object') {
+            const parts = stage2.selectedParts[testName];
+            selectedParts = Array.isArray(parts) ? parts : [];
+          }
+        }
+
+        return sum + selectedParts.length;
+      }, 0)
     }));
 
     const summarySheet = XLSX.utils.json_to_sheet(summaryData);
-    summarySheet['!cols'] = [
-      { wch: 25 },
-      { wch: 15 },
-      { wch: 12 },
-      { wch: 15 },
-      { wch: 12 },
-    ];
+    summarySheet['!cols'] = [{ wch: 30 }, { wch: 15 }, { wch: 15 }];
 
-    // Add summary sheet as first sheet
     XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
 
     // Move summary to first position
@@ -617,11 +734,10 @@ const Dashboard = () => {
       sheets.unshift("Summary");
     }
 
-    // Generate filename with timestamp
+    // Generate filename
     const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
     const filename = `ORT_TestReports_${timestamp}.xlsx`;
 
-    // Trigger download
     XLSX.writeFile(workbook, filename);
   };
 
