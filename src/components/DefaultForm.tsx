@@ -128,6 +128,8 @@ interface FormRow {
     nonCosmeticImage?: string;
     croppedImage?: string;
     regionLabel?: string;
+    finalNonCosmeticImage?: string;
+    finalCroppedNonCosmeticImage?: string;
     [key: string]: any;
 }
 
@@ -200,8 +202,9 @@ function DefaultForm({
     formKey,
     timerState,
     onTimerToggle,
-    croppedRegions
-}: DefaultFormProps) {
+    croppedRegions,
+    isSecondRound = false
+}: DefaultFormProps & { isSecondRound?: boolean }) {
     const [showAddColumnModal, setShowAddColumnModal] = useState(false);
     const [newColumn, setNewColumn] = useState({
         label: '',
@@ -577,6 +580,20 @@ function DefaultForm({
                                                 Cropped Image
                                             </th>
 
+                                            {/* Final Non-Cosmetic Image Column - Second Round Only */}
+                                            {isSecondRound && (
+                                                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                    Final Non-Cosmetic Image
+                                                </th>
+                                            )}
+
+                                            {/* Final Cropped Non-Cosmetic Image Column - Second Round Only */}
+                                            {isSecondRound && (
+                                                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                    Final Cropped Non-Cosmetic Image
+                                                </th>
+                                            )}
+
                                             {/* Custom Columns */}
                                             {formData.customColumns?.map((column) => (
                                                 <th key={column.id} className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200 relative group">
@@ -786,6 +803,45 @@ function DefaultForm({
                                                     )}
                                                 </td>
 
+                                                {/* Final Non-Cosmetic Image Column - Second Round Only */}
+                                                {isSecondRound && (
+                                                    <td className="px-4 py-4 border-r border-gray-200 min-w-[150px]">
+                                                        {row.finalNonCosmeticImage ? (
+                                                            <div className="space-y-2">
+                                                                <img
+                                                                    src={row.finalNonCosmeticImage}
+                                                                    alt="Final Non-Cosmetic"
+                                                                    className="w-20 h-20 object-contain border rounded-lg mx-auto"
+                                                                />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-xs text-gray-400 text-center">No image</div>
+                                                        )}
+                                                    </td>
+                                                )}
+
+                                                {/* Final Cropped Non-Cosmetic Image Column - Second Round Only */}
+                                                {isSecondRound && (
+                                                    <td className="px-4 py-4 border-r border-gray-200 min-w-[150px]">
+                                                        {row.finalCroppedNonCosmeticImage ? (
+                                                            <div className="space-y-2">
+                                                                <img
+                                                                    src={row.finalCroppedNonCosmeticImage}
+                                                                    alt="Final Cropped"
+                                                                    className="w-20 h-20 object-contain border rounded-lg mx-auto"
+                                                                />
+                                                                {row.regionLabel && (
+                                                                    <div className="text-xs text-center font-semibold text-gray-700">
+                                                                        {row.regionLabel}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-xs text-gray-400 text-center">No crop</div>
+                                                        )}
+                                                    </td>
+                                                )}
+
                                                 {/* Custom Column Fields */}
                                                 {formData.customColumns?.map((column) => (
                                                     <td key={column.id} className={`px-4 py-4 border-r border-gray-200 ${column.type === 'image' ? 'min-w-[200px]' : ''}`}>
@@ -954,6 +1010,7 @@ export default function MultiStageTestForm() {
     const [checkpointAlerts, setCheckpointAlerts] = useState<Record<string, boolean>>({});
     const [availableTestsToResume, setAvailableTestsToResume] = useState<{ recordId: number, testName: string, formKey: string, completed: boolean }[]>([]);
     const [timerStates, setTimerStates] = useState<Record<string, { remainingSeconds: number; isRunning: boolean }>>({});
+    const [isSecondRound, setIsSecondRound] = useState(false);
 
     // Shared images by part
     const [sharedImagesByPart, setSharedImagesByPart] = useState<Record<string, { cosmetic: string | null, nonCosmetic: string | null }>>({});
@@ -1418,51 +1475,75 @@ export default function MultiStageTestForm() {
                     Object.keys(forms).forEach(formKey => {
                         const formData = forms[formKey];
 
-                        // Remove existing rows for this part
-                        const otherRows = formData.rows.filter(row => row.partId !== partId);
+                        if (isSecondRound) {
+                            // Second round: Update existing rows with final images
+                            const updatedRows = formData.rows.map((row, index) => {
+                                // Match row by partId and index
+                                if (row.partId === partId && croppedImages[index]) {
+                                    return {
+                                        ...row,
+                                        finalNonCosmeticImage: nonCosmeticImageUrl,
+                                        finalCroppedNonCosmeticImage: croppedImages[index].data
+                                    };
+                                }
+                                return row;
+                            });
 
-                        // Get cosmetic image for this part
-                        const cosmeticImage = sharedImagesByPart[partId]?.cosmetic || '';
+                            setForms(prev => ({
+                                ...prev,
+                                [formKey]: {
+                                    ...prev[formKey],
+                                    rows: updatedRows
+                                }
+                            }));
+                        } else {
+                            // First round: Create new rows as before
+                            // Remove existing rows for this part
+                            const otherRows = formData.rows.filter(row => row.partId !== partId);
 
-                        // Create new rows based on cropped images
-                        const newRows = croppedImages.map((croppedImage, index) => {
-                            const srNo = otherRows.length + index + 1;
-                            const baseRow: any = {
-                                id: Date.now() + index,
-                                srNo: srNo,
-                                testDate: "",
-                                config: "",
-                                sampleId: `${partId}-${index + 1}`,
-                                status: "Pass",
-                                partId: partId,
-                                part: partId,
-                                cosmeticImage: cosmeticImage,
-                                nonCosmeticImage: nonCosmeticImageUrl,
-                                croppedImage: croppedImage.data,
-                                regionLabel: croppedImage.label
-                            };
+                            // Get cosmetic image for this part
+                            const cosmeticImage = sharedImagesByPart[partId]?.cosmetic || '';
 
-                            // Add all custom column fields with empty values
-                            if (formData.customColumns) {
-                                formData.customColumns.forEach(col => {
-                                    baseRow[col.id] = '';
-                                });
-                            }
+                            // Create new rows based on cropped images
+                            const newRows = croppedImages.map((croppedImage, index) => {
+                                const srNo = otherRows.length + index + 1;
+                                const baseRow: any = {
+                                    id: Date.now() + index,
+                                    srNo: srNo,
+                                    testDate: "",
+                                    config: "",
+                                    sampleId: `${partId}-${index + 1}`,
+                                    status: "Pass",
+                                    partId: partId,
+                                    part: partId,
+                                    cosmeticImage: cosmeticImage,
+                                    nonCosmeticImage: nonCosmeticImageUrl,
+                                    croppedImage: croppedImage.data,
+                                    regionLabel: croppedImage.label
+                                };
 
-                            return baseRow;
-                        });
+                                // Add all custom column fields with empty values
+                                if (formData.customColumns) {
+                                    formData.customColumns.forEach(col => {
+                                        baseRow[col.id] = '';
+                                    });
+                                }
 
-                        // Update forms with new rows
-                        setForms(prev => ({
-                            ...prev,
-                            [formKey]: {
-                                ...prev[formKey],
-                                rows: [...otherRows, ...newRows].map((row, idx) => ({
-                                    ...row,
-                                    srNo: idx + 1
-                                }))
-                            }
-                        }));
+                                return baseRow;
+                            });
+
+                            // Update forms with new rows
+                            setForms(prev => ({
+                                ...prev,
+                                [formKey]: {
+                                    ...prev[formKey],
+                                    rows: [...otherRows, ...newRows].map((row, idx) => ({
+                                        ...row,
+                                        srNo: idx + 1
+                                    }))
+                                }
+                            }));
+                        }
                     });
 
                     setRegions(detectedRegions);
@@ -1679,7 +1760,11 @@ export default function MultiStageTestForm() {
                                     status: row.status || "Pass",
                                     partId: row.partId || "",
                                     cosmeticImage: row.cosmeticImage || "",
-                                    nonCosmeticImage: row.nonCosmeticImage || ""
+                                    nonCosmeticImage: row.nonCosmeticImage || "",
+                                    croppedImage: row.croppedImage || "",
+                                    regionLabel: row.regionLabel || "",
+                                    finalNonCosmeticImage: row.finalNonCosmeticImage || "",
+                                    finalCroppedNonCosmeticImage: row.finalCroppedNonCosmeticImage || ""
                                 };
 
                                 // Add ALL custom column values (including newly added text columns)
@@ -1698,7 +1783,7 @@ export default function MultiStageTestForm() {
                             ...records[currentRecordIndex].forms,
                             ...formsWithCompleteData
                         },
-                        status: "Completed",
+                        status: isSecondRound ? "Completed" : "In Progress",
                         completedAt: new Date().toISOString(),
                         sharedImagesByPart: sharedImagesByPart,
                         croppedRegions: croppedRegions,
@@ -1721,12 +1806,28 @@ export default function MultiStageTestForm() {
                         sharedImagesByPart: sharedImagesByPart
                     });
 
-                    alert("✅ All Forms Completed! Record with part-based structure has been saved successfully");
+                    if (isSecondRound) {
+                        alert("✅ Final submission complete! Redirecting to settings...");
+                        setTimeout(() => {
+                            navigate("/settings");
+                        }, 1500);
+                    } else {
+                        alert("✅ All Forms Completed! You can now upload additional non-cosmetic images.");
 
-                    // 🔁 Delay 2 Seconds then Navigate to /settings
-                    setTimeout(() => {
-                        navigate("/settings");
-                    }, 1500);
+                        // Clear non-cosmetic images from sharedImagesByPart for fresh uploads
+                        const clearedImages: Record<string, { cosmetic: string | null, nonCosmetic: string | null }> = {};
+                        Object.keys(sharedImagesByPart).forEach(partId => {
+                            clearedImages[partId] = {
+                                cosmetic: sharedImagesByPart[partId].cosmetic, // Keep cosmetic images
+                                nonCosmetic: null // Clear non-cosmetic images
+                            };
+                        });
+                        setSharedImagesByPart(clearedImages);
+
+                        // Redirect to stage 0 for second round
+                        setIsSecondRound(true);
+                        setCurrentStage(0);
+                    }
 
                 } else {
                     alert("❌ Record Not Found - Current record not found in storage");
@@ -1807,6 +1908,7 @@ export default function MultiStageTestForm() {
                 timerState={timerState}
                 onTimerToggle={() => handleTimerToggle(formKey)}
                 croppedRegions={croppedRegions}
+                isSecondRound={isSecondRound}
             />
         );
     };
@@ -1936,46 +2038,48 @@ export default function MultiStageTestForm() {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {/* Cosmetic Image for Part */}
-                                    <div className="bg-gray-50 rounded-lg p-4">
-                                        <div className="flex items-center mb-3">
-                                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-2">
-                                                <Upload className="text-blue-600" size={16} />
+                                <div className={`grid ${isSecondRound ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
+                                    {/* Cosmetic Image for Part - Hidden in second round */}
+                                    {!isSecondRound && (
+                                        <div className="bg-gray-50 rounded-lg p-4">
+                                            <div className="flex items-center mb-3">
+                                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-2">
+                                                    <Upload className="text-blue-600" size={16} />
+                                                </div>
+                                                <h4 className="font-medium text-gray-700">Cosmetic Image</h4>
                                             </div>
-                                            <h4 className="font-medium text-gray-700">Cosmetic Image</h4>
-                                        </div>
 
-                                        <label className="flex flex-col items-center justify-center h-40 cursor-pointer border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-400 transition-colors bg-blue-50">
-                                            {sharedImagesByPart[part]?.cosmetic ? (
-                                                <div className="relative w-full h-full">
-                                                    <img src={sharedImagesByPart[part].cosmetic!} alt={`Cosmetic ${part}`} className="w-full h-full object-contain p-2" />
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            clearImage(part, 'cosmetic');
-                                                        }}
-                                                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
-                                                    >
-                                                        <X size={14} />
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div className="text-center p-4">
-                                                    <Upload className="mx-auto mb-2 text-blue-400" size={30} />
-                                                    <span className="text-sm font-medium text-gray-700">Upload Cosmetic</span>
-                                                    <span className="text-xs text-gray-500 block mt-1">For {part}</span>
-                                                </div>
-                                            )}
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                className="hidden"
-                                                onChange={(e) => e.target.files?.[0] && handleImageUpload(part, "cosmetic", e.target.files[0])}
-                                            />
-                                        </label>
-                                    </div>
+                                            <label className="flex flex-col items-center justify-center h-40 cursor-pointer border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-400 transition-colors bg-blue-50">
+                                                {sharedImagesByPart[part]?.cosmetic ? (
+                                                    <div className="relative w-full h-full">
+                                                        <img src={sharedImagesByPart[part].cosmetic!} alt={`Cosmetic ${part}`} className="w-full h-full object-contain p-2" />
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                clearImage(part, 'cosmetic');
+                                                            }}
+                                                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
+                                                        >
+                                                            <X size={14} />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center p-4">
+                                                        <Upload className="mx-auto mb-2 text-blue-400" size={30} />
+                                                        <span className="text-sm font-medium text-gray-700">Upload Cosmetic</span>
+                                                        <span className="text-xs text-gray-500 block mt-1">For {part}</span>
+                                                    </div>
+                                                )}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={(e) => e.target.files?.[0] && handleImageUpload(part, "cosmetic", e.target.files[0])}
+                                                />
+                                            </label>
+                                        </div>
+                                    )}
 
                                     {/* Non-Cosmetic Image for Part */}
                                     <div className="bg-gray-50 rounded-lg p-4">
@@ -1983,7 +2087,7 @@ export default function MultiStageTestForm() {
                                             <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-2">
                                                 <Upload className="text-green-600" size={16} />
                                             </div>
-                                            <h4 className="font-medium text-gray-700">Non-Cosmetic Image</h4>
+                                            <h4 className="font-medium text-gray-700">{isSecondRound ? 'Final Non-Cosmetic Image' : 'Non-Cosmetic Image'}</h4>
                                         </div>
 
                                         <label className="flex flex-col items-center justify-center h-40 cursor-pointer border-2 border-dashed border-green-300 rounded-lg hover:border-green-400 transition-colors bg-green-50 relative">
@@ -2154,7 +2258,7 @@ export default function MultiStageTestForm() {
                                     className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center font-semibold transition-colors"
                                 >
                                     <CheckCircle size={20} className="mr-2" />
-                                    Complete All Tests
+                                    {isSecondRound ? 'Submit Final Data' : 'Complete All Tests'}
                                 </button>
                             )}
                         </div>
