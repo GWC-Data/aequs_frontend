@@ -7,679 +7,327 @@ import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/use-toast';
 import { ArrowLeft, X } from 'lucide-react';
 import DateTimePicker from '@/components/DatePicker';
-import { flaskData } from '@/data/flaskData';
 
-interface TestRecord {
-  ticketCode: string;
-  documentTitle: string;
-  project: string;
-  color: string;
-  testLocation: string;
-  testStartDate: string;
-  testCompletionDate: string;
-  sampleConfig: string;
-  status: string;
+interface OQCTicketRecord {
   id: number;
-  createdAt: string;
-}
-
-interface OqcRecord {
   ticketCode: string;
   totalQuantity: string;
-  assemblyAno: string;
+  anoType: string;
   source: string;
   reason: string;
   project: string;
   build: string;
   colour: string;
   dateTime: string;
-  id: number;
-  createdAt: string;
-  barcodeAssignments?: Array<{
+  status: string;
+  sessions: Array<{
     id: string;
+    sessionNumber: number;
     timestamp: string;
-    ticketId: number;
-    ticketCode: string;
-    serialNumber: string;
-    partNumbers: string[];
-    totalParts: number;
-    rawBarcodeData?: string;
+    parts: Array<{
+      id: string;
+      partNumber: string;
+      serialNumber: string;
+      scanStatus: string;
+      scannedAt: string;
+      location: string;
+    }>;
+    submitted: boolean;
+    sentToORT: boolean;
+    submittedAt: string;
   }>;
-  assignedParts?: number;
-  lastUpdated?: string;
+  createdAt: string;
+  oqcApproved: boolean;
 }
 
-interface ORTLabRecord {
+interface ORTLabSubmission {
+  id: string;
+  timestamp: string;
+  ticketId: number;
   ticketCode: string;
-  documentTitle: string;
-  project: string;
-  testLocation: string;
-  submissionPartDate: string;
-  sampleConfig: string;
-  remarks: string;
-  status: string;
-  line: string;
-  colour: string;
-  quantity: string;
-  id: number;
-  createdAt: string;
-  ortLabId: number;
-  ortLab: {
-    submissionId: number;
-    date: string;
+  sessionNumber: number;
+  parts: Array<{
+    id: string;
+    partNumber: string;
     serialNumber: string;
-    scannedParts: {
-      serialNumber: string;
-      partNumber: string;
-      scannedAt: string;
-    }[];
-    totalParts: number;
-    requiredQuantity: string;
-    submittedAt: string;
-  };
+    scanStatus: string;
+    scannedAt: string;
+    location: string;
+  }>;
+  project: string;
+  build: string;
+  colour: string;
+  anoType: string;
+  source: string;
+  reason: string;
+  totalParts: number;
+  serialNumber: string;
+  partNumbers: string[];
+  rawBarcodeData: string;
+  submitted: boolean;
 }
+
+interface TestConfiguration {
+  processStage: string;
+  testName: string;
+  testCondition: string;
+  qty: string;
+  specification: string;
+  machineEquipment: string;
+  machineEquipment2: string;
+  qty2: string;
+  anoType: string;
+}
+
+// Sample test data - you can move this to a separate file
+const testConfigurations: TestConfiguration[] = [
+  {
+    processStage: "ANO Flash NPI",
+    testName: "Ano Hardness",
+    testCondition: "RT",
+    qty: "10pcs/build",
+    specification: "<300 HV0.05",
+    machineEquipment: "Hardness machine",
+    machineEquipment2: "Hardness machine",
+    qty2: "24",
+    anoType: "ANO"
+  },
+  {
+    processStage: "ANO Flash NPI",
+    testName: "Ano Adhesion",
+    testCondition: "RT",
+    qty: "10pcs/build",
+    specification: ">5B",
+    machineEquipment: "Tape test kit",
+    machineEquipment2: "Tape test kit",
+    qty2: "24",
+    anoType: "ANO"
+  },
+  {
+    processStage: "Electro Flash NPI",
+    testName: "Electro Thickness",
+    testCondition: "RT",
+    qty: "10pcs/build",
+    specification: "8-12μm",
+    machineEquipment: "Coating thickness gauge",
+    machineEquipment2: "Coating thickness gauge",
+    qty2: "24",
+    anoType: "ELECTRO"
+  }
+  // Add more configurations as needed
+];
 
 const Stage2FormPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const selectedRecord = location.state?.record as TestRecord | undefined;
-  const [testMode, setTestMode] = useState<'single' | 'multi'>('single');
-  const [filteredData, setFilteredData] = useState<typeof flaskData>([]);
-  const [availableTestNames, setAvailableTestNames] = useState<string[]>([]);
-  const [ortLabRecords, setOrtLabRecords] = useState<ORTLabRecord[]>([]);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("stage1TableData");
-    if (stored) {
-      try {
-        const records: ORTLabRecord[] = JSON.parse(stored);
-        setOrtLabRecords(records);
-      } catch (err) {
-        console.error("Failed to parse ORT records", err);
-      }
-    }
-  }, []);
-
-  // Fetch OQC data and auto-populate project, line, parts on mount
-  const [oqcDataLoaded, setOqcDataLoaded] = useState(false);
-  const [totalQuantity, setTotalQuantity] = useState(50);
-  const [barcodeAssignments, setBarcodeAssignments] = useState<any[]>([]);
-
+  const [availableTickets, setAvailableTickets] = useState<OQCTicketRecord[]>([]);
+  const [selectedTicket, setSelectedTicket] = useState<OQCTicketRecord | null>(null);
+  const [ortSubmissions, setOrtSubmissions] = useState<ORTLabSubmission[]>([]);
+  const [filteredTestConfigs, setFilteredTestConfigs] = useState<TestConfiguration[]>([]);
+  
+  // Form state
   const [stage2Form, setStage2Form] = useState({
-    processStage: [] as string[],
-    type: [] as string[],
-    testName: [] as string[],
-    testCondition: [] as string[],
-    requiredQty: "",
-    equipment: [] as string[],
-    checkpoint: "",
+    ticketCode: "",
+    project: "",
+    build: "",
+    colour: "",
+    anoType: "",
+    source: "",
+    reason: "",
+    processStage: "",
+    testName: "",
+    testCondition: "",
+    qty: "",
+    specification: "",
+    machineEquipment: "",
+    machineEquipment2: "",
+    qty2: "",
+    availableParts: [] as string[],
+    assignedParts: [] as string[],
     startDateTime: "",
     endDateTime: "",
-    remark: "",
-    project: "",
-    lines: [] as string[],
-    selectedParts: [] as string[],
-    partAssignments: {} as { [testName: string]: string[] },
-    ticketCode: selectedRecord?.ticketCode || "TICKET-001"
+    remark: ""
   });
 
-  //Load Barcode Assignments and populate project, line, parts
+  // Load available tickets on mount
   useEffect(() => {
-    if (!selectedRecord?.ticketCode) return;
-
-    const ticketCode = selectedRecord.ticketCode;
-
-    // Load OQC Records
-    const oqcDataStr = localStorage.getItem("testRecords");
-    const oqcRecords: OqcRecord[] = oqcDataStr ? JSON.parse(oqcDataStr) : [];
-    console.log("OQC Records:", oqcRecords);
-    const oqcMatch = oqcRecords.find(rec => rec.ticketCode === ticketCode);
-
-    // Load Barcode Assignments from ticketBarcodeAssignments
-    const barcodeDataStr = localStorage.getItem("ticketBarcodeAssignments");
-    const allBarcodeAssignments = barcodeDataStr ? JSON.parse(barcodeDataStr) : [];
-    console.log("All Barcode Assignments:", allBarcodeAssignments);
-
-    // Filter barcode assignments for this ticket - match ticketCode
-    const ticketBarcodeAssignments = allBarcodeAssignments.filter(
-      (assignment: any) => assignment.ticketCode === ticketCode
-    );
-    console.log("Matching Barcode Assignments for ticket:", ticketCode, ticketBarcodeAssignments);
-
-    // 🔥 FIX: Get only the MOST RECENT submitted barcode assignment
-    const submittedAssignments = ticketBarcodeAssignments
-      .filter((assignment: any) => assignment.submitted === true)
-      .sort((a: any, b: any) => new Date(b.submittedAt || b.timestamp).getTime() - new Date(a.submittedAt || a.timestamp).getTime());
-
-    const latestSubmission = submittedAssignments.length > 0 ? [submittedAssignments[0]] : [];
-
-    console.log("Latest Submitted Assignment:", latestSubmission);
-    setBarcodeAssignments(latestSubmission);
-
-    let project = "";
-    let lines: string[] = [];
-    let allParts: string[] = [];
-    let totalPartsCount = 0;
-
-    if (oqcMatch) {
-      project = oqcMatch.project || "";
-      lines = [oqcMatch.source || ""];
-    }
-
-    // Collect parts from ONLY the latest submitted barcode assignment
-    if (latestSubmission.length > 0) {
-      const assignment = latestSubmission[0];
-      if (Array.isArray(assignment.partNumbers)) {
-        assignment.partNumbers.forEach((part: string) => {
-          if (typeof part === 'string' && part.trim() !== '') {
-            // Convert "PART001" → "Part 001", keep others as-is
-            const match = part.match(/^PART(\d+)$/i);
-            let displayPart = part;
-            if (match) {
-              const num = parseInt(match[1], 10);
-              displayPart = `Part ${String(num).padStart(3, '0')}`;
-            }
-            allParts.push(displayPart);
-          }
-        });
-        totalPartsCount = assignment.totalParts || 0;
-      }
-
-      console.log("Parts from Latest Submission:", allParts);
-      console.log("Total Parts Count:", totalPartsCount);
-    }
-
-    setTotalQuantity(totalPartsCount);
-    setStage2Form(prev => ({
-      ...prev,
-      project: project || "—",
-      lines: lines.length > 0 && lines[0] ? lines : ["—"],
-      selectedParts: allParts,
-      ticketCode
-    }));
-    setOqcDataLoaded(true);
-  }, [selectedRecord?.ticketCode]);
-
-  const processStages = Array.from(new Set(flaskData.map(item => item.processStage)));
-
-  const getFilteredTypes = () => {
-    if (stage2Form.processStage.length === 0) return [];
-    const filteredTypes = flaskData
-      .filter(item => stage2Form.processStage.includes(item.processStage))
-      .map(item => item.type);
-    return Array.from(new Set(filteredTypes));
-  };
-
-  const types = getFilteredTypes();
-
-  const handleProcessStageSelection = (stage: string) => {
-    setStage2Form(prev => {
-      if (testMode === 'multi') {
-        const isSelected = prev.processStage.includes(stage);
-        const newProcessStages = isSelected
-          ? prev.processStage.filter(s => s !== stage)
-          : [...prev.processStage, stage];
-        return {
-          ...prev,
-          processStage: newProcessStages,
-          type: [],
-          testName: [],
-          testCondition: [],
-          equipment: [],
-          requiredQty: "",
-          partAssignments: {}
-        };
-      } else {
-        return {
-          ...prev,
-          processStage: [stage],
-          type: [],
-          testName: [],
-          testCondition: [],
-          equipment: [],
-          requiredQty: "",
-          partAssignments: {}
-        };
-      }
-    });
-  };
-
-  const removeSelectedProcessStage = (stage: string) => {
-    setStage2Form(prev => ({
-      ...prev,
-      processStage: prev.processStage.filter(s => s !== stage),
-      type: [],
-      testName: [],
-      testCondition: [],
-      equipment: [],
-      requiredQty: "",
-      partAssignments: {}
-    }));
-    setFilteredData([]);
-    setAvailableTestNames([]);
-  };
-
-  const selectAllProcessStages = () => {
-    if (testMode === 'multi') {
-      setStage2Form(prev => ({
-        ...prev,
-        processStage: [...processStages]
-      }));
-    }
-  };
-
-  const clearAllProcessStages = () => {
-    setStage2Form(prev => ({
-      ...prev,
-      processStage: [],
-      type: [],
-      testName: [],
-      testCondition: [],
-      equipment: [],
-      requiredQty: "",
-      partAssignments: {}
-    }));
-    setFilteredData([]);
-    setAvailableTestNames([]);
-  };
-
-  const handleTypeSelection = (type: string) => {
-    setStage2Form(prev => {
-      if (testMode === 'multi') {
-        const isSelected = prev.type.includes(type);
-        const newTypes = isSelected
-          ? prev.type.filter(t => t !== type)
-          : [...prev.type, type];
-        const allSelectedProcessStages = prev.processStage;
-        const filteredData = flaskData.filter(item =>
-          allSelectedProcessStages.includes(item.processStage) &&
-          newTypes.includes(item.type)
-        );
-        setFilteredData(filteredData);
-        const testNames = Array.from(new Set(filteredData.map(item => item.testName)));
-        setAvailableTestNames(testNames);
-        return {
-          ...prev,
-          type: newTypes,
-          testName: [],
-          testCondition: [],
-          equipment: [],
-          requiredQty: "",
-          partAssignments: {}
-        };
-      } else {
-        const filteredData = flaskData.filter(item =>
-          prev.processStage[0] === item.processStage && item.type === type
-        );
-        setFilteredData(filteredData);
-        const testNames = Array.from(new Set(filteredData.map(item => item.testName)));
-        setAvailableTestNames(testNames);
-        return {
-          ...prev,
-          type: [type],
-          testName: [],
-          testCondition: [],
-          equipment: [],
-          requiredQty: "",
-          partAssignments: {}
-        };
-      }
-    });
-  };
-
-  const removeSelectedType = (type: string) => {
-    setStage2Form(prev => {
-      const newTypes = prev.type.filter(t => t !== type);
-      if (prev.processStage.length > 0 && newTypes.length > 0) {
-        const matchedData = flaskData.filter(
-          item => prev.processStage.includes(item.processStage) && newTypes.includes(item.type)
-        );
-        setFilteredData(matchedData);
-        const testNames = Array.from(new Set(matchedData.map(item => item.testName)));
-        setAvailableTestNames(testNames);
-      } else {
-        setFilteredData([]);
-        setAvailableTestNames([]);
-      }
-      return {
-        ...prev,
-        type: newTypes,
-        testName: [],
-        testCondition: [],
-        equipment: [],
-        requiredQty: "",
-        partAssignments: {}
-      };
-    });
-  };
-
-  const selectAllTypes = () => {
-    if (testMode === 'multi' && stage2Form.processStage.length > 0) {
-      const filteredTypes = flaskData
-        .filter(item => stage2Form.processStage.includes(item.processStage))
-        .map(item => item.type);
-      const uniqueTypes = Array.from(new Set(filteredTypes));
-      setStage2Form(prev => ({
-        ...prev,
-        type: uniqueTypes
-      }));
-    }
-  };
-
-  const clearAllTypes = () => {
-    setStage2Form(prev => ({
-      ...prev,
-      type: [],
-      testName: [],
-      testCondition: [],
-      equipment: [],
-      requiredQty: "",
-      partAssignments: {}
-    }));
-    setFilteredData([]);
-    setAvailableTestNames([]);
-  };
-
-  const handleTestNameSelection = (testName: string) => {
-    if (!oqcDataLoaded) return;
-
-    if (testMode === 'single') {
-      const selectedTest = filteredData.find(item => item.testName === testName);
-      if (selectedTest) {
-        const equipmentList = selectedTest.equipment.split(',').map(eq => eq.trim());
-        const numEquipment = equipmentList.length;
-        const qtyPerEquipment = numEquipment > 0 ? Math.ceil(totalQuantity / numEquipment) : 0;
-        const requiredQtyStr = Array(numEquipment).fill(qtyPerEquipment).join(', ');
-
-        setStage2Form(prev => ({
-          ...prev,
-          testName: [testName],
-          equipment: equipmentList,
-          testCondition: [selectedTest.testCondition || ""],
-          requiredQty: requiredQtyStr,
-          partAssignments: { [testName]: [...prev.selectedParts] }
-        }));
-      }
-    } else {
-      setStage2Form(prev => {
-        const isSelected = prev.testName.includes(testName);
-        let newTestNames: string[];
-        let newPartAssignments = { ...prev.partAssignments };
-
-        if (isSelected) {
-          newTestNames = prev.testName.filter(t => t !== testName);
-          const removedParts = prev.partAssignments[testName] || [];
-          delete newPartAssignments[testName];
-
-          const newlyAvailableParts = [...prev.selectedParts, ...removedParts];
-
-          const equipmentList: string[] = [];
-          const conditionList: string[] = [];
-
-          newTestNames.forEach(name => {
-            const test = filteredData.find(item => item.testName === name);
-            if (test) {
-              const eqs = test.equipment.split(',').map(eq => eq.trim());
-              equipmentList.push(...eqs);
-              conditionList.push(...Array(eqs.length).fill(test.testCondition || ""));
-            }
-          });
-
-          const totalEquipment = equipmentList.length;
-          const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(newlyAvailableParts.length / totalEquipment) : 0;
-          const requiredQtyStr = Array(totalEquipment).fill(qtyPerEquipment).join(', ');
-
-          return {
-            ...prev,
-            testName: newTestNames,
-            equipment: equipmentList,
-            testCondition: conditionList,
-            requiredQty: requiredQtyStr,
-            selectedParts: newlyAvailableParts,
-            partAssignments: newPartAssignments
-          };
-        } else {
-          newTestNames = [...prev.testName, testName];
-          newPartAssignments = {
-            ...prev.partAssignments,
-            [testName]: []
-          };
-
-          const equipmentList: string[] = [];
-          const conditionList: string[] = [];
-
-          newTestNames.forEach(name => {
-            const test = filteredData.find(item => item.testName === name);
-            if (test) {
-              const eqs = test.equipment.split(',').map(eq => eq.trim());
-              equipmentList.push(...eqs);
-              conditionList.push(...Array(eqs.length).fill(test.testCondition || ""));
-            }
-          });
-
-          const totalEquipment = equipmentList.length;
-          const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(prev.selectedParts.length / totalEquipment) : 0;
-          const requiredQtyStr = Array(totalEquipment).fill(qtyPerEquipment).join(', ');
-
-          return {
-            ...prev,
-            testName: newTestNames,
-            equipment: equipmentList,
-            testCondition: conditionList,
-            requiredQty: requiredQtyStr,
-            partAssignments: newPartAssignments
-          };
+    const loadTickets = () => {
+      try {
+        const ticketsData = localStorage.getItem("oqc_ticket_records");
+        const submissionsData = localStorage.getItem("ort_lab_submissions");
+        
+        if (ticketsData) {
+          const tickets: OQCTicketRecord[] = JSON.parse(ticketsData);
+          // Filter tickets with submitted sessions
+          const available = tickets.filter(ticket => 
+            ticket.sessions.some(session => session.submitted && !session.sentToORT)
+          );
+          setAvailableTickets(available);
         }
-      });
-    }
-  };
-
-  const assignPartsToTest = (testName: string, partsToAssign: string[]) => {
-    setStage2Form(prev => {
-      if (!prev.testName.includes(testName)) return prev;
-
-      const currentAssigned = prev.partAssignments[testName] || [];
-      const newlyAssigned = partsToAssign.filter(part =>
-        !currentAssigned.includes(part) && prev.selectedParts.includes(part)
-      );
-
-      if (newlyAssigned.length === 0) return prev;
-
-      const updatedAssignments = {
-        ...prev.partAssignments,
-        [testName]: [...currentAssigned, ...newlyAssigned]
-      };
-
-      const updatedAvailableParts = prev.selectedParts.filter(
-        part => !newlyAssigned.includes(part)
-      );
-
-      return {
-        ...prev,
-        selectedParts: updatedAvailableParts,
-        partAssignments: updatedAssignments
-      };
-    });
-  };
-
-  const removeAssignedPart = (testName: string, partToRemove: string) => {
-    setStage2Form(prev => {
-      const currentAssigned = prev.partAssignments[testName] || [];
-      if (!currentAssigned.includes(partToRemove)) return prev;
-
-      const updatedAssignments = {
-        ...prev.partAssignments,
-        [testName]: currentAssigned.filter(part => part !== partToRemove)
-      };
-
-      const updatedAvailableParts = [...prev.selectedParts, partToRemove];
-
-      return {
-        ...prev,
-        selectedParts: updatedAvailableParts,
-        partAssignments: updatedAssignments
-      };
-    });
-  };
-
-  const clearTestAssignments = (testName: string) => {
-    setStage2Form(prev => {
-      const assignedParts = prev.partAssignments[testName] || [];
-      if (assignedParts.length === 0) return prev;
-
-      const { [testName]: removed, ...remainingAssignments } = prev.partAssignments;
-
-      return {
-        ...prev,
-        selectedParts: [...prev.selectedParts, ...assignedParts],
-        partAssignments: remainingAssignments
-      };
-    });
-  };
-
-  const removeSelectedTestName = (testName: string) => {
-    setStage2Form(prev => {
-      const newTestNames = prev.testName.filter(t => t !== testName);
-      if (newTestNames.length === 0) {
-        return {
-          ...prev,
-          testName: [],
-          equipment: [],
-          testCondition: [],
-          requiredQty: "",
-          partAssignments: {},
-          selectedParts: [
-            ...prev.selectedParts,
-            ...Object.values(prev.partAssignments).flat()
-          ]
-        };
-      }
-
-      const partsToReturn = prev.partAssignments[testName] || [];
-      const { [testName]: removed, ...remainingAssignments } = prev.partAssignments;
-
-      const equipmentList: string[] = [];
-      const conditionList: string[] = [];
-
-      newTestNames.forEach(name => {
-        const test = filteredData.find(item => item.testName === name);
-        if (test) {
-          const eqs = test.equipment.split(',').map(eq => eq.trim());
-          equipmentList.push(...eqs);
-          conditionList.push(...Array(eqs.length).fill(test.testCondition || ""));
+        
+        if (submissionsData) {
+          const submissions: ORTLabSubmission[] = JSON.parse(submissionsData);
+          setOrtSubmissions(submissions);
         }
-      });
-
-      const totalEquipment = equipmentList.length;
-      const availableParts = [...prev.selectedParts, ...partsToReturn];
-      const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(availableParts.length / totalEquipment) : 0;
-      const requiredQtyStr = Array(totalEquipment).fill(qtyPerEquipment).join(', ');
-
-      return {
-        ...prev,
-        testName: newTestNames,
-        equipment: equipmentList,
-        testCondition: conditionList,
-        requiredQty: requiredQtyStr,
-        selectedParts: availableParts,
-        partAssignments: remainingAssignments
-      };
-    });
-  };
-
-  const selectAllTestNames = () => {
-    const allTestNames = availableTestNames;
-
-    const equipmentList: string[] = [];
-    const conditionList: string[] = [];
-    const partAssignments: { [testName: string]: string[] } = {};
-
-    allTestNames.forEach(name => {
-      const test = filteredData.find(item => item.testName === name);
-      if (test) {
-        const eqs = test.equipment.split(',').map(eq => eq.trim());
-        equipmentList.push(...eqs);
-        conditionList.push(...Array(eqs.length).fill(test.testCondition || ""));
-        partAssignments[name] = [];
-      }
-    });
-
-    const totalEquipment = equipmentList.length;
-    const qtyPerEquipment = totalEquipment > 0 ? Math.ceil(stage2Form.selectedParts.length / totalEquipment) : 0;
-    const requiredQtyStr = Array(totalEquipment).fill(qtyPerEquipment).join(', ');
-
-    setStage2Form(prev => ({
-      ...prev,
-      testName: allTestNames,
-      equipment: equipmentList,
-      testCondition: conditionList,
-      requiredQty: requiredQtyStr,
-      partAssignments
-    }));
-  };
-
-  const clearAllTestNames = () => {
-    setStage2Form(prev => {
-      const allAssignedParts = Object.values(prev.partAssignments).flat();
-      return {
-        ...prev,
-        testName: [],
-        equipment: [],
-        testCondition: [],
-        requiredQty: "",
-        selectedParts: [...prev.selectedParts, ...allAssignedParts],
-        partAssignments: {}
-      };
-    });
-  };
-
-  const handleStage2Submit = () => {
-    if (!selectedRecord) return;
-
-    if (testMode === 'multi') {
-      const allTestsHaveParts = stage2Form.testName.every(
-        testName => (stage2Form.partAssignments[testName] || []).length > 0
-      );
-
-      if (!allTestsHaveParts) {
+      } catch (err) {
+        console.error("Failed to load data:", err);
         toast({
           variant: "destructive",
-          title: "Missing Part Assignments",
-          description: "Please assign parts to all selected tests.",
+          title: "Loading Failed",
+          description: "Failed to load ticket data",
           duration: 2000,
         });
-        return;
       }
+    };
+    
+    loadTickets();
+  }, []);
+
+  // Handle ticket selection
+  const handleTicketSelect = (ticketCode: string) => {
+    const ticket = availableTickets.find(t => t.ticketCode === ticketCode);
+    if (!ticket) return;
+
+    setSelectedTicket(ticket);
+    
+    // Find ORT submission for this ticket
+    const submission = ortSubmissions.find(s => s.ticketCode === ticketCode);
+    
+    // Get all parts from submitted sessions
+    const allParts: string[] = [];
+    ticket.sessions
+      .filter(session => session.submitted)
+      .forEach(session => {
+        session.parts.forEach(part => {
+          allParts.push(`${part.partNumber} (${part.serialNumber})`);
+        });
+      });
+
+    // Filter test configurations based on anoType
+    const filteredConfigs = testConfigurations.filter(
+      config => config.anoType === ticket.anoType
+    );
+    setFilteredTestConfigs(filteredConfigs);
+
+    // Get unique process stages for this anoType
+    const processStages = Array.from(
+      new Set(filteredConfigs.map(config => config.processStage))
+    );
+
+    setStage2Form(prev => ({
+      ...prev,
+      ticketCode: ticket.ticketCode,
+      project: ticket.project,
+      build: ticket.build,
+      colour: ticket.colour,
+      anoType: ticket.anoType,
+      source: ticket.source,
+      reason: ticket.reason,
+      availableParts: allParts,
+      assignedParts: [],
+      // Auto-select first process stage if available
+      processStage: processStages.length > 0 ? processStages[0] : ""
+    }));
+  };
+
+  // Handle process stage selection
+  const handleProcessStageSelect = (processStage: string) => {
+    setStage2Form(prev => ({
+      ...prev,
+      processStage,
+      testName: "",
+      testCondition: "",
+      qty: "",
+      specification: "",
+      machineEquipment: "",
+      machineEquipment2: "",
+      qty2: ""
+    }));
+  };
+
+  // Handle test name selection
+  const handleTestNameSelect = (testName: string) => {
+    const selectedTest = filteredTestConfigs.find(
+      config => config.testName === testName && 
+      config.processStage === stage2Form.processStage
+    );
+
+    if (selectedTest) {
+      setStage2Form(prev => ({
+        ...prev,
+        testName: selectedTest.testName,
+        testCondition: selectedTest.testCondition,
+        qty: selectedTest.qty,
+        specification: selectedTest.specification,
+        machineEquipment: selectedTest.machineEquipment,
+        machineEquipment2: selectedTest.machineEquipment2,
+        qty2: selectedTest.qty2
+      }));
+    }
+  };
+
+  // Handle part assignment
+  const handleAssignPart = (part: string) => {
+    setStage2Form(prev => ({
+      ...prev,
+      availableParts: prev.availableParts.filter(p => p !== part),
+      assignedParts: [...prev.assignedParts, part]
+    }));
+  };
+
+  // Handle part removal
+  const handleRemovePart = (part: string) => {
+    setStage2Form(prev => ({
+      ...prev,
+      availableParts: [...prev.availableParts, part],
+      assignedParts: prev.assignedParts.filter(p => p !== part)
+    }));
+  };
+
+  // Get available test names for selected process stage
+  const getAvailableTestNames = () => {
+    if (!stage2Form.processStage) return [];
+    return Array.from(
+      new Set(
+        filteredTestConfigs
+          .filter(config => config.processStage === stage2Form.processStage)
+          .map(config => config.testName)
+      )
+    );
+  };
+
+  // Get available process stages
+  const getAvailableProcessStages = () => {
+    return Array.from(new Set(filteredTestConfigs.map(config => config.processStage)));
+  };
+
+  // Handle form submission
+  const handleStage2Submit = () => {
+    if (!selectedTicket) {
+      toast({
+        variant: "destructive",
+        title: "No Ticket Selected",
+        description: "Please select a ticket",
+        duration: 2000,
+      });
+      return;
     }
 
-    if (
-      stage2Form.processStage.length === 0 ||
-      stage2Form.type.length === 0 ||
-      stage2Form.testName.length === 0 ||
-      stage2Form.testCondition.length === 0
-    ) {
+    if (!stage2Form.processStage || !stage2Form.testName) {
       toast({
         variant: "destructive",
         title: "Incomplete Form",
-        description: "Please fill in all required fields.",
+        description: "Please select Process Stage and Test Name",
         duration: 2000,
       });
       return;
     }
-    if (!stage2Form.project) {
+
+    if (stage2Form.assignedParts.length === 0) {
       toast({
         variant: "destructive",
-        title: "Missing Project",
-        description: "Project could not be loaded.",
-        duration: 2000,
-      });
-      return;
-    }
-    if (stage2Form.selectedParts.length === 0 && testMode === 'single') {
-      toast({
-        variant: "destructive",
-        title: "No Parts Selected",
-        description: "Parts could not be loaded.",
+        title: "No Parts Assigned",
+        description: "Please assign at least one part to the test",
         duration: 2000,
       });
       return;
@@ -687,91 +335,62 @@ const Stage2FormPage: React.FC = () => {
 
     try {
       const stage2Data = {
-        ...selectedRecord,
-        stage2: {
-          testMode: testMode,
-          processStage: testMode === 'single' ? stage2Form.processStage[0] : stage2Form.processStage.join(', '),
-          type: testMode === 'single' ? stage2Form.type[0] : stage2Form.type.join(', '),
-          testName: stage2Form.testName.join(', '),
-          testCondition: stage2Form.testCondition.join(', '),
-          requiredQty: stage2Form.requiredQty,
-          equipment: stage2Form.equipment.join(', '),
-          checkpoint: Number(stage2Form.checkpoint),
-          project: stage2Form.project,
-          lines: stage2Form.lines,
-          selectedParts: testMode === 'single'
-            ? stage2Form.selectedParts
-            : stage2Form.partAssignments,
-          startTime: stage2Form.startDateTime,
-          endTime: stage2Form.endDateTime,
-          remark: stage2Form.remark,
-          submittedAt: new Date().toISOString()
-        }
+        ...stage2Form,
+        submittedAt: new Date().toISOString(),
+        ticketId: selectedTicket.id,
+        anoType: selectedTicket.anoType
       };
 
-      const existingStage2Data = localStorage.getItem("stage2Records");
-      const stage2Records = existingStage2Data ? JSON.parse(existingStage2Data) : [];
+      // Save to localStorage
+      const existingData = localStorage.getItem("stage2Records");
+      const stage2Records = existingData ? JSON.parse(existingData) : [];
       stage2Records.push(stage2Data);
       localStorage.setItem("stage2Records", JSON.stringify(stage2Records));
 
-      const existingTestRecords = localStorage.getItem("testRecords");
-      if (existingTestRecords) {
-        const testRecords = JSON.parse(existingTestRecords);
-        const updatedTestRecords = testRecords.filter(
-          (record: TestRecord) => record.id !== selectedRecord.id
-        );
-        localStorage.setItem("testRecords", JSON.stringify(updatedTestRecords));
-      }
+      // Update session status
+      const updatedTickets = availableTickets.map(ticket => {
+        if (ticket.id === selectedTicket.id) {
+          return {
+            ...ticket,
+            sessions: ticket.sessions.map(session => ({
+              ...session,
+              sentToORT: true
+            }))
+          };
+        }
+        return ticket;
+      });
+
+      localStorage.setItem("oqc_ticket_records", JSON.stringify(updatedTickets));
+      setAvailableTickets(updatedTickets);
 
       toast({
         title: "✅ Stage 2 Submitted",
-        description: `Stage 2 data has been saved successfully!`,
+        description: `Test configuration has been saved successfully!`,
         duration: 3000,
       });
+
       navigate("/stage2");
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Submission Failed",
-        description: "There was an error saving the Stage 2 data. Please try again.",
+        description: "There was an error saving the data. Please try again.",
         duration: 3000,
       });
       console.error("Error saving Stage 2 data:", error);
     }
   };
 
-  const isStage2SubmitEnabled = () => {
-    const basicFieldsValid = (
-      stage2Form.processStage.length > 0 &&
-      stage2Form.type.length > 0 &&
-      stage2Form.testName.length > 0 &&
-      stage2Form.testCondition.length > 0 &&
-      stage2Form.equipment.length > 0 &&
-      stage2Form.checkpoint !== "" &&
-      stage2Form.project !== "" &&
-      (testMode === 'single' ? stage2Form.selectedParts.length > 0 : true)
+  // Check if form is ready for submission
+  const isFormValid = () => {
+    return (
+      selectedTicket !== null &&
+      stage2Form.processStage !== "" &&
+      stage2Form.testName !== "" &&
+      stage2Form.assignedParts.length > 0
     );
-
-    if (testMode === 'single') {
-      return basicFieldsValid && stage2Form.selectedParts.length > 0;
-    } else {
-      const allTestsHaveParts = stage2Form.testName.every(
-        testName => (stage2Form.partAssignments[testName] || []).length > 0
-      );
-      return basicFieldsValid && allTestsHaveParts;
-    }
   };
-
-  if (!selectedRecord) {
-    return null;
-  }
-
-  const unselectedProcessStages = processStages.filter(
-    stage => !stage2Form.processStage.includes(stage)
-  );
-  const unselectedTypes = types.filter(
-    type => !stage2Form.type.includes(type)
-  );
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
@@ -788,469 +407,246 @@ const Stage2FormPage: React.FC = () => {
           <CardTitle className="text-2xl">Stage 2 - Test Configuration</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="space-y-2 md:col-span-2 mb-5">
-            <Label htmlFor="testMode" className="text-base">
-              Test Mode <span className="text-red-600">*</span>
-            </Label>
+          {/* Ticket Selection */}
+          <div className="space-y-4 mb-6">
+            <Label className="text-base font-semibold">Select Ticket</Label>
             <select
-              value={testMode}
-              onChange={(e) => {
-                const value = e.target.value as 'single' | 'multi';
-                setTestMode(value);
-                setStage2Form({
-                  processStage: [],
-                  type: [],
-                  testName: [],
-                  testCondition: [],
-                  requiredQty: "",
-                  equipment: [],
-                  checkpoint: "",
-                  startDateTime: "",
-                  endDateTime: "",
-                  remark: "",
-                  project: stage2Form.project,
-                  lines: stage2Form.lines,
-                  selectedParts: stage2Form.selectedParts,
-                  partAssignments: {},
-                  ticketCode: stage2Form.ticketCode
-                });
-                setFilteredData([]);
-                setAvailableTestNames([]);
-              }}
+              value={stage2Form.ticketCode}
+              onChange={(e) => handleTicketSelect(e.target.value)}
               className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
             >
-              <option value="single">Single Test</option>
-              <option value="multi">Multi Test</option>
+              <option value="">Select a ticket</option>
+              {availableTickets.map(ticket => (
+                <option key={ticket.id} value={ticket.ticketCode}>
+                  {ticket.ticketCode} - {ticket.project} - {ticket.anoType} 
+                  ({ticket.sessions.filter(s => s.submitted).length} submitted sessions)
+                </option>
+              ))}
             </select>
           </div>
 
-          <div className="space-y-2 mb-4">
-            <Label className="text-base">Ticket Code <span className="text-red-600">*</span></Label>
-            <Input
-              value={stage2Form.ticketCode}
-              disabled
-              className="h-11 bg-gray-100"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Process Stage */}
-            {testMode === 'single' ? (
-              <div className="space-y-2">
-                <Label className="text-base">Process Stage <span className="text-red-600">*</span></Label>
-                <select
-                  value={stage2Form.processStage[0] || ""}
-                  onChange={(e) => handleProcessStageSelection(e.target.value)}
-                  className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
-                >
-                  <option value="">Select Process Stage</option>
-                  {processStages.map(stage => (
-                    <option key={stage} value={stage}>{stage}</option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label className="text-base">Process Stages <span className="text-red-600">*</span></Label>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={selectAllProcessStages} disabled={stage2Form.processStage.length === processStages.length}>
-                      Select All
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={clearAllProcessStages} disabled={stage2Form.processStage.length === 0}>
-                      Clear All
-                    </Button>
-                  </div>
+          {selectedTicket && (
+            <>
+              {/* Ticket Info Display */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 p-4 border rounded-lg bg-gray-50">
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Project</Label>
+                  <p className="font-medium">{stage2Form.project}</p>
                 </div>
-                <select
-                  onChange={(e) => handleProcessStageSelection(e.target.value)}
-                  className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
-                  disabled={unselectedProcessStages.length === 0}
-                >
-                  <option value="">
-                    {stage2Form.processStage.length === processStages.length
-                      ? "All stages selected"
-                      : `Select from ${unselectedProcessStages.length} available stage(s)`}
-                  </option>
-                  {unselectedProcessStages.map(stage => (
-                    <option key={stage} value={stage}>{stage}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500">
-                  {stage2Form.processStage.length} of {processStages.length} stages selected
-                </p>
-                {stage2Form.processStage.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-base flex items-center gap-2">
-                      Selected Process Stages
-                      <span className="text-sm font-normal text-gray-500">({stage2Form.processStage.length} selected)</span>
-                    </Label>
-                    <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
-                      {stage2Form.processStage.map(stage => (
-                        <div key={stage} className="flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                          {stage}
-                          <button onClick={() => removeSelectedProcessStage(stage)} className="hover:bg-blue-200 rounded-full p-0.5">
-                            <X size={14} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Type */}
-            {testMode === 'single' ? (
-              <div className="space-y-2">
-                <Label className="text-base">Type <span className="text-red-600">*</span></Label>
-                <select
-                  value={stage2Form.type[0] || ""}
-                  onChange={(e) => handleTypeSelection(e.target.value)}
-                  className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
-                  disabled={stage2Form.processStage.length === 0}
-                >
-                  <option value="">Select Type</option>
-                  {types.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label className="text-base">Types <span className="text-red-600">*</span></Label>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={selectAllTypes} disabled={stage2Form.type.length === types.length || stage2Form.processStage.length === 0}>
-                      Select All
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={clearAllTypes} disabled={stage2Form.type.length === 0}>
-                      Clear All
-                    </Button>
-                  </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Build</Label>
+                  <p className="font-medium">{stage2Form.build}</p>
                 </div>
-                <select
-                  onChange={(e) => handleTypeSelection(e.target.value)}
-                  className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
-                  disabled={stage2Form.processStage.length === 0 || unselectedTypes.length === 0}
-                >
-                  <option value="">
-                    {stage2Form.type.length === types.length
-                      ? "All types selected"
-                      : stage2Form.processStage.length === 0
-                        ? "Select process stages first"
-                        : `Select from ${unselectedTypes.length} available type(s)`}
-                  </option>
-                  {unselectedTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500">
-                  {stage2Form.type.length} of {types.length} types selected
-                </p>
-                {stage2Form.type.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-base flex items-center gap-2">
-                      Selected Types
-                      <span className="text-sm font-normal text-gray-500">({stage2Form.type.length} selected)</span>
-                    </Label>
-                    <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
-                      {stage2Form.type.map(type => (
-                        <div key={type} className="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
-                          {type}
-                          <button onClick={() => removeSelectedType(type)} className="hover:bg-green-200 rounded-full p-0.5">
-                            <X size={14} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Test Name */}
-            {testMode === 'single' ? (
-              <div className="space-y-2">
-                <Label className="text-base">Test Name <span className="text-red-600">*</span></Label>
-                <select
-                  value={stage2Form.testName[0] || ""}
-                  onChange={(e) => handleTestNameSelection(e.target.value)}
-                  className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
-                  disabled={availableTestNames.length === 0}
-                >
-                  <option value="">Select Test Name</option>
-                  {availableTestNames.map(name => (
-                    <option key={name} value={name}>{name}</option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label className="text-base">Test Names <span className="text-red-600">*</span></Label>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={selectAllTestNames} disabled={stage2Form.testName.length === availableTestNames.length}>
-                      Select All
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={clearAllTestNames} disabled={stage2Form.testName.length === 0}>
-                      Clear All
-                    </Button>
-                  </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Colour</Label>
+                  <p className="font-medium">{stage2Form.colour}</p>
                 </div>
-                <select
-                  onChange={(e) => handleTestNameSelection(e.target.value)}
-                  className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
-                  disabled={availableTestNames.filter(n => !stage2Form.testName.includes(n)).length === 0}
-                >
-                  <option value="">
-                    {stage2Form.testName.length === availableTestNames.length
-                      ? "All tests selected"
-                      : `Select from ${availableTestNames.filter(n => !stage2Form.testName.includes(n)).length} available test(s)`}
-                  </option>
-                  {availableTestNames
-                    .filter(n => !stage2Form.testName.includes(n))
-                    .map(name => (
-                      <option key={name} value={name}>{name}</option>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Ano Type</Label>
+                  <p className="font-medium">{stage2Form.anoType}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Source</Label>
+                  <p className="font-medium">{stage2Form.source}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Reason</Label>
+                  <p className="font-medium">{stage2Form.reason}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Process Stage Selection */}
+                <div className="space-y-2">
+                  <Label className="text-base">Process Stage <span className="text-red-600">*</span></Label>
+                  <select
+                    value={stage2Form.processStage}
+                    onChange={(e) => handleProcessStageSelect(e.target.value)}
+                    className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
+                  >
+                    <option value="">Select Process Stage</option>
+                    {getAvailableProcessStages().map(stage => (
+                      <option key={stage} value={stage}>{stage}</option>
                     ))}
-                </select>
-                <p className="text-xs text-gray-500">
-                  {stage2Form.testName.length} of {availableTestNames.length} tests selected
-                </p>
-                {stage2Form.testName.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-base flex items-center gap-2">
-                      Selected Test Names
-                      <span className="text-sm font-normal text-gray-500">({stage2Form.testName.length} selected)</span>
-                    </Label>
-                    <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border min-h-[3rem]">
-                      {stage2Form.testName.map(name => (
-                        <div key={name} className="flex items-center gap-2 bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm">
-                          {name}
-                          <button onClick={() => removeSelectedTestName(name)} className="hover:bg-amber-200 rounded-full p-0.5">
-                            <X size={14} />
-                          </button>
-                        </div>
-                      ))}
+                  </select>
+                </div>
+
+                {/* Test Name Selection */}
+                <div className="space-y-2">
+                  <Label className="text-base">Test Name <span className="text-red-600">*</span></Label>
+                  <select
+                    value={stage2Form.testName}
+                    onChange={(e) => handleTestNameSelect(e.target.value)}
+                    disabled={!stage2Form.processStage}
+                    className="h-11 w-full border border-input rounded-md px-3 py-2 bg-background"
+                  >
+                    <option value="">Select Test Name</option>
+                    {getAvailableTestNames().map(testName => (
+                      <option key={testName} value={testName}>{testName}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Auto-filled fields */}
+                {stage2Form.testName && (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-base">Test Condition</Label>
+                      <Input
+                        value={stage2Form.testCondition}
+                        disabled
+                        className="h-11 bg-gray-50"
+                      />
                     </div>
-                  </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-base">Quantity</Label>
+                      <Input
+                        value={stage2Form.qty}
+                        disabled
+                        className="h-11 bg-gray-50"
+                      />
+                    </div>
+
+                    <div className="space-y-2 md:col-span-2">
+                      <Label className="text-base">Specification</Label>
+                      <Input
+                        value={stage2Form.specification}
+                        disabled
+                        className="h-11 bg-gray-50"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-base">Machine / Equipment</Label>
+                      <Input
+                        value={stage2Form.machineEquipment}
+                        disabled
+                        className="h-11 bg-gray-50"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-base">Machine / Equipment-2</Label>
+                      <Input
+                        value={stage2Form.machineEquipment2}
+                        disabled
+                        className="h-11 bg-gray-50"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-base">Qty</Label>
+                      <Input
+                        value={stage2Form.qty2}
+                        disabled
+                        className="h-11 bg-gray-50"
+                      />
+                    </div>
+
+                    {/* Date Time Pickers */}
+                    <DateTimePicker
+                      label="Start Date & Time"
+                      value={stage2Form.startDateTime ? new Date(stage2Form.startDateTime) : null}
+                      onChange={(val) => setStage2Form(prev => ({ ...prev, startDateTime: val ? val.toISOString() : "" }))}
+                    />
+
+                    <DateTimePicker
+                      label="End Date & Time"
+                      value={stage2Form.endDateTime ? new Date(stage2Form.endDateTime) : null}
+                      onChange={(val) => setStage2Form(prev => ({ ...prev, endDateTime: val ? val.toISOString() : "" }))}
+                    />
+
+                    {/* Remark */}
+                    <div className="space-y-2 md:col-span-2">
+                      <Label className="text-base">Remark</Label>
+                      <Input
+                        value={stage2Form.remark}
+                        onChange={(e) => setStage2Form(prev => ({ ...prev, remark: e.target.value }))}
+                        placeholder="Enter remarks"
+                        className="h-11"
+                      />
+                    </div>
+                  </>
                 )}
               </div>
-            )}
 
-            <div className="space-y-2">
-              <Label className="text-base">
-                Test Condition{testMode === 'multi' && 's'} <span className="text-red-600">*</span>
-              </Label>
-              <Input
-                value={stage2Form.testCondition.join(', ')}
-                placeholder={`Test condition${testMode === 'multi' ? 's' : ''} (auto-filled)`}
-                disabled
-                className="h-11"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-base">Equipment{testMode === 'multi' && '(s)'}</Label>
-              <Input
-                value={stage2Form.equipment.join(', ')}
-                placeholder={`Equipment${testMode === 'multi' ? '(s)' : ''} (auto-filled)`}
-                disabled
-                className="h-11 bg-gray-50"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-base">Required Quantity per Equipment</Label>
-              <Input
-                value={stage2Form.requiredQty}
-                placeholder={`Auto-calculated based on ${totalQuantity} total parts`}
-                disabled
-                className="h-11 bg-gray-50"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-base">CheckPoint <span className="text-red-600">*</span></Label>
-              <Input
-                type="number"
-                value={stage2Form.checkpoint}
-                onChange={(e) => setStage2Form(prev => ({ ...prev, checkpoint: e.target.value }))}
-                placeholder="Enter the Hours"
-                className="h-11"
-              />
-            </div>
-
-            <DateTimePicker
-              label="Start Date & Time"
-              value={stage2Form.startDateTime ? new Date(stage2Form.startDateTime) : null}
-              onChange={(val) => setStage2Form(prev => ({ ...prev, startDateTime: val ? val.toISOString() : "" }))}
-            />
-
-            <DateTimePicker
-              label="End Date & Time"
-              value={stage2Form.endDateTime ? new Date(stage2Form.endDateTime) : null}
-              onChange={(val) => setStage2Form(prev => ({ ...prev, endDateTime: val ? val.toISOString() : "" }))}
-            />
-
-            <div className="space-y-4 md:col-span-2">
-              <div className="space-y-2">
-                <Label className="text-base">Project <span className="text-red-600">*</span></Label>
-                <Input
-                  value={stage2Form.project}
-                  disabled
-                  className="h-11 bg-gray-100"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-base">Line</Label>
-                <Input
-                  value={stage2Form.lines[0] || "—"}
-                  disabled
-                  className="h-11 bg-gray-100"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-base">Total Available Parts <span className="text-red-600">*</span></Label>
-                <div className="p-3 bg-gray-50 rounded-lg border min-h-[3rem]">
-                  {stage2Form.selectedParts.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {stage2Form.selectedParts.map((part, index) => (
-                        <span
-                          key={`${part}-${index}`}
-                          className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-mono"
-                        >
-                          {part}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-gray-500 italic">
-                      {testMode === 'multi' && stage2Form.testName.length > 0
-                        ? "All parts have been assigned to tests"
-                        : "Loading parts..."}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500">
-                  {stage2Form.selectedParts.length} part(s) available • Total scanned: {totalQuantity} parts from {barcodeAssignments.length} barcode scan(s)
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Part Assignment Section for Multi-Test Mode */}
-          {testMode === 'multi' && stage2Form.testName.length > 0 && (
-            <div className="space-y-4 md:col-span-2 mt-6">
-              <Label className="text-base font-semibold">Assign Parts to Tests</Label>
-              <p className="text-sm text-gray-600 mb-4">
-                Assign parts from the available pool to each test. Each part can only be assigned to one test.
-              </p>
-
-              {stage2Form.testName.map(testName => {
-                const assignedParts = stage2Form.partAssignments[testName] || [];
-                const availableForThisTest = stage2Form.selectedParts;
-
-                return (
-                  <div key={testName} className="p-4 border rounded-lg space-y-3 bg-white shadow-sm">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-medium text-gray-700">{testName}</h4>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            if (availableForThisTest.length > 0) {
-                              assignPartsToTest(testName, [availableForThisTest[0]]);
-                            }
-                          }}
-                          disabled={availableForThisTest.length === 0}
-                        >
-                          Assign One
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            if (availableForThisTest.length > 0) {
-                              assignPartsToTest(testName, [...availableForThisTest]);
-                            }
-                          }}
-                          disabled={availableForThisTest.length === 0}
-                        >
-                          Assign All Remaining
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => clearTestAssignments(testName)}
-                          disabled={assignedParts.length === 0}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          Clear All
-                        </Button>
+              {/* Parts Assignment */}
+              {stage2Form.availableParts.length > 0 && (
+                <div className="mt-6 space-y-4">
+                  <Label className="text-base font-semibold">Assign Parts to Test</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Available Parts */}
+                    <div className="border rounded-lg p-4">
+                      <Label className="text-sm font-medium mb-2 block">
+                        Available Parts ({stage2Form.availableParts.length})
+                      </Label>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {stage2Form.availableParts.map((part, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-2 border rounded hover:bg-gray-50"
+                          >
+                            <span className="text-sm">{part}</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAssignPart(part)}
+                            >
+                              Assign
+                            </Button>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
-                    {/* Assigned parts display */}
-                    <div>
-                      <Label className="text-sm font-medium">Assigned Parts ({assignedParts.length})</Label>
-                      <div className="flex flex-wrap gap-2 mt-2 p-3 bg-blue-50 rounded min-h-[2.5rem] border border-blue-100">
-                        {assignedParts.length > 0 ? (
-                          assignedParts.map((part, idx) => (
-                            <div key={`${part}-${idx}`} className="flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
-                              {part}
-                              <button
-                                onClick={() => removeAssignedPart(testName, part)}
-                                className="hover:bg-blue-200 rounded-full p-0.5 ml-1"
+                    {/* Assigned Parts */}
+                    <div className="border rounded-lg p-4">
+                      <Label className="text-sm font-medium mb-2 block">
+                        Assigned Parts ({stage2Form.assignedParts.length})
+                      </Label>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {stage2Form.assignedParts.length > 0 ? (
+                          stage2Form.assignedParts.map((part, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between p-2 border rounded bg-blue-50"
+                            >
+                              <span className="text-sm">{part}</span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRemovePart(part)}
+                                className="text-red-600 hover:text-red-700"
                               >
-                                <X size={12} />
-                              </button>
+                                <X size={16} />
+                              </Button>
                             </div>
                           ))
                         ) : (
-                          <span className="text-gray-500 text-sm italic">No parts assigned yet</span>
+                          <p className="text-gray-500 text-sm italic">No parts assigned yet</p>
                         )}
                       </div>
                     </div>
-
-                    {/* Available parts for assignment */}
-                    {availableForThisTest.length > 0 && (
-                      <div>
-                        <Label className="text-sm font-medium">Available Parts ({availableForThisTest.length})</Label>
-                        <div className="flex flex-wrap gap-2 mt-2 p-3 bg-gray-50 rounded min-h-[2.5rem] border">
-                          {availableForThisTest.map((part, idx) => (
-                            <button
-                              key={`${part}-${idx}`}
-                              onClick={() => assignPartsToTest(testName, [part])}
-                              className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-2 py-1 rounded text-xs transition-colors"
-                            >
-                              {part}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </div>
+              )}
 
-          <div className="flex justify-end gap-4 mt-8 pt-2">
-            <Button variant="outline" onClick={() => navigate("/")} className="px-6">
-              Cancel
-            </Button>
-            <Button
-              onClick={handleStage2Submit}
-              disabled={!isStage2SubmitEnabled()}
-              className="bg-[#e0413a] text-white hover:bg-[#c53730] px-6"
-            >
-              Submit Stage 2
-            </Button>
-          </div>
+              {/* Submit Button */}
+              <div className="flex justify-end gap-4 mt-8 pt-2">
+                <Button variant="outline" onClick={() => navigate("/")} className="px-6">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleStage2Submit}
+                  disabled={!isFormValid()}
+                  className="bg-[#e0413a] text-white hover:bg-[#c53730] px-6"
+                >
+                  Submit Stage 2
+                </Button>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
