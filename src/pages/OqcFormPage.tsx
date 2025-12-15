@@ -82,6 +82,11 @@ const OQCSystem = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('');
 
+  const [projectFilter, setProjectFilter] = useState<string>('All');
+  const [buildFilter, setBuildFilter] = useState<string>('All');
+  const [colourFilter, setColourFilter] = useState<string>('All');
+  const [reasonFilter, setReasonFilter] = useState<string>('All');
+
   // Form state
   const [formData, setFormData] = useState({
     ticketCode: '',
@@ -138,6 +143,11 @@ const OQCSystem = () => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 3000);
   };
+
+  const getUniqueValues = (records: TestRecord[], key: keyof TestRecord): string[] => {
+  const values = records.map(record => record[key]).filter(Boolean) as string[];
+  return ['All', ...Array.from(new Set(values))];
+};
 
   // Generate ticket code
   const generateTicketCode = (project: string) => {
@@ -202,6 +212,7 @@ const OQCSystem = () => {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
+  
 
   const handleSubmitForm = (e: React.FormEvent) => {
     e.preventDefault();
@@ -417,77 +428,77 @@ const OQCSystem = () => {
   // };
 
   // Function to submit a specific session
-const handleSubmitSession = (ticketId: number, sessionId: string) => {
-  const updatedRecords = testRecords.map(record => {
-    if (record.id === ticketId) {
-      const updatedSessions = record.sessions.map(session => {
-        if (session.id === sessionId) {
-          return {
-            ...session,
-            submitted: true,
-            submittedAt: new Date().toISOString()
-          };
-        }
-        return session;
-      });
+  const handleSubmitSession = (ticketId: number, sessionId: string) => {
+    const updatedRecords = testRecords.map(record => {
+      if (record.id === ticketId) {
+        const updatedSessions = record.sessions.map(session => {
+          if (session.id === sessionId) {
+            return {
+              ...session,
+              submitted: true,
+              submittedAt: new Date().toISOString()
+            };
+          }
+          return session;
+        });
 
-      // Check if all sessions are submitted
-      const allSessionsSubmitted = updatedSessions.every(session => session.submitted);
-      const totalScanned = updatedSessions.reduce((sum, session) => sum + session.parts.length, 0);
-      const allScanned = totalScanned >= record.totalQuantity;
+        // Check if all sessions are submitted
+        const allSessionsSubmitted = updatedSessions.every(session => session.submitted);
+        const totalScanned = updatedSessions.reduce((sum, session) => sum + session.parts.length, 0);
+        const allScanned = totalScanned >= record.totalQuantity;
 
-      return {
-        ...record,
-        sessions: updatedSessions,
-        status: allSessionsSubmitted ? 'Ready for OQC Approval' : record.status
+        return {
+          ...record,
+          sessions: updatedSessions,
+          status: allSessionsSubmitted ? 'Ready for OQC Approval' : record.status
+        };
+      }
+      return record;
+    });
+
+    setTestRecords(updatedRecords);
+    showNotification('success', 'Session submitted successfully!');
+    
+    // NEW: Find the submitted session and ticket for ORT Lab data
+    const submittedTicket = testRecords.find(t => t.id === ticketId);
+    const submittedSession = submittedTicket?.sessions.find(s => s.id === sessionId);
+    
+    if (submittedTicket && submittedSession) {
+      // Prepare data for ORT Lab
+      const ortLabData = {
+        id: sessionId,
+        timestamp: new Date().toISOString(),
+        ticketId: ticketId,
+        ticketCode: submittedTicket.ticketCode,
+        sessionNumber: submittedSession.sessionNumber,
+        parts: submittedSession.parts,
+        project: submittedTicket.project,
+        build: submittedTicket.build,
+        colour: submittedTicket.colour,
+        anoType: submittedTicket.anoType,
+        source: submittedTicket.source,
+        reason: submittedTicket.reason,
+        oqcApprovedBy: submittedTicket.oqcApprovedBy,
+        oqcApprovedAt: submittedTicket.oqcApprovedAt,
+        submittedAt: submittedSession.submittedAt,
+        totalParts: submittedSession.parts.length,
+        serialNumber: submittedSession.parts.map(p => p.serialNumber).join(', '),
+        partNumbers: submittedSession.parts.map(p => p.partNumber),
+        rawBarcodeData: submittedSession.parts.map(p => `${p.serialNumber}:${p.partNumber}`).join('; '),
+        submitted: true
       };
+      
+      // Store in localStorage for ORT Lab
+      const existingSubmissions = JSON.parse(localStorage.getItem('ort_lab_submissions') || '[]');
+      existingSubmissions.push(ortLabData);
+      localStorage.setItem('ort_lab_submissions', JSON.stringify(existingSubmissions));
+      
+      // Navigate to ORT Lab page after a short delay
+      setTimeout(() => {
+        navigate('/ort-lab-form');
+      }, 1000);
     }
-    return record;
-  });
-
-  setTestRecords(updatedRecords);
-  showNotification('success', 'Session submitted successfully!');
-  
-  // NEW: Find the submitted session and ticket for ORT Lab data
-  const submittedTicket = testRecords.find(t => t.id === ticketId);
-  const submittedSession = submittedTicket?.sessions.find(s => s.id === sessionId);
-  
-  if (submittedTicket && submittedSession) {
-    // Prepare data for ORT Lab
-    const ortLabData = {
-      id: sessionId,
-      timestamp: new Date().toISOString(),
-      ticketId: ticketId,
-      ticketCode: submittedTicket.ticketCode,
-      sessionNumber: submittedSession.sessionNumber,
-      parts: submittedSession.parts,
-      project: submittedTicket.project,
-      build: submittedTicket.build,
-      colour: submittedTicket.colour,
-      anoType: submittedTicket.anoType,
-      source: submittedTicket.source,
-      reason: submittedTicket.reason,
-      oqcApprovedBy: submittedTicket.oqcApprovedBy,
-      oqcApprovedAt: submittedTicket.oqcApprovedAt,
-      submittedAt: submittedSession.submittedAt,
-      totalParts: submittedSession.parts.length,
-      serialNumber: submittedSession.parts.map(p => p.serialNumber).join(', '),
-      partNumbers: submittedSession.parts.map(p => p.partNumber),
-      rawBarcodeData: submittedSession.parts.map(p => `${p.serialNumber}:${p.partNumber}`).join('; '),
-      submitted: true
-    };
-    
-    // Store in localStorage for ORT Lab
-    const existingSubmissions = JSON.parse(localStorage.getItem('ort_lab_submissions') || '[]');
-    existingSubmissions.push(ortLabData);
-    localStorage.setItem('ort_lab_submissions', JSON.stringify(existingSubmissions));
-    
-    // Navigate to ORT Lab page after a short delay
-    setTimeout(() => {
-      navigate('/ort-lab-form');
-    }, 1000);
-  }
-};
+  };
 
   // NEW: Function to submit all sessions for a ticket
   const handleSubmitAllSessions = (ticketId: number) => {
@@ -682,21 +693,42 @@ const handleSubmitSession = (ticketId: number, sessionId: string) => {
     }
   };
 
-  const filteredRecords = testRecords.filter(record => {
-    const matchesSearch = record.ticketCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.project.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.sessions.some(session => 
-        session.parts.some(part => 
-          part.serialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          part.partNumber?.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      );
+  // const filteredRecords = testRecords.filter(record => {
+  //   const matchesSearch = record.ticketCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     record.project.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     record.sessions.some(session => 
+  //       session.parts.some(part => 
+  //         part.serialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //         part.partNumber?.toLowerCase().includes(searchTerm.toLowerCase())
+  //       )
+  //     );
     
-    const matchesDate = !dateFilter || record.dateTime === dateFilter;
+  //   const matchesDate = !dateFilter || record.dateTime === dateFilter;
     
-    return matchesSearch && matchesDate;
-  });
+  //   return matchesSearch && matchesDate;
+  // });
 
+  const filteredRecords = testRecords.filter(record => {
+  const matchesSearch = record.ticketCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    record.project.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    record.sessions.some(session => 
+      session.parts.some(part => 
+        part.serialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        part.partNumber?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    );
+  
+  const matchesDate = !dateFilter || record.dateTime === dateFilter;
+  
+  // New filter conditions
+  const matchesProject = projectFilter === 'All' || record.project === projectFilter;
+  const matchesBuild = buildFilter === 'All' || record.build === buildFilter;
+  const matchesColour = colourFilter === 'All' || record.colour === colourFilter;
+  const matchesReason = reasonFilter === 'All' || record.reason === reasonFilter;
+  
+  return matchesSearch && matchesDate && matchesProject && matchesBuild && matchesColour && matchesReason;
+});
+  
   // Function to clear localStorage (for development/testing)
   const clearLocalStorage = () => {
     if (window.confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
@@ -1141,8 +1173,8 @@ const handleSubmitSession = (ticketId: number, sessionId: string) => {
                   onClick={handleSaveSession}
                   disabled={isSaving || tempScannedParts.length === 0 || 
                     tempScannedParts.some(p => !p.scanStatus)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg font-medium"
-                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700 text-white py-6 text-sm font-medium self-start"
+                  size="sm"
                 >
                   {isSaving ? (
                     <>
@@ -1151,7 +1183,7 @@ const handleSubmitSession = (ticketId: number, sessionId: string) => {
                     </>
                   ) : (
                     <>
-                      <Save className="mr-3 h-5 w-5" />
+                      <Save className="mr-1 h-5 w-5" />
                       Save Session
                     </>
                   )}
@@ -1171,66 +1203,662 @@ const handleSubmitSession = (ticketId: number, sessionId: string) => {
   };
 
   // Render All Tickets Tab
-  const renderTicketsTab = () => (
+  // const renderTicketsTab = () => (
+  //   <div className="p-4 md:p-6 space-y-6">
+  //     <Card>
+  //       <CardContent className="p-6">
+  //         <div className="flex flex-col md:flex-row gap-4">
+  //           <div className="flex-1">
+  //             <Label htmlFor="search" className="flex items-center gap-2 mb-2">
+  //               <Search className="h-4 w-4" />
+  //               Search Tickets
+  //             </Label>
+  //             <Input
+  //               id="search"
+  //               placeholder="Search by ticket code, project, part number, or serial..."
+  //               value={searchTerm}
+  //               onChange={(e) => setSearchTerm(e.target.value)}
+  //             />
+  //           </div>
+  //           <div>
+  //             <Label htmlFor="date" className="flex items-center gap-2 mb-2">
+  //               <Calendar className="h-4 w-4" />
+  //               Filter by Date
+  //             </Label>
+  //             <Input
+  //               id="date"
+  //               type="date"
+  //               value={dateFilter}
+  //               onChange={(e) => setDateFilter(e.target.value)}
+  //             />
+  //           </div>
+  //           <div className="flex items-end gap-2">
+  //             <Button
+  //               variant="outline"
+  //               onClick={() => {
+  //                 setSearchTerm('');
+  //                 setDateFilter('');
+  //                 setExpandedTickets({});
+  //                 setExpandedSessions({});
+  //               }}
+  //             >
+  //               <Filter className="mr-2 h-4 w-4" />
+  //               Clear
+  //             </Button>
+  //             <Button
+  //               variant="outline"
+  //               onClick={() => {
+  //                 const dataStr = JSON.stringify(testRecords, null, 2);
+  //                 const dataBlob = new Blob([dataStr], { type: 'application/json' });
+  //                 const url = URL.createObjectURL(dataBlob);
+  //                 const a = document.createElement('a');
+  //                 a.href = url;
+  //                 a.download = `oqc_tickets_${new Date().toISOString().split('T')[0]}.json`;
+  //                 document.body.appendChild(a);
+  //                 a.click();
+  //                 document.body.removeChild(a);
+  //                 URL.revokeObjectURL(url);
+  //               }}
+  //             >
+  //               <Upload className="mr-2 h-4 w-4" />
+  //               Export Data
+  //             </Button>
+  //           </div>
+  //         </div>
+  //       </CardContent>
+  //     </Card>
+
+  //     <Card>
+  //       <CardHeader>
+  //         <div className="flex items-center justify-between">
+  //           <CardTitle className="flex items-center gap-2">
+  //             <Ticket className="h-5 w-5" />
+  //             All Tickets ({testRecords.length})
+  //           </CardTitle>
+  //           <div className="flex items-center gap-2">
+  //             <Badge variant="outline" className="text-sm">
+  //               Stored in localStorage
+  //             </Badge>
+  //             <Button 
+  //               variant="outline" 
+  //               size="sm" 
+  //               onClick={clearLocalStorage}
+  //               className="text-red-500 hover:text-red-700"
+  //             >
+  //               <Trash2 className="h-4 w-4 mr-2" />
+  //               Clear All
+  //             </Button>
+  //           </div>
+  //         </div>
+  //       </CardHeader>
+  //       <CardContent>
+  //         {filteredRecords.length === 0 ? (
+  //           <div className="text-center py-8 text-gray-500">
+  //             No tickets found. Create a new ticket to get started.
+  //           </div>
+  //         ) : (
+  //           <div className="space-y-6">
+  //             {filteredRecords.map(ticket => {
+  //               const totalScanned = ticket.sessions.reduce((sum, session) => sum + session.parts.length, 0);
+  //               const okCount = ticket.sessions.reduce((sum, session) => 
+  //                 sum + session.parts.filter(p => p.scanStatus === 'OK').length, 0);
+  //               const cosmeticCount = ticket.sessions.reduce((sum, session) => 
+  //                 sum + session.parts.filter(p => p.scanStatus === 'Cosmetic').length, 0);
+  //               const notOkCount = ticket.sessions.reduce((sum, session) => 
+  //                 sum + session.parts.filter(p => p.scanStatus === 'Not OK').length, 0);
+  //               const isExpanded = expandedTickets[ticket.ticketCode];
+  //               const hasUnsubmittedSessions = ticket.sessions.some(session => !session.submitted);
+  //               const allSessionsSubmitted = ticket.sessions.length > 0 && ticket.sessions.every(session => session.submitted);
+
+  //               return (
+  //                 <Card key={ticket.id} className="border-2">
+  //                   <CardContent className="p-0">
+  //                     {/* Main Ticket Row */}
+  //                     <div className="p-4 bg-gray-50 border-b-2">
+  //                       <div className="flex items-center justify-between">
+  //                         <div className="flex items-center gap-3">
+  //                           <Button
+  //                             variant="ghost"
+  //                             size="sm"
+  //                             onClick={() => toggleTicketExpand(ticket.ticketCode)}
+  //                             className="h-8 w-8 p-0"
+  //                           >
+  //                             {isExpanded ? (
+  //                               <ChevronDown className="h-5 w-5" />
+  //                             ) : (
+  //                               <ChevronRight className="h-5 w-5" />
+  //                             )}
+  //                           </Button>
+  //                           <div>
+  //                             <div className="font-bold text-lg flex items-center gap-2">
+  //                               <Ticket className="h-5 w-5 text-blue-600" />
+  //                               {ticket.ticketCode}
+  //                             </div>
+  //                             <div className="text-sm text-gray-600 mt-1">
+  //                               {ticket.project} • {ticket.build} • {ticket.colour} • {ticket.anoType} • {ticket.source}
+  //                             </div>
+  //                             <div className="text-xs text-gray-500 mt-1">
+  //                               Created: {new Date(ticket.createdAt).toLocaleString()}
+  //                               {ticket.oqcApproved && ticket.oqcApprovedBy && (
+  //                                 <span className="ml-4 text-green-600 font-medium">
+  //                                   ✓ OQC Approved by {ticket.oqcApprovedBy}
+  //                                 </span>
+  //                               )}
+  //                             </div>
+  //                           </div>
+  //                         </div>
+                          
+  //                         <div className="flex items-center gap-6">
+  //                           <div className="text-center">
+  //                             <div className="text-xs text-gray-500">Total Qty</div>
+  //                             <div className="font-bold text-lg">{ticket.totalQuantity}</div>
+  //                           </div>
+  //                           <div className="text-center">
+  //                             <div className="text-xs text-gray-500">Scanned</div>
+  //                             <div className="font-bold text-lg text-green-600">{totalScanned}</div>
+  //                           </div>
+  //                           <div className="text-center">
+  //                             <div className="text-xs text-gray-500">Remaining</div>
+  //                             <div className={`font-bold text-lg ${
+  //                               totalScanned >= ticket.totalQuantity ? 'text-green-600' : 'text-orange-600'
+  //                             }`}>
+  //                               {Math.max(0, ticket.totalQuantity - totalScanned)}
+  //                             </div>
+  //                           </div>
+                            
+  //                           <Badge className={
+  //                             ticket.status === 'OQC Approved' 
+  //                               ? 'bg-purple-600 text-white' 
+  //                               : ticket.status === 'Ready for OQC Approval'
+  //                               ? 'bg-yellow-600 text-white'
+  //                               : ticket.status === 'Scanning Complete'
+  //                               ? 'bg-blue-600 text-white'
+  //                               : 'bg-gray-600 text-white'
+  //                           }>
+  //                             {ticket.status}
+  //                           </Badge>
+
+  //                           {showOQCApproval === ticket.id ? (
+  //                             <div className="flex items-center gap-2">
+  //                               <Input
+  //                                 placeholder="Your name"
+  //                                 value={oqcApprover}
+  //                                 onChange={(e) => setOqcApprover(e.target.value)}
+  //                                 className="h-8 w-32"
+  //                               />
+  //                               <Button
+  //                                 onClick={() => handleOQCApproval(ticket.id)}
+  //                                 size="sm"
+  //                                 className="bg-green-600 hover:bg-green-700"
+  //                               >
+  //                                 Approve
+  //                               </Button>
+  //                               <Button
+  //                                 variant="ghost"
+  //                                 size="sm"
+  //                                 onClick={() => setShowOQCApproval(null)}
+  //                               >
+  //                                 Cancel
+  //                               </Button>
+  //                             </div>
+  //                           ) : (
+  //                             <div className="flex items-center gap-2">
+  //                               {ticket.status !== 'OQC Approved' && (
+  //                                 <Button
+  //                                   onClick={() => handleStartScanning(ticket)}
+  //                                   className="bg-blue-600 hover:bg-blue-700"
+  //                                 >
+  //                                   <Scan className="mr-2 h-4 w-4" />
+  //                                   Scan Parts
+  //                                 </Button>
+  //                               )}
+                                
+  //                               {hasUnsubmittedSessions && (
+  //                                 <Button
+  //                                   onClick={() => handleSubmitAllSessions(ticket.id)}
+  //                                   className="bg-green-600 hover:bg-green-700"
+  //                                 >
+  //                                   <Check className="mr-2 h-4 w-4" />
+  //                                   Submit All
+  //                                 </Button>
+  //                               )}
+                                
+  //                               {!ticket.oqcApproved && allSessionsSubmitted && ticket.status === 'Ready for OQC Approval' && (
+  //                                 <Button
+  //                                   onClick={() => setShowOQCApproval(ticket.id)}
+  //                                   variant="outline"
+  //                                   className="border-green-600 text-green-600 hover:bg-green-50"
+  //                                 >
+  //                                   OQC Approve
+  //                                 </Button>
+  //                               )}
+  //                             </div>
+  //                           )}
+  //                         </div>
+  //                       </div>
+
+  //                       {/* Status Summary */}
+  //                       {(okCount > 0 || cosmeticCount > 0 || notOkCount > 0) && (
+  //                         <div className="flex gap-2 mt-3">
+  //                           {okCount > 0 && (
+  //                             <Badge className="bg-green-100 text-green-800 border border-green-200">
+  //                               <CheckCircle className="h-3 w-3 mr-1" />
+  //                               OK: {okCount}
+  //                             </Badge>
+  //                           )}
+  //                           {cosmeticCount > 0 && (
+  //                             <Badge className="bg-yellow-100 text-yellow-800 border border-yellow-200">
+  //                               <AlertCircle className="h-3 w-3 mr-1" />
+  //                               Cosmetic: {cosmeticCount}
+  //                             </Badge>
+  //                           )}
+  //                           {notOkCount > 0 && (
+  //                             <Badge className="bg-red-100 text-red-800 border border-red-200">
+  //                               <XCircle className="h-3 w-3 mr-1" />
+  //                               Not OK: {notOkCount}
+  //                             </Badge>
+  //                           )}
+  //                         </div>
+  //                       )}
+  //                     </div>
+
+  //                     {/* Expanded Content - Sessions */}
+  //                     {isExpanded && (
+  //                       <div className="p-4">
+  //                         {ticket.sessions.length === 0 ? (
+  //                           <div className="text-center py-4 text-gray-500 text-sm">
+  //                             No scanning sessions yet. Click "Scan Parts" to start scanning.
+  //                           </div>
+  //                         ) : (
+  //                           <div className="space-y-4">
+  //                             {ticket.sessions.map((session, sessionIdx) => {
+  //                               const isSessionExpanded = expandedSessions[session.id];
+  //                               const sessionOk = session.parts.filter(p => p.scanStatus === 'OK').length;
+  //                               const sessionCosmetic = session.parts.filter(p => p.scanStatus === 'Cosmetic').length;
+  //                               const sessionNotOk = session.parts.filter(p => p.scanStatus === 'Not OK').length;
+
+  //                               return (
+  //                                 <div key={session.id} className="border rounded-lg">
+  //                                   {/* Session Header */}
+  //                                   <div className="p-3 bg-blue-50 flex items-center justify-between">
+  //                                     <div className="flex items-center gap-3">
+  //                                       <Button
+  //                                         variant="ghost"
+  //                                         size="sm"
+  //                                         onClick={() => toggleSessionExpand(session.id)}
+  //                                         className="h-6 w-6 p-0"
+  //                                       >
+  //                                         {isSessionExpanded ? (
+  //                                           <ChevronDown className="h-4 w-4" />
+  //                                         ) : (
+  //                                           <ChevronRight className="h-4 w-4" />
+  //                                         )}
+  //                                       </Button>
+  //                                       <div>
+  //                                         <div className="font-semibold text-sm">
+  //                                           Session {session.sessionNumber}
+  //                                         </div>
+  //                                         <div className="text-xs text-gray-600">
+  //                                           Saved: {new Date(session.timestamp).toLocaleString()}
+  //                                           {session.submittedAt && (
+  //                                             <span className="ml-4 text-green-600 font-medium">
+  //                                               ✓ Submitted: {new Date(session.submittedAt).toLocaleString()}
+  //                                             </span>
+  //                                           )}
+  //                                           {session.sentToORT && session.sentToORTAt && (
+  //                                             <span className="ml-4 text-purple-600 font-medium">
+  //                                               ✓ Sent to ORT Lab
+  //                                             </span>
+  //                                           )}
+  //                                         </div>
+  //                                       </div>
+  //                                     </div>
+                                      
+  //                                     <div className="flex items-center gap-3">
+  //                                       <Badge variant="outline" className="text-xs">
+  //                                         {session.parts.length} parts
+  //                                       </Badge>
+  //                                       <div className="flex gap-1">
+  //                                         {sessionOk > 0 && (
+  //                                           <Badge className="bg-green-100 text-green-800 text-xs">
+  //                                             OK: {sessionOk}
+  //                                           </Badge>
+  //                                         )}
+  //                                         {sessionCosmetic > 0 && (
+  //                                           <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+  //                                             Cosmetic: {sessionCosmetic}
+  //                                           </Badge>
+  //                                         )}
+  //                                         {sessionNotOk > 0 && (
+  //                                           <Badge className="bg-red-100 text-red-800 text-xs">
+  //                                             Not OK: {sessionNotOk}
+  //                                           </Badge>
+  //                                         )}
+  //                                       </div>
+                                        
+  //                                       <div className="flex gap-2">
+  //                                         {!session.submitted ? (
+  //                                           <Button
+  //                                             size="sm"
+  //                                             onClick={() => handleSubmitSession(ticket.id, session.id)}
+  //                                             className="bg-green-600 hover:bg-green-700"
+  //                                           >
+  //                                             <Check className="mr-2 h-3 w-3" />
+  //                                             Submit Session
+  //                                           </Button>
+  //                                         ) : (
+  //                                           <Badge className="bg-green-600 text-white text-xs">
+  //                                             Submitted
+  //                                           </Badge>
+  //                                         )}
+                                          
+  //                                         {/* Submit to ORT Lab Button */}
+  //                                         {!session.sentToORT && ticket.oqcApproved && session.submitted && (
+  //                                           <Button
+  //                                             onClick={() => handleSubmitToORTLab(ticket.id, session.id, ticket.ticketCode)}
+  //                                             size="sm"
+  //                                             className="bg-purple-600 hover:bg-purple-700 text-white"
+  //                                           >
+  //                                             <Send className="mr-2 h-3 w-3" />
+  //                                             Send to ORT Lab
+  //                                           </Button>
+  //                                         )}
+  //                                         {session.sentToORT && (
+  //                                           <Badge className="bg-purple-600 text-white text-xs">
+  //                                             Sent to ORT
+  //                                           </Badge>
+  //                                         )}
+  //                                       </div>
+  //                                     </div>
+  //                                   </div>
+
+  //                                   {/* Session Parts Table */}
+  //                                   {isSessionExpanded && (
+  //                                     <div className="p-3">
+  //                                       <Table>
+  //                                         <TableHeader>
+  //                                           <TableRow>
+  //                                             <TableHead className="w-16">#</TableHead>
+  //                                             <TableHead>Part Number</TableHead>
+  //                                             <TableHead>Serial Number</TableHead>
+  //                                             <TableHead>Status</TableHead>
+  //                                             <TableHead>Location</TableHead>
+  //                                             <TableHead>Scanned At</TableHead>
+  //                                           </TableRow>
+  //                                         </TableHeader>
+  //                                         <TableBody>
+  //                                           {session.parts.map((part, partIdx) => (
+  //                                             <TableRow key={part.id}>
+  //                                               <TableCell className="font-medium">
+  //                                                 {partIdx + 1}
+  //                                               </TableCell>
+  //                                               <TableCell>
+  //                                                 <span className="font-mono text-sm">
+  //                                                   {part.partNumber}
+  //                                                 </span>
+  //                                               </TableCell>
+  //                                               <TableCell>
+  //                                                 <span className="font-mono text-sm">
+  //                                                   {part.serialNumber}
+  //                                                 </span>
+  //                                               </TableCell>
+  //                                               <TableCell>
+  //                                                 <Badge className={getStatusColor(part.scanStatus)}>
+  //                                                   {getStatusIcon(part.scanStatus)}
+  //                                                   <span className="ml-1">{part.scanStatus}</span>
+  //                                                 </Badge>
+  //                                               </TableCell>
+  //                                               <TableCell>
+  //                                                 {editingLocation === part.id ? (
+  //                                                   <div className="flex items-center gap-1">
+  //                                                     <Input
+  //                                                       value={editLocationValue}
+  //                                                       onChange={(e) => setEditLocationValue(e.target.value)}
+  //                                                       className="h-7 w-24 text-sm"
+  //                                                       autoFocus
+  //                                                     />
+  //                                                     <Button
+  //                                                       size="sm"
+  //                                                       variant="ghost"
+  //                                                       onClick={() => {
+  //                                                         handleUpdateLocation(ticket.id, session.id, part.id, editLocationValue);
+  //                                                       }}
+  //                                                       className="h-7 w-7 p-0"
+  //                                                     >
+  //                                                       <Save className="h-3 w-3 text-green-600" />
+  //                                                     </Button>
+  //                                                     <Button
+  //                                                       size="sm"
+  //                                                       variant="ghost"
+  //                                                       onClick={() => {
+  //                                                         setEditingLocation(null);
+  //                                                         setEditLocationValue('');
+  //                                                       }}
+  //                                                       className="h-7 w-7 p-0"
+  //                                                     >
+  //                                                       <X className="h-3 w-3 text-red-600" />
+  //                                                     </Button>
+  //                                                   </div>
+  //                                                 ) : (
+  //                                                   <div
+  //                                                     className="flex items-center gap-1 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
+  //                                                     onClick={() => {
+  //                                                       setEditingLocation(part.id);
+  //                                                       setEditLocationValue(part.location);
+  //                                                     }}
+  //                                                   >
+  //                                                     <span className="text-sm font-medium">{part.location}</span>
+  //                                                     <Edit2 className="h-3 w-3 text-gray-400" />
+  //                                                   </div>
+  //                                                 )}
+  //                                               </TableCell>
+  //                                               <TableCell className="text-sm text-gray-600">
+  //                                                 {new Date(part.scannedAt).toLocaleString()}
+  //                                               </TableCell>
+  //                                             </TableRow>
+  //                                           ))}
+  //                                         </TableBody>
+  //                                       </Table>
+  //                                     </div>
+  //                                   )}
+  //                                 </div>
+  //                               );
+  //                             })}
+  //                           </div>
+  //                         )}
+  //                       </div>
+  //                     )}
+  //                   </CardContent>
+  //                 </Card>
+  //               );
+  //             })}
+  //           </div>
+  //         )}
+  //       </CardContent>
+  //     </Card>
+  //   </div>
+  // );
+
+  const renderTicketsTab = () => {
+  // Get unique values for filters
+  const uniqueProjects = getUniqueValues(testRecords, 'project');
+  const uniqueBuilds = getUniqueValues(testRecords, 'build');
+  const uniqueColours = getUniqueValues(testRecords, 'colour');
+  const uniqueReasons = getUniqueValues(testRecords, 'reason');
+
+  return (
     <div className="p-4 md:p-6 space-y-6">
       <Card>
         <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <Label htmlFor="search" className="flex items-center gap-2 mb-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Search field */}
+            <div className="space-y-2">
+              <Label htmlFor="search" className="flex items-center gap-2">
                 <Search className="h-4 w-4" />
                 Search Tickets
               </Label>
               <Input
                 id="search"
-                placeholder="Search by ticket code, project, part number, or serial..."
+                placeholder="Search tickets..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div>
-              <Label htmlFor="date" className="flex items-center gap-2 mb-2">
-                <Calendar className="h-4 w-4" />
-                Filter by Date
+
+            {/* Project Filter */}
+            <div className="space-y-2">
+              <Label htmlFor="projectFilter" className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                Project
               </Label>
-              <Input
-                id="date"
-                type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-              />
+              <select
+                id="projectFilter"
+                value={projectFilter}
+                onChange={(e) => setProjectFilter(e.target.value)}
+                className="w-full h-10 px-3 border-2 border-gray-300 rounded-md"
+              >
+                {uniqueProjects.map(project => (
+                  <option key={project} value={project}>{project}</option>
+                ))}
+              </select>
             </div>
-            <div className="flex items-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSearchTerm('');
-                  setDateFilter('');
-                  setExpandedTickets({});
-                  setExpandedSessions({});
-                }}
+
+            {/* Build Filter */}
+            <div className="space-y-2">
+              <Label htmlFor="buildFilter" className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                Build
+              </Label>
+              <select
+                id="buildFilter"
+                value={buildFilter}
+                onChange={(e) => setBuildFilter(e.target.value)}
+                className="w-full h-10 px-3 border-2 border-gray-300 rounded-md"
               >
-                <Filter className="mr-2 h-4 w-4" />
-                Clear
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  const dataStr = JSON.stringify(testRecords, null, 2);
-                  const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                  const url = URL.createObjectURL(dataBlob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `oqc_tickets_${new Date().toISOString().split('T')[0]}.json`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
-                }}
+                {uniqueBuilds.map(build => (
+                  <option key={build} value={build}>{build}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Colour Filter */}
+            <div className="space-y-2">
+              <Label htmlFor="colourFilter" className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                Colour
+              </Label>
+              <select
+                id="colourFilter"
+                value={colourFilter}
+                onChange={(e) => setColourFilter(e.target.value)}
+                className="w-full h-10 px-3 border-2 border-gray-300 rounded-md"
               >
-                <Upload className="mr-2 h-4 w-4" />
-                Export Data
-              </Button>
+                {uniqueColours.map(colour => (
+                  <option key={colour} value={colour}>{colour}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Reason Filter */}
+            <div className="space-y-2">
+              <Label htmlFor="reasonFilter" className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                Reason
+              </Label>
+              <select
+                id="reasonFilter"
+                value={reasonFilter}
+                onChange={(e) => setReasonFilter(e.target.value)}
+                className="w-full h-10 px-3 border-2 border-gray-300 rounded-md"
+              >
+                {uniqueReasons.map(reason => (
+                  <option key={reason} value={reason}>{reason}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date Filter and Action Buttons */}
+            <div className="space-y-2">
+              <Label htmlFor="date" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Date
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="date"
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="flex-1"
+                />
+                <div className="flex items-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setDateFilter('');
+                      setProjectFilter('All');
+                      setBuildFilter('All');
+                      setColourFilter('All');
+                      setReasonFilter('All');
+                      setExpandedTickets({});
+                      setExpandedSessions({});
+                    }}
+                    title="Clear all filters"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const dataStr = JSON.stringify(testRecords, null, 2);
+                      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                      const url = URL.createObjectURL(dataBlob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `oqc_tickets_${new Date().toISOString().split('T')[0]}.json`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }}
+                    title="Export data"
+                  >
+                    <Upload className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Summary */}
+            <div className="md:col-span-2 lg:col-span-5">
+              <div className="flex items-center justify-between mt-2">
+                <div className="text-sm text-gray-500">
+                  Showing {filteredRecords.length} of {testRecords.length} tickets
+                  {(projectFilter !== 'All' || buildFilter !== 'All' || colourFilter !== 'All' || reasonFilter !== 'All') && (
+                    <span className="ml-2">
+                      • Filtered by: 
+                      {projectFilter !== 'All' && <span className="ml-1 font-medium">{projectFilter}</span>}
+                      {buildFilter !== 'All' && <span className="ml-1 font-medium">{buildFilter}</span>}
+                      {colourFilter !== 'All' && <span className="ml-1 font-medium">{colourFilter}</span>}
+                      {reasonFilter !== 'All' && <span className="ml-1 font-medium">{reasonFilter}</span>}
+                    </span>
+                  )}
+                </div>
+                <div className="text-sm">
+                  {testRecords.length > 0 && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={clearLocalStorage}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Clear All Data
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -1242,27 +1870,43 @@ const handleSubmitSession = (ticketId: number, sessionId: string) => {
             <CardTitle className="flex items-center gap-2">
               <Ticket className="h-5 w-5" />
               All Tickets ({testRecords.length})
+              {filteredRecords.length !== testRecords.length && (
+                <span className="text-sm font-normal text-gray-500 ml-2">
+                  (Filtered: {filteredRecords.length})
+                </span>
+              )}
             </CardTitle>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-sm">
                 Stored in localStorage
               </Badge>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={clearLocalStorage}
-                className="text-red-500 hover:text-red-700"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Clear All
-              </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent>
           {filteredRecords.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              No tickets found. Create a new ticket to get started.
+              {testRecords.length === 0 ? (
+                "No tickets found. Create a new ticket to get started."
+              ) : (
+                <div>
+                  <p>No tickets match the current filters.</p>
+                  <Button
+                    variant="link"
+                    onClick={() => {
+                      setProjectFilter('All');
+                      setBuildFilter('All');
+                      setColourFilter('All');
+                      setReasonFilter('All');
+                      setSearchTerm('');
+                      setDateFilter('');
+                    }}
+                    className="mt-2"
+                  >
+                    Clear all filters
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-6">
@@ -1646,6 +2290,7 @@ const handleSubmitSession = (ticketId: number, sessionId: string) => {
       </Card>
     </div>
   );
+};
 
   return (
     <div className="min-h-screen bg-gray-50">

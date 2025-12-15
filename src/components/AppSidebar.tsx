@@ -19,8 +19,8 @@ import {
 const navigationItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "OQC Form", url: "/oqcpage", icon: List },
-  { title: "Barcode Scanner", url: "/barcode-scanner", icon: ScanBarcode },
-  { title: "Ticket Assignment", url: "/tickets", icon: Ticket },
+  // { title: "Barcode Scanner", url: "/barcode-scanner", icon: ScanBarcode },
+  // { title: "Ticket Assignment", url: "/tickets", icon: Ticket },
   //{ title: "ORT Check List", url: "/qrtchecklist", icon: Check },
   { title: "ORT Lab", url: "/ort-lab-form", icon: Backpack },
   //{ title: "ORT Lab Details", url: "/ort-lab-details", icon: ReceiptText },
