@@ -95,6 +95,9 @@ interface ChildTest {
     startTime?: string;
     endTime?: string;
     status: 'pending' | 'active' | 'completed';
+    requiresImages?: boolean; // Whether this child test requires image upload
+    dependsOnPrevious?: boolean; // Whether this test depends on previous test completion
+    previousTestId?: string; // ID of the previous test this depends on
 }
 
 interface TestRecord {
@@ -203,6 +206,7 @@ interface SharedImagesByPart {
             [childTestId: string]: {
                 cosmetic: string[];
                 nonCosmetic: string[];
+                croppedRegions?: CroppedRegion[];
             };
         };
     };
@@ -473,6 +477,13 @@ function DefaultForm({
         }
     };
 
+    // Check if current child test is locked (depends on previous test)
+    const isTestLocked = currentChildTest?.dependsOnPrevious && 
+        formData.childTests?.some((test, index) => 
+            test.id === currentChildTest.previousTestId && 
+            test.status !== 'completed'
+        );
+
     return (
         <div className="p-8 bg-gray-50 min-h-screen">
             <div className="max-w-full mx-auto">
@@ -481,24 +492,40 @@ function DefaultForm({
                     <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                         <h3 className="text-lg font-semibold text-gray-800 mb-4">Child Tests Progress</h3>
                         <div className="flex flex-wrap gap-2">
-                            {formData.childTests.map((childTest, index) => (
-                                <button
-                                    key={childTest.id}
-                                    onClick={() => onChildTestChange(index)}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-                                        formData.currentChildTestIndex === index
-                                            ? 'bg-blue-100 text-blue-700 border-blue-300'
-                                            : childTest.status === 'completed'
-                                            ? 'bg-green-100 text-green-700 border-green-300'
-                                            : 'bg-gray-100 text-gray-700 border-gray-300'
-                                    }`}
-                                >
-                                    <span className="font-medium">{childTest.name}</span>
-                                    {childTest.status === 'completed' && (
-                                        <CheckCircle size={16} />
-                                    )}
-                                </button>
-                            ))}
+                            {formData.childTests.map((childTest, index) => {
+                                const isLocked = childTest.dependsOnPrevious && 
+                                    formData.childTests?.some((test, idx) => 
+                                        test.id === childTest.previousTestId && 
+                                        test.status !== 'completed' &&
+                                        idx < index
+                                    );
+                                
+                                return (
+                                    <button
+                                        key={childTest.id}
+                                        onClick={() => !isLocked && onChildTestChange(index)}
+                                        disabled={isLocked}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                                            formData.currentChildTestIndex === index
+                                                ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                                : childTest.status === 'completed'
+                                                ? 'bg-green-100 text-green-700 border-green-300'
+                                                : isLocked
+                                                ? 'bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed'
+                                                : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                                        }`}
+                                        title={isLocked ? `Complete ${formData.childTests?.[index-1]?.name} first` : ''}
+                                    >
+                                        <span className="font-medium">{childTest.name}</span>
+                                        {childTest.status === 'completed' && (
+                                            <CheckCircle size={16} />
+                                        )}
+                                        {isLocked && !childTest.status && (
+                                            <Clock size={16} className="text-gray-400" />
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
@@ -511,6 +538,11 @@ function DefaultForm({
                                 <h2 className="text-xl font-bold text-gray-900">{formData.testName}</h2>
                                 <p className="text-gray-600">
                                     Child Test: <span className="font-semibold text-blue-600">{currentChildTest.name}</span>
+                                    {currentChildTest.dependsOnPrevious && (
+                                        <span className="ml-2 text-sm text-yellow-600">
+                                            (Requires previous test completion)
+                                        </span>
+                                    )}
                                 </p>
                                 <div className="mt-2 text-sm text-gray-500">
                                     Machine: {currentChildTest.machineEquipment} | Timing: {currentChildTest.timing} hours
@@ -524,15 +556,19 @@ function DefaultForm({
                                     <button
                                         type="button"
                                         onClick={onTimerToggle}
-                                        className={`flex items-center w-fit border rounded-md px-4 py-2 font-semibold transition-colors ${timerState.isRunning
-                                            ? 'bg-red-500 text-white hover:bg-red-600'
-                                            : 'bg-green-600 text-white hover:bg-green-700'
-                                            }`}
+                                        disabled={isTestLocked}
+                                        className={`flex items-center w-fit border rounded-md px-4 py-2 font-semibold transition-colors ${
+                                            isTestLocked 
+                                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                : timerState.isRunning
+                                                ? 'bg-red-500 text-white hover:bg-red-600'
+                                                : 'bg-green-600 text-white hover:bg-green-700'
+                                        }`}
                                     >
                                         <span>{timerState.isRunning ? 'Stop Timer' : 'Start Timer'}</span>
                                     </button>
                                 </div>
-                                {currentChildTest.status !== 'completed' && (
+                                {currentChildTest.status !== 'completed' && !isTestLocked && (
                                     <button
                                         onClick={handleCompleteChildTest}
                                         className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 font-semibold"
@@ -543,6 +579,16 @@ function DefaultForm({
                                 )}
                             </div>
                         </div>
+                        {isTestLocked && (
+                            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                <div className="flex items-center">
+                                    <AlertCircle size={20} className="text-yellow-600 mr-2" />
+                                    <span className="text-yellow-700">
+                                        This test is locked. Please complete the previous test first.
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -612,14 +658,21 @@ function DefaultForm({
                 <div className="flex items-center justify-between mb-3">
                     <h3 className="text-lg font-semibold text-gray-800">
                         Test Data for {currentChildTest ? currentChildTest.name : 'All Tests'}
+                        {isTestLocked && (
+                            <span className="ml-2 text-sm text-yellow-600 font-normal">
+                                (Locked - Complete previous test first)
+                            </span>
+                        )}
                     </h3>
-                    <button
-                        onClick={() => setShowAddColumnModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                        <Plus size={16} />
-                        Add Column
-                    </button>
+                    {!isTestLocked && (
+                        <button
+                            onClick={() => setShowAddColumnModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            <Plus size={16} />
+                            Add Column
+                        </button>
+                    )}
                 </div>
 
                 {/* Render table for each part */}
@@ -634,6 +687,11 @@ function DefaultForm({
                                 {currentChildTest && (
                                     <span className="ml-2 text-sm text-blue-600 font-normal">
                                         - {currentChildTest.name}
+                                    </span>
+                                )}
+                                {isTestLocked && (
+                                    <span className="ml-2 text-sm text-yellow-600 font-normal">
+                                        (Locked)
                                     </span>
                                 )}
                             </h4>
@@ -681,13 +739,15 @@ function DefaultForm({
                                                 <th key={column.id} className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200 relative group">
                                                     <div className="flex items-center justify-between">
                                                         <span>{column.label}</span>
-                                                        <button
-                                                            onClick={() => removeCustomColumn(column.id)}
-                                                            className="opacity-0 group-hover:opacity-100 ml-2 text-red-500 hover:text-red-700 transition-opacity"
-                                                            title="Remove column"
-                                                        >
-                                                            <X size={14} />
-                                                        </button>
+                                                        {!isTestLocked && (
+                                                            <button
+                                                                onClick={() => removeCustomColumn(column.id)}
+                                                                className="opacity-0 group-hover:opacity-100 ml-2 text-red-500 hover:text-red-700 transition-opacity"
+                                                                title="Remove column"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </th>
                                             ))}
@@ -729,41 +789,58 @@ function DefaultForm({
                                                     <input
                                                         type="date"
                                                         value={row.testDate}
-                                                        onChange={(e) => updateRowField(row.id, 'testDate', e.target.value)}
-                                                        className="w-full min-w-[140px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                        onChange={(e) => !isTestLocked && updateRowField(row.id, 'testDate', e.target.value)}
+                                                        disabled={isTestLocked}
+                                                        className={`w-full min-w-[140px] px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                                                            isTestLocked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border-gray-300'
+                                                        }`}
                                                     />
                                                 </td>
                                                 <td className="px-4 py-4 border-r border-gray-200">
                                                     <input
                                                         value={row.config}
-                                                        onChange={(e) => updateRowField(row.id, 'config', e.target.value)}
-                                                        className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                        onChange={(e) => !isTestLocked && updateRowField(row.id, 'config', e.target.value)}
+                                                        disabled={isTestLocked}
+                                                        className={`w-full min-w-[120px] px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                                                            isTestLocked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border-gray-300'
+                                                        }`}
                                                     />
                                                 </td>
                                                 <td className="px-4 py-4 border-r border-gray-200">
                                                     <input
                                                         value={row.sampleId}
-                                                        onChange={(e) => updateRowField(row.id, 'sampleId', e.target.value)}
-                                                        className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                        onChange={(e) => !isTestLocked && updateRowField(row.id, 'sampleId', e.target.value)}
+                                                        disabled={isTestLocked}
+                                                        className={`w-full min-w-[120px] px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                                                            isTestLocked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border-gray-300'
+                                                        }`}
                                                     />
                                                 </td>
                                                 <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
                                                     <div className="space-y-2">
                                                         {!row.cosmeticImage ? (
-                                                            <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors bg-blue-50">
-                                                                <Upload size={20} className="text-blue-400 mb-2" />
-                                                                <span className="text-sm font-medium text-blue-600">Upload Cosmetic</span>
-                                                                <input
-                                                                    type="file"
-                                                                    accept="image/*"
-                                                                    onChange={(e) => {
-                                                                        const file = e.target.files?.[0];
-                                                                        if (file) {
-                                                                            handleImageUpload(row.id, 'cosmetic', file);
-                                                                        }
-                                                                    }}
-                                                                    className="hidden"
-                                                                />
+                                                            <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg transition-colors ${
+                                                                isTestLocked 
+                                                                    ? 'border-gray-300 bg-gray-100 cursor-not-allowed' 
+                                                                    : 'border-blue-300 bg-blue-50 cursor-pointer hover:border-blue-400'
+                                                            }`}>
+                                                                <Upload size={20} className={`${isTestLocked ? 'text-gray-400' : 'text-blue-400'} mb-2`} />
+                                                                <span className={`text-sm font-medium ${isTestLocked ? 'text-gray-500' : 'text-blue-600'}`}>
+                                                                    Upload Cosmetic
+                                                                </span>
+                                                                {!isTestLocked && (
+                                                                    <input
+                                                                        type="file"
+                                                                        accept="image/*"
+                                                                        onChange={(e) => {
+                                                                            const file = e.target.files?.[0];
+                                                                            if (file) {
+                                                                                handleImageUpload(row.id, 'cosmetic', file);
+                                                                            }
+                                                                        }}
+                                                                        className="hidden"
+                                                                    />
+                                                                )}
                                                             </label>
                                                         ) : (
                                                             <div className="relative">
@@ -772,33 +849,35 @@ function DefaultForm({
                                                                     alt="Cosmetic"
                                                                     className="w-20 h-20 object-cover border rounded-lg"
                                                                 />
-                                                                <div className="flex gap-1 mt-2">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            const input = document.createElement('input');
-                                                                            input.type = 'file';
-                                                                            input.accept = 'image/*';
-                                                                            input.onchange = (e) => {
-                                                                                const file = (e.target as HTMLInputElement).files?.[0];
-                                                                                if (file) {
-                                                                                    handleImageUpload(row.id, 'cosmetic', file);
-                                                                                }
-                                                                            };
-                                                                            input.click();
-                                                                        }}
-                                                                        className="flex-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
-                                                                    >
-                                                                        Replace
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => updateRowField(row.id, 'cosmeticImage', '')}
-                                                                        className="flex-1 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
-                                                                    >
-                                                                        Remove
-                                                                    </button>
-                                                                </div>
+                                                                {!isTestLocked && (
+                                                                    <div className="flex gap-1 mt-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const input = document.createElement('input');
+                                                                                input.type = 'file';
+                                                                                input.accept = 'image/*';
+                                                                                input.onchange = (e) => {
+                                                                                    const file = (e.target as HTMLInputElement).files?.[0];
+                                                                                    if (file) {
+                                                                                        handleImageUpload(row.id, 'cosmetic', file);
+                                                                                    }
+                                                                                };
+                                                                                input.click();
+                                                                            }}
+                                                                            className="flex-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                                                                        >
+                                                                            Replace
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => !isTestLocked && updateRowField(row.id, 'cosmeticImage', '')}
+                                                                            className="flex-1 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
+                                                                        >
+                                                                            Remove
+                                                                        </button>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )}
                                                     </div>
@@ -806,20 +885,28 @@ function DefaultForm({
                                                 <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
                                                     <div className="space-y-2">
                                                         {!row.nonCosmeticImage ? (
-                                                            <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-green-300 rounded-lg cursor-pointer hover:border-green-400 transition-colors bg-green-50">
-                                                                <Upload size={20} className="text-green-400 mb-2" />
-                                                                <span className="text-sm font-medium text-green-600">Upload Non-Cosmetic</span>
-                                                                <input
-                                                                    type="file"
-                                                                    accept="image/*"
-                                                                    onChange={(e) => {
-                                                                        const file = e.target.files?.[0];
-                                                                        if (file) {
-                                                                            handleImageUpload(row.id, 'nonCosmetic', file);
-                                                                        }
-                                                                    }}
-                                                                    className="hidden"
-                                                                />
+                                                            <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg transition-colors ${
+                                                                isTestLocked 
+                                                                    ? 'border-gray-300 bg-gray-100 cursor-not-allowed' 
+                                                                    : 'border-green-300 bg-green-50 cursor-pointer hover:border-green-400'
+                                                            }`}>
+                                                                <Upload size={20} className={`${isTestLocked ? 'text-gray-400' : 'text-green-400'} mb-2`} />
+                                                                <span className={`text-sm font-medium ${isTestLocked ? 'text-gray-500' : 'text-green-600'}`}>
+                                                                    Upload Non-Cosmetic
+                                                                </span>
+                                                                {!isTestLocked && (
+                                                                    <input
+                                                                        type="file"
+                                                                        accept="image/*"
+                                                                        onChange={(e) => {
+                                                                            const file = e.target.files?.[0];
+                                                                            if (file) {
+                                                                                handleImageUpload(row.id, 'nonCosmetic', file);
+                                                                            }
+                                                                        }}
+                                                                        className="hidden"
+                                                                    />
+                                                                )}
                                                             </label>
                                                         ) : (
                                                             <div className="relative">
@@ -828,33 +915,35 @@ function DefaultForm({
                                                                     alt="Non-Cosmetic"
                                                                     className="w-20 h-20 object-cover border rounded-lg"
                                                                 />
-                                                                <div className="flex gap-1 mt-2">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            const input = document.createElement('input');
-                                                                            input.type = 'file';
-                                                                            input.accept = 'image/*';
-                                                                            input.onchange = (e) => {
-                                                                                const file = (e.target as HTMLInputElement).files?.[0];
-                                                                                if (file) {
-                                                                                    handleImageUpload(row.id, 'nonCosmetic', file);
-                                                                                }
-                                                                            };
-                                                                            input.click();
-                                                                        }}
-                                                                        className="flex-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
-                                                                    >
-                                                                        Replace
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => updateRowField(row.id, 'nonCosmeticImage', '')}
-                                                                        className="flex-1 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
-                                                                    >
-                                                                        Remove
-                                                                    </button>
-                                                                </div>
+                                                                {!isTestLocked && (
+                                                                    <div className="flex gap-1 mt-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const input = document.createElement('input');
+                                                                                input.type = 'file';
+                                                                                input.accept = 'image/*';
+                                                                                input.onchange = (e) => {
+                                                                                    const file = (e.target as HTMLInputElement).files?.[0];
+                                                                                    if (file) {
+                                                                                        handleImageUpload(row.id, 'nonCosmetic', file);
+                                                                                    }
+                                                                                };
+                                                                                input.click();
+                                                                            }}
+                                                                            className="flex-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                                                                        >
+                                                                            Replace
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => !isTestLocked && updateRowField(row.id, 'nonCosmeticImage', '')}
+                                                                            className="flex-1 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
+                                                                        >
+                                                                            Remove
+                                                                        </button>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )}
                                                     </div>
@@ -920,11 +1009,15 @@ function DefaultForm({
                                                 <td className="px-4 py-4">
                                                     <select
                                                         value={row.status}
-                                                        onChange={(e) => updateRowField(row.id, 'status', e.target.value)}
-                                                        className={`w-full min-w-[110px] px-3 py-2 border rounded-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${row.status === "Pass" ? "bg-green-50 text-green-700 border-green-200" :
-                                                            row.status === "Fail" ? "bg-red-50 text-red-700 border-red-200" :
-                                                                "bg-white border-gray-300 text-gray-700"
-                                                            }`}
+                                                        onChange={(e) => !isTestLocked && updateRowField(row.id, 'status', e.target.value)}
+                                                        disabled={isTestLocked}
+                                                        className={`w-full min-w-[110px] px-3 py-2 border rounded-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                                                            isTestLocked 
+                                                                ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
+                                                                : row.status === "Pass" ? "bg-green-50 text-green-700 border-green-200" :
+                                                                    row.status === "Fail" ? "bg-red-50 text-red-700 border-red-200" :
+                                                                    "bg-white border-gray-300 text-gray-700"
+                                                        }`}
                                                     >
                                                         <option value="">Select</option>
                                                         <option value="Pass">Pass</option>
@@ -938,14 +1031,16 @@ function DefaultForm({
                             </div>
                         </div>
 
-                        <div className="flex justify-end mt-3">
-                            <button
-                                onClick={() => addRow(part.partNumber)}
-                                className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors shadow-sm"
-                            >
-                                + Add Row for {part.partNumber}
-                            </button>
-                        </div>
+                        {!isTestLocked && (
+                            <div className="flex justify-end mt-3">
+                                <button
+                                    onClick={() => addRow(part.partNumber)}
+                                    className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+                                >
+                                    + Add Row for {part.partNumber}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>
@@ -1099,7 +1194,7 @@ export default function MultiStageTestFormEnhanced() {
         document.body.appendChild(script);
     }, []);
 
-    // Parse combined test names into child tests
+    // Parse combined test names into child tests with sequential dependency
     const parseChildTests = (testName: string, machineEquipment: string, machineEquipment2: string): ChildTest[] => {
         const tests: ChildTest[] = [];
         
@@ -1109,13 +1204,18 @@ export default function MultiStageTestFormEnhanced() {
             const machines = [machineEquipment, machineEquipment2].filter(m => m);
             
             testNames.forEach((name, index) => {
+                const previousTestId = index > 0 ? `child-${Date.now()}-${index-1}` : undefined;
+                
                 tests.push({
                     id: `child-${Date.now()}-${index}`,
                     name: name,
                     machineEquipment: machines[index] || machines[0] || name,
                     timing: "24", // Default timing
                     isCompleted: false,
-                    status: index === 0 ? 'active' : 'pending'
+                    status: index === 0 ? 'active' : 'pending',
+                    requiresImages: true, // All child tests require images by default
+                    dependsOnPrevious: index > 0, // All tests after first depend on previous
+                    previousTestId: previousTestId
                 });
             });
         } else {
@@ -1126,7 +1226,8 @@ export default function MultiStageTestFormEnhanced() {
                 machineEquipment: machineEquipment,
                 timing: "24",
                 isCompleted: false,
-                status: 'active'
+                status: 'active',
+                requiresImages: true
             });
         }
         
@@ -1187,27 +1288,31 @@ export default function MultiStageTestFormEnhanced() {
                         currentChildTestIndex: testRecord.currentChildTestIndex || 0
                     };
                 } else {
-                    // Initialize new rows for the first child test
+                    // Initialize new rows for the first child test only
                     const initialRows: FormRow[] = [];
                     if (childTests.length > 0) {
-                        testRecord.assignedParts.forEach((part, idx) => {
-                            initialRows.push({
-                                id: Date.now() + idx,
-                                srNo: idx + 1,
-                                testDate: new Date().toISOString().split('T')[0],
-                                config: "",
-                                sampleId: part.serialNumber,
-                                status: "Pending",
-                                partNumber: part.partNumber,
-                                serialNumber: part.serialNumber,
-                                childTestId: childTests[0].id,
-                                childTestName: childTests[0].name,
-                                cosmeticImage: "",
-                                nonCosmeticImage: "",
-                                croppedImage: "",
-                                regionLabel: ""
+                        // Only create rows for the first active child test
+                        const activeChildTest = childTests.find(test => test.status === 'active');
+                        if (activeChildTest) {
+                            testRecord.assignedParts.forEach((part, idx) => {
+                                initialRows.push({
+                                    id: Date.now() + idx,
+                                    srNo: idx + 1,
+                                    testDate: new Date().toISOString().split('T')[0],
+                                    config: "",
+                                    sampleId: part.serialNumber,
+                                    status: "Pending",
+                                    partNumber: part.partNumber,
+                                    serialNumber: part.serialNumber,
+                                    childTestId: activeChildTest.id,
+                                    childTestName: activeChildTest.name,
+                                    cosmeticImage: "",
+                                    nonCosmeticImage: "",
+                                    croppedImage: "",
+                                    regionLabel: ""
+                                });
                             });
-                        });
+                        }
                     }
                     
                     initialForms[formKey] = {
@@ -1475,7 +1580,7 @@ export default function MultiStageTestFormEnhanced() {
                         }
                     });
 
-                    // Replace existing cropped regions for this part and child test
+                    // Store cropped regions per child test
                     setCroppedRegions(prev => {
                         const filtered = prev.filter(region => 
                             !(region.partNumber === partNumber && region.childTestId === childTestId)
@@ -1483,10 +1588,8 @@ export default function MultiStageTestFormEnhanced() {
                         return [...filtered, ...croppedImages];
                     });
 
-                    // Get the image URL for the uploaded file
+                    // Update shared images with cropped regions
                     const imageUrl = e.target?.result as string;
-
-                    // Update shared images
                     setSharedImagesByPart(prev => ({
                         ...prev,
                         [partNumber]: {
@@ -1496,7 +1599,8 @@ export default function MultiStageTestFormEnhanced() {
                                 ...prev[partNumber]?.childTestImages,
                                 [childTestId || 'default']: {
                                     cosmetic: prev[partNumber]?.childTestImages?.[childTestId || 'default']?.cosmetic || [],
-                                    nonCosmetic: [...(prev[partNumber]?.childTestImages?.[childTestId || 'default']?.nonCosmetic || []), imageUrl]
+                                    nonCosmetic: [...(prev[partNumber]?.childTestImages?.[childTestId || 'default']?.nonCosmetic || []), imageUrl],
+                                    croppedRegions: croppedImages
                                 }
                             }
                         }
@@ -1759,6 +1863,18 @@ export default function MultiStageTestFormEnhanced() {
             const currentChildTestIndex = currentForm.currentChildTestIndex || 0;
             const currentChildTest = currentForm.childTests?.[currentChildTestIndex];
             
+            // Check if current child test is locked
+            const isLocked = currentChildTest?.dependsOnPrevious && 
+                currentForm.childTests?.some((test, index) => 
+                    test.id === currentChildTest.previousTestId && 
+                    test.status !== 'completed'
+                );
+            
+            if (isLocked) {
+                alert(`Cannot add row. Please complete ${currentForm.childTests?.[currentChildTestIndex-1]?.name} first.`);
+                return prev;
+            }
+            
             // Find rows for current child test
             const childTestRows = currentForm.rows.filter(row => row.childTestId === currentChildTest?.id);
             const newId = Math.max(...childTestRows.map(r => r.id), 0) + 1;
@@ -1805,6 +1921,22 @@ export default function MultiStageTestFormEnhanced() {
 
     // Handle timer toggle for child test
     const handleTimerToggle = (formKey: string, childTestId?: string) => {
+        const formData = forms[formKey];
+        const currentChildTestIndex = formData?.currentChildTestIndex || 0;
+        const currentChildTest = formData?.childTests?.[currentChildTestIndex];
+        
+        // Check if test is locked
+        const isLocked = currentChildTest?.dependsOnPrevious && 
+            formData.childTests?.some((test, index) => 
+                test.id === currentChildTest.previousTestId && 
+                test.status !== 'completed'
+            );
+        
+        if (isLocked) {
+            alert(`Cannot start timer. Please complete ${formData.childTests?.[currentChildTestIndex-1]?.name} first.`);
+            return;
+        }
+        
         const timerKey = childTestId ? `${formKey}_${childTestId}` : formKey;
         setTimerStates(prev => ({
             ...prev,
@@ -1822,6 +1954,18 @@ export default function MultiStageTestFormEnhanced() {
             const currentChildTestIndex = currentForm.currentChildTestIndex || 0;
             const childTests = currentForm.childTests || [];
             
+            // Check if test is locked
+            const isLocked = childTests[currentChildTestIndex]?.dependsOnPrevious && 
+                childTests.some((test, index) => 
+                    test.id === childTests[currentChildTestIndex].previousTestId && 
+                    test.status !== 'completed'
+                );
+            
+            if (isLocked) {
+                alert(`Cannot complete test. Please complete ${childTests[currentChildTestIndex-1]?.name} first.`);
+                return prev;
+            }
+            
             if (currentChildTestIndex < childTests.length - 1) {
                 // Mark current child test as completed and move to next
                 const updatedChildTests = [...childTests];
@@ -1831,40 +1975,48 @@ export default function MultiStageTestFormEnhanced() {
                     status: 'completed',
                     endTime: new Date().toISOString()
                 };
-                updatedChildTests[currentChildTestIndex + 1] = {
-                    ...updatedChildTests[currentChildTestIndex + 1],
+                
+                // Activate next child test
+                const nextChildTestIndex = currentChildTestIndex + 1;
+                updatedChildTests[nextChildTestIndex] = {
+                    ...updatedChildTests[nextChildTestIndex],
                     status: 'active',
                     startTime: new Date().toISOString()
                 };
                 
-                // Create rows for next child test
-                const nextChildTest = updatedChildTests[currentChildTestIndex + 1];
+                // Create rows for next child test ONLY when it becomes active
+                const nextChildTest = updatedChildTests[nextChildTestIndex];
                 const newRows: FormRow[] = [];
                 
-                currentForm.rows
-                    .filter(row => row.childTestId === childTests[currentChildTestIndex].id)
-                    .forEach((row, idx) => {
-                        newRows.push({
-                            ...row,
-                            id: Date.now() + idx,
-                            srNo: idx + 1,
-                            testDate: "",
-                            childTestId: nextChildTest.id,
-                            childTestName: nextChildTest.name,
-                            cosmeticImage: "",
-                            nonCosmeticImage: "",
-                            croppedImage: "",
-                            regionLabel: "",
-                            status: "Pending"
-                        });
+                // Get rows from previous child test to copy data if needed
+                const previousRows = currentForm.rows.filter(row => 
+                    row.childTestId === childTests[currentChildTestIndex].id
+                );
+                
+                previousRows.forEach((row, idx) => {
+                    // Create new row for next child test with empty images
+                    // This ensures each child test has its own separate image uploads
+                    newRows.push({
+                        ...row,
+                        id: Date.now() + idx,
+                        srNo: idx + 1,
+                        testDate: new Date().toISOString().split('T')[0],
+                        childTestId: nextChildTest.id,
+                        childTestName: nextChildTest.name,
+                        cosmeticImage: "", // Clear images for new child test
+                        nonCosmeticImage: "", // Clear images for new child test
+                        croppedImage: "", // Clear cropped image
+                        regionLabel: "", // Clear region label
+                        status: "Pending" // Reset status
                     });
+                });
                 
                 return {
                     ...prev,
                     [formKey]: {
                         ...currentForm,
                         childTests: updatedChildTests,
-                        currentChildTestIndex: currentChildTestIndex + 1,
+                        currentChildTestIndex: nextChildTestIndex,
                         rows: [...currentForm.rows, ...newRows]
                     }
                 };
@@ -1891,6 +2043,23 @@ export default function MultiStageTestFormEnhanced() {
 
     // Handle child test change
     const handleChildTestChange = (formKey: string, childTestIndex: number) => {
+        const formData = forms[formKey];
+        const childTests = formData?.childTests || [];
+        const targetTest = childTests[childTestIndex];
+        
+        // Check if the test to switch to is locked
+        const isLocked = targetTest?.dependsOnPrevious && 
+            childTests.some((test, index) => 
+                test.id === targetTest.previousTestId && 
+                test.status !== 'completed' &&
+                index < childTestIndex
+            );
+        
+        if (isLocked) {
+            alert(`Cannot switch to ${targetTest.name}. Please complete ${childTests[childTestIndex-1]?.name} first.`);
+            return;
+        }
+        
         setForms(prev => ({
             ...prev,
             [formKey]: {
@@ -1971,6 +2140,13 @@ export default function MultiStageTestFormEnhanced() {
         const currentChildTestIndex = formData?.currentChildTestIndex || 0;
         const currentChildTest = formData?.childTests?.[currentChildTestIndex];
 
+        // Check if current child test is locked
+        const isTestLocked = currentChildTest?.dependsOnPrevious && 
+            formData?.childTests?.some((test, index) => 
+                test.id === currentChildTest.previousTestId && 
+                test.status !== 'completed'
+            );
+
         return (
             <div className="p-6">
                 <div className="flex justify-between items-center mb-6">
@@ -2026,30 +2202,45 @@ export default function MultiStageTestFormEnhanced() {
                     <div className="mb-6 bg-white rounded-lg border border-gray-200 p-4">
                         <h3 className="text-lg font-semibold text-gray-800 mb-3">Child Tests Progress</h3>
                         <div className="flex flex-wrap gap-2">
-                            {formData.childTests.map((childTest, index) => (
-                                <div
-                                    key={childTest.id}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors cursor-pointer ${
-                                        currentChildTestIndex === index
-                                            ? 'bg-blue-100 text-blue-700 border-blue-300'
-                                            : childTest.status === 'completed'
-                                            ? 'bg-green-100 text-green-700 border-green-300'
-                                            : 'bg-gray-100 text-gray-700 border-gray-300'
-                                    }`}
-                                    onClick={() => handleChildTestChange(formKey, index)}
-                                >
-                                    <span className="font-medium">{childTest.name}</span>
-                                    {childTest.status === 'completed' && (
-                                        <CheckCircle size={16} />
-                                    )}
-                                </div>
-                            ))}
+                            {formData.childTests.map((childTest, index) => {
+                                const isLocked = childTest.dependsOnPrevious && 
+                                    formData.childTests?.some((test, idx) => 
+                                        test.id === childTest.previousTestId && 
+                                        test.status !== 'completed' &&
+                                        idx < index
+                                    );
+                                
+                                return (
+                                    <div
+                                        key={childTest.id}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                                            currentChildTestIndex === index
+                                                ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                                : childTest.status === 'completed'
+                                                ? 'bg-green-100 text-green-700 border-green-300'
+                                                : isLocked
+                                                ? 'bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed'
+                                                : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                                        }`}
+                                        title={isLocked ? `Complete ${formData.childTests?.[index-1]?.name} first` : ''}
+                                        onClick={() => !isLocked && handleChildTestChange(formKey, index)}
+                                    >
+                                        <span className="font-medium">{childTest.name}</span>
+                                        {childTest.status === 'completed' && (
+                                            <CheckCircle size={16} />
+                                        )}
+                                        {isLocked && !childTest.status && (
+                                            <Clock size={16} className="text-gray-400" />
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
 
                 {/* Current Test Info Card */}
-                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className={`mb-6 p-4 rounded-lg border ${isTestLocked ? 'bg-yellow-50 border-yellow-200' : 'bg-blue-50 border-blue-200'}`}>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
                             <span className="text-sm text-gray-600">Test Name:</span>
@@ -2079,13 +2270,23 @@ export default function MultiStageTestFormEnhanced() {
                             <span className="text-sm text-gray-600">Status:</span>
                             <div className={`font-semibold ${
                                 currentChildTest?.status === 'completed' ? "text-green-600" :
-                                currentChildTest?.status === 'active' ? "text-yellow-600" :
+                                currentChildTest?.status === 'active' ? (isTestLocked ? "text-yellow-600" : "text-blue-600") :
                                 "text-gray-600"
                             }`}>
-                                {currentChildTest?.status?.toUpperCase() || "PENDING"}
+                                {isTestLocked ? "LOCKED" : currentChildTest?.status?.toUpperCase() || "PENDING"}
                             </div>
                         </div>
                     </div>
+                    {isTestLocked && (
+                        <div className="mt-3 p-2 bg-yellow-100 border border-yellow-300 rounded">
+                            <div className="flex items-center">
+                                <AlertCircle size={16} className="text-yellow-600 mr-2" />
+                                <span className="text-sm text-yellow-700">
+                                    This test requires completion of previous test. Please complete "{formData?.childTests?.[currentChildTestIndex-1]?.name}" first.
+                                </span>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Parts for Current Test */}
@@ -2093,9 +2294,18 @@ export default function MultiStageTestFormEnhanced() {
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-lg font-semibold text-gray-800">
                             Assigned Parts for {currentChildTest?.name || currentTestRecord?.testName}
+                            {isTestLocked && (
+                                <span className="ml-2 text-sm text-yellow-600 font-normal">
+                                    (Locked - Complete previous test first)
+                                </span>
+                            )}
                         </h3>
-                        <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                            {currentTestParts.length} Parts
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            isTestLocked 
+                                ? 'bg-yellow-100 text-yellow-800' 
+                                : 'bg-blue-100 text-blue-800'
+                        }`}>
+                            {currentTestParts.length} Parts {isTestLocked ? '(Locked)' : ''}
                         </span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -2106,7 +2316,9 @@ export default function MultiStageTestFormEnhanced() {
                             );
                             
                             return (
-                                <div key={part.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+                                <div key={part.id} className={`bg-white rounded-lg border p-4 shadow-sm hover:shadow-md transition-shadow ${
+                                    isTestLocked ? 'border-gray-300' : 'border-gray-200'
+                                }`}>
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2 mb-2">
@@ -2137,9 +2349,10 @@ export default function MultiStageTestFormEnhanced() {
                                             rowData?.status === "Pass" ? "bg-green-100 text-green-800" :
                                             rowData?.status === "Fail" ? "bg-red-100 text-red-800" :
                                             rowData?.status === "In Progress" ? "bg-yellow-100 text-yellow-800" :
+                                            isTestLocked ? "bg-gray-100 text-gray-500" :
                                             "bg-gray-100 text-gray-800"
                                         }`}>
-                                            {rowData?.status || "Not Started"}
+                                            {isTestLocked ? "Locked" : rowData?.status || "Not Started"}
                                         </span>
                                     </div>
                                     
@@ -2161,42 +2374,53 @@ export default function MultiStageTestFormEnhanced() {
                                                             className="w-full h-32 object-cover border rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                                             onClick={() => window.open(rowData.cosmeticImage, '_blank')}
                                                         />
-                                                        <button
-                                                            onClick={() => removeImage(part.partNumber, 'cosmetic', currentChildTest?.id)}
-                                                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                                                            title="Remove image"
-                                                        >
-                                                            <X size={16} />
-                                                        </button>
+                                                        {!isTestLocked && (
+                                                            <button
+                                                                onClick={() => removeImage(part.partNumber, 'cosmetic', currentChildTest?.id)}
+                                                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                                                title="Remove image"
+                                                            >
+                                                                <X size={16} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ) : null}
                                             
                                             {/* Upload button */}
-                                            <label className="flex items-center justify-center h-24 border-2 border-dashed border-blue-300 rounded-lg cursor-pointer hover:border-blue-400 bg-blue-50 transition-colors hover:bg-blue-100">
+                                            <label className={`flex items-center justify-center h-24 border-2 border-dashed rounded-lg transition-colors ${
+                                                isTestLocked 
+                                                    ? 'border-gray-300 bg-gray-100 cursor-not-allowed' 
+                                                    : 'border-blue-300 bg-blue-50 cursor-pointer hover:border-blue-400 hover:bg-blue-100'
+                                            }`}>
                                                 <div className="text-center">
-                                                    <Plus className="text-blue-400 mx-auto mb-2" size={24} />
-                                                    <span className="text-sm font-medium text-blue-600">
+                                                    <Plus className={`${isTestLocked ? 'text-gray-400' : 'text-blue-400'} mx-auto mb-2`} size={24} />
+                                                    <span className={`text-sm font-medium ${isTestLocked ? 'text-gray-500' : 'text-blue-600'}`}>
                                                         {rowData?.cosmeticImage ? 'Replace Cosmetic Image' : 'Add Cosmetic Image'}
                                                     </span>
+                                                    {isTestLocked && (
+                                                        <div className="text-xs text-gray-500 mt-1">Locked</div>
+                                                    )}
                                                 </div>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    className="hidden"
-                                                    onChange={(e) => {
-                                                        if (e.target.files?.[0]) {
-                                                            handleImageUpload(
-                                                                part.partNumber, 
-                                                                currentTestRecord!.testName, 
-                                                                'cosmetic', 
-                                                                e.target.files[0],
-                                                                currentChildTest?.id
-                                                            );
-                                                            e.target.value = '';
-                                                        }
-                                                    }}
-                                                />
+                                                {!isTestLocked && (
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden"
+                                                        onChange={(e) => {
+                                                            if (e.target.files?.[0]) {
+                                                                handleImageUpload(
+                                                                    part.partNumber, 
+                                                                    currentTestRecord!.testName, 
+                                                                    'cosmetic', 
+                                                                    e.target.files[0],
+                                                                    currentChildTest?.id
+                                                                );
+                                                                e.target.value = '';
+                                                            }
+                                                        }}
+                                                    />
+                                                )}
                                             </label>
                                         </div>
                                         
@@ -2206,7 +2430,7 @@ export default function MultiStageTestFormEnhanced() {
                                                 {isSecondRound ? 'Final Non-Cosmetic Image' : 'Non-Cosmetic Image'}
                                             </label>
                                             
-                                            {processing && (
+                                            {processing && !isTestLocked && (
                                                 <div className="mb-2 bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-center">
                                                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
                                                     <span className="text-sm text-blue-600">Processing with OpenCV...</span>
@@ -2223,13 +2447,15 @@ export default function MultiStageTestFormEnhanced() {
                                                             className="w-full h-32 object-cover border rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                                             onClick={() => window.open(rowData.nonCosmeticImage, '_blank')}
                                                         />
-                                                        <button
-                                                            onClick={() => removeImage(part.partNumber, 'nonCosmetic', currentChildTest?.id)}
-                                                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                                                            title="Remove image"
-                                                        >
-                                                            <X size={16} />
-                                                        </button>
+                                                        {!isTestLocked && (
+                                                            <button
+                                                                onClick={() => removeImage(part.partNumber, 'nonCosmetic', currentChildTest?.id)}
+                                                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                                                title="Remove image"
+                                                            >
+                                                                <X size={16} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                     
                                                     {/* Show cropped image if available */}
@@ -2251,34 +2477,43 @@ export default function MultiStageTestFormEnhanced() {
                                             )}
                                             
                                             {/* Upload button */}
-                                            <label className="flex items-center justify-center h-24 border-2 border-dashed border-green-300 rounded-lg cursor-pointer hover:border-green-400 bg-green-50 transition-colors hover:bg-green-100">
+                                            <label className={`flex items-center justify-center h-24 border-2 border-dashed rounded-lg transition-colors ${
+                                                isTestLocked 
+                                                    ? 'border-gray-300 bg-gray-100 cursor-not-allowed' 
+                                                    : 'border-green-300 bg-green-50 cursor-pointer hover:border-green-400 hover:bg-green-100'
+                                            }`}>
                                                 <div className="text-center">
-                                                    <Plus className="text-green-400 mx-auto mb-2" size={24} />
-                                                    <span className="text-sm font-medium text-green-600">
+                                                    <Plus className={`${isTestLocked ? 'text-gray-400' : 'text-green-400'} mx-auto mb-2`} size={24} />
+                                                    <span className={`text-sm font-medium ${isTestLocked ? 'text-gray-500' : 'text-green-600'}`}>
                                                         {isSecondRound 
                                                             ? (rowData?.finalNonCosmeticImage ? 'Replace Final Non-Cosmetic' : 'Add Final Non-Cosmetic')
                                                             : (rowData?.nonCosmeticImage ? 'Replace Non-Cosmetic' : 'Add Non-Cosmetic Image')
                                                         }
                                                     </span>
+                                                    {isTestLocked && (
+                                                        <div className="text-xs text-gray-500 mt-1">Locked</div>
+                                                    )}
                                                 </div>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    className="hidden"
-                                                    onChange={(e) => {
-                                                        if (e.target.files?.[0] && !processing) {
-                                                            handleImageUpload(
-                                                                part.partNumber, 
-                                                                currentTestRecord!.testName, 
-                                                                'nonCosmetic', 
-                                                                e.target.files[0],
-                                                                currentChildTest?.id
-                                                            );
-                                                            e.target.value = '';
-                                                        }
-                                                    }}
-                                                    disabled={processing}
-                                                />
+                                                {!isTestLocked && (
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden"
+                                                        onChange={(e) => {
+                                                            if (e.target.files?.[0] && !processing) {
+                                                                handleImageUpload(
+                                                                    part.partNumber, 
+                                                                    currentTestRecord!.testName, 
+                                                                    'nonCosmetic', 
+                                                                    e.target.files[0],
+                                                                    currentChildTest?.id
+                                                                );
+                                                                e.target.value = '';
+                                                            }
+                                                        }}
+                                                        disabled={processing || isTestLocked}
+                                                    />
+                                                )}
                                             </label>
                                         </div>
                                     </div>
