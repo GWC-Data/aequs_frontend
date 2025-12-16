@@ -385,29 +385,48 @@ const Dashboard = () => {
   //   const workbook = XLSX.utils.book_new();
   //   const recordsByTest = {};
 
-  //   // Group records by test name
+  //   // Process each record
   //   rawRecords.forEach((record) => {
-  //     const stage2 = record.stage2 || {};
-  //     const testMode = stage2.testMode || "single";
+  //     // Check if this record has testRecords (your new structure)
+  //     if (record.testRecords && Array.isArray(record.testRecords)) {
+  //       // Process each test in testRecords
+  //       record.testRecords.forEach((testRecord, testIndex) => {
+  //         const testName = testRecord.testName || "Unknown Test";
 
-  //     if (testMode === "single") {
-  //       const testName = stage2.testName || "Unknown Test";
-  //       if (!recordsByTest[testName]) {
-  //         recordsByTest[testName] = [];
-  //       }
-  //       recordsByTest[testName].push({ record, testIndex: null });
-  //     } else {
-  //       const testNames = Array.isArray(stage2.testName)
-  //         ? stage2.testName
-  //         : (stage2.testName || "").split(',').map((t) => t.trim());
-
-  //       testNames.forEach((testName, index) => {
-  //         if (!testName) return;
   //         if (!recordsByTest[testName]) {
   //           recordsByTest[testName] = [];
   //         }
-  //         recordsByTest[testName].push({ record, testIndex: index });
+
+  //         recordsByTest[testName].push({
+  //           record,
+  //           testIndex,
+  //           testRecord // Store the specific test record
+  //         });
   //       });
+  //     } else {
+  //       // Fallback to old structure (for backward compatibility)
+  //       const stage2 = record.stage2 || {};
+  //       const testMode = stage2.testMode || "single";
+
+  //       if (testMode === "single") {
+  //         const testName = stage2.testName || "Unknown Test";
+  //         if (!recordsByTest[testName]) {
+  //           recordsByTest[testName] = [];
+  //         }
+  //         recordsByTest[testName].push({ record, testIndex: null, testRecord: null });
+  //       } else {
+  //         const testNames = Array.isArray(stage2.testName)
+  //           ? stage2.testName
+  //           : (stage2.testName || "").split(',').map((t) => t.trim());
+
+  //         testNames.forEach((testName, index) => {
+  //           if (!testName) return;
+  //           if (!recordsByTest[testName]) {
+  //             recordsByTest[testName] = [];
+  //           }
+  //           recordsByTest[testName].push({ record, testIndex: index, testRecord: null });
+  //         });
+  //       }
   //     }
   //   });
 
@@ -426,164 +445,296 @@ const Dashboard = () => {
   //     const wsData = [];
 
   //     records.forEach((item, recordIdx) => {
-  //       const { record, testIndex } = item;
-  //       const stage2 = record.stage2 || {};
-  //       const testMode = stage2.testMode || "single";
+  //       const { record, testIndex, testRecord } = item;
 
-  //       // Extract test-specific data
-  //       let testType, equipment, requiredQty, testCondition, selectedParts;
-
-  //       if (testMode === "single" || testIndex === null) {
-  //         testType = stage2.type || "N/A";
-  //         equipment = stage2.equipment || "N/A";
-  //         requiredQty = stage2.requiredQty || "N/A";
-  //         testCondition = stage2.testCondition || "N/A";
-  //         selectedParts = Array.isArray(stage2.selectedParts)
-  //           ? stage2.selectedParts
-  //           : [];
-  //       } else {
-  //         const typeList = Array.isArray(stage2.type)
-  //           ? stage2.type
-  //           : (stage2.type || "").split(',').map((t) => t.trim());
-  //         const equipmentList = Array.isArray(stage2.equipment)
-  //           ? stage2.equipment
-  //           : (stage2.equipment || "").split(',').map((e) => e.trim());
-  //         const qtyList = Array.isArray(stage2.requiredQty)
-  //           ? stage2.requiredQty
-  //           : (stage2.requiredQty || "").split(',').map((q) => q.trim());
-  //         const conditionList = Array.isArray(stage2.testCondition)
-  //           ? stage2.testCondition
-  //           : (stage2.testCondition || "").split(',').map((c) => c.trim());
-
-  //         testType = typeList[testIndex] || "N/A";
-  //         equipment = equipmentList[testIndex] || "N/A";
-  //         requiredQty = qtyList[testIndex] || "N/A";
-  //         testCondition = conditionList[testIndex] || "N/A";
-
-  //         if (stage2.selectedParts && typeof stage2.selectedParts === 'object') {
-  //           const parts = stage2.selectedParts[testName];
-  //           selectedParts = Array.isArray(parts) ? parts : [];
-  //         } else {
-  //           selectedParts = [];
+  //       // For new structure (testRecords)
+  //       if (testRecord) {
+  //         // Add separator between records
+  //         if (recordIdx > 0) {
+  //           wsData.push(Array(17).fill('')); // Empty row
   //         }
-  //       }
 
-  //       // Add separator between records
-  //       if (recordIdx > 0) {
-  //         wsData.push(Array(17).fill('')); // Empty row
-  //       }
+  //         // Extract data from testRecord
+  //         const assignedParts = testRecord.assignedParts || [];
+  //         const testResults = testRecord.testResults || [];
+  //         const currentTestName = testRecord.testName || testName;
 
-  //       // Row 1: Test Name, EHS, Test Condition, Date
-  //       wsData.push([
-  //         'Test Name :-',
-  //         testName,
-  //         '',
-  //         'EHS :-',
-  //         equipment,
-  //         '',
-  //         '',
-  //         'Test condition:-',
-  //         testCondition,
-  //         '',
-  //         '',
-  //         'Date:-',
-  //         record.stage2?.submittedAt ? new Date(record.stage2.submittedAt).toLocaleDateString() : record.testStartDate || 'N/A',
-  //         '', '', '', ''
-  //       ]);
-
-  //       // Row 2: Failure Criteria, Test Stage, Project, Sample Qty
-  //       wsData.push([
-  //         'Failure criteria:',
-  //         stage2.checkpoint ? `Checkpoint ${stage2.checkpoint}` : 'N/A',
-  //         '',
-  //         'Test Stage:-',
-  //         stage2.processStage || 'N/A',
-  //         '',
-  //         '',
-  //         'Project:-',
-  //         stage2.project || record.detailsBox?.project || 'N/A',
-  //         '',
-  //         '',
-  //         'Sample Qty:-',
-  //         requiredQty,
-  //         '', '', '', ''
-  //       ]);
-
-  //       // Row 3: Section header - Cosmetic Inspection
-  //       wsData.push([
-  //         'Cosmetic Inspection',
-  //         '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
-  //       ]);
-
-  //       // Row 4: Main column headers
-  //       wsData.push([
-  //         'Sr.No',
-  //         'Test date',
-  //         'Sample I\'d',
-  //         'Visual',
-  //         'T0 Picture',
-  //         '',
-  //         'After Heat Soak',
-  //         '',
-  //         'After Foot Survivability',
-  //         '',
-  //         'Cosmetic Inspection',
-  //         '',
-  //         'Status',
-  //         '', '', '', ''
-  //       ]);
-
-  //       // Row 5: Sub-headers
-  //       wsData.push([
-  //         '',
-  //         '',
-  //         '',
-  //         '',
-  //         'Cosmetic',
-  //         'Non-cosmetic',
-  //         'Cosmetic',
-  //         'Non-cosmetic',
-  //         'Cosmetic',
-  //         'Non-cosmetic',
-  //         'Pre-test',
-  //         'Post-test',
-  //         '',
-  //         '', '', '', ''
-  //       ]);
-
-  //       // Data rows for each selected part
-  //       if (selectedParts.length > 0) {
-  //         selectedParts.forEach((partId, idx) => {
-  //           wsData.push([
-  //             idx + 1,
-  //             record.testStartDate || new Date().toLocaleDateString(),
-  //             partId,
-  //             'Ok',
-  //             '', // Cosmetic (T0)
-  //             '', // Non-cosmetic (T0)
-  //             '', // Cosmetic (Heat Soak)
-  //             '', // Non-cosmetic (Heat Soak)
-  //             '', // Cosmetic (Foot)
-  //             '', // Non-cosmetic (Foot)
-  //             'No damage found on the foot',
-  //             'No damage found on the foot',
-  //             'Pass',
-  //             '', '', '', ''
-  //           ]);
-  //         });
-  //       } else {
-  //         // Add at least one empty row
+  //         // Row 1: Test Name, EHS, Test Condition, Date
   //         wsData.push([
-  //           1,
-  //           record.testStartDate || new Date().toLocaleDateString(),
-  //           'N/A',
-  //           'N/A',
-  //           '', '', '', '', '', '',
-  //           'No parts assigned',
+  //           'Test Name :-',
+  //           currentTestName,
   //           '',
-  //           'N/A',
+  //           'EHS :-',
+  //           testRecord.machineEquipment || "N/A",
+  //           '',
+  //           '',
+  //           'Test condition:-',
+  //           testRecord.testCondition || "RT",
+  //           '',
+  //           '',
+  //           'Date:-',
+  //           testRecord.submittedAt ? new Date(testRecord.submittedAt).toLocaleDateString() : record.dateTime || 'N/A',
   //           '', '', '', ''
   //         ]);
+
+  //         // Row 2: Failure Criteria, Test Stage, Project, Sample Qty
+  //         wsData.push([
+  //           'Specification:',
+  //           testRecord.specification || 'N/A',
+  //           '',
+  //           'Test Stage:-',
+  //           testRecord.processStage || 'N/A',
+  //           '',
+  //           '',
+  //           'Project:-',
+  //           record.project || 'N/A',
+  //           '',
+  //           '',
+  //           'Sample Qty:-',
+  //           testRecord.requiredQuantity || assignedParts.length,
+  //           '', '', '', ''
+  //         ]);
+
+  //         // Row 3: Section header - Cosmetic Inspection
+  //         wsData.push([
+  //           'Cosmetic Inspection',
+  //           '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+  //         ]);
+
+  //         // Row 4: Main column headers - WITH DYNAMIC TEST NAME
+  //         wsData.push([
+  //           'Sr.No',
+  //           'Test date',
+  //           'Assigned Parts',
+  //           'Visual',
+  //           'T0 Picture',
+  //           '',
+  //           `After ${currentTestName}`, // Dynamic test name here
+  //           '',
+  //           `After ${currentTestName}`, // Dynamic test name here
+  //           '',
+  //           'Cosmetic Inspection',
+  //           '',
+  //           'Status',
+  //           '', '', '', ''
+  //         ]);
+
+  //         // Row 5: Sub-headers
+  //         wsData.push([
+  //           '',
+  //           '',
+  //           '',
+  //           '',
+  //           'Cosmetic',
+  //           'Non-cosmetic',
+  //           'Cosmetic',
+  //           'Non-cosmetic',
+  //           'Cosmetic',
+  //           'Non-cosmetic',
+  //           'Pre-test',
+  //           'Post-test',
+  //           '',
+  //           '', '', '', ''
+  //         ]);
+
+  //         // Data rows for each assigned part
+  //         if (assignedParts.length > 0) {
+  //           assignedParts.forEach((part, idx) => {
+  //             // Find corresponding test result for this part
+  //             const result = testResults.find(r => r.partNumber === part.partNumber || r.sampleId === part.serialNumber);
+
+  //             wsData.push([
+  //               idx + 1,
+  //               result?.testDate || testRecord.startDateTime?.split('T')[0] || record.dateTime || new Date().toLocaleDateString(),
+  //               part.partNumber || part.serialNumber || `Part ${idx + 1}`,
+  //               part.scanStatus === 'OK' ? 'Ok' : (part.scanStatus || 'N/A'),
+  //               result?.cosmeticImage ? 'Image' : '', // Cosmetic (T0)
+  //               result?.nonCosmeticImage ? 'Image' : '', // Non-cosmetic (T0)
+  //               '', // Cosmetic (After test 1)
+  //               '', // Non-cosmetic (After test 1)
+  //               '', // Cosmetic (After test 2)
+  //               '', // Non-cosmetic (After test 2)
+  //               'No damage found on the foot',
+  //               'No damage found on the foot',
+  //               result?.status || 'Pending',
+  //               '', '', '', ''
+  //             ]);
+  //           });
+  //         } else {
+  //           // Add at least one empty row
+  //           wsData.push([
+  //             1,
+  //             testRecord.startDateTime?.split('T')[0] || record.dateTime || new Date().toLocaleDateString(),
+  //             'N/A',
+  //             'N/A',
+  //             '', '', '', '', '', '',
+  //             'No parts assigned',
+  //             '',
+  //             'N/A',
+  //             '', '', '', ''
+  //           ]);
+  //         }
+  //       } else {
+  //         // Old structure handling (keep existing logic)
+  //         const stage2 = record.stage2 || {};
+  //         const testMode = stage2.testMode || "single";
+
+  //         // Extract test-specific data
+  //         let testType, equipment, requiredQty, testCondition, selectedParts;
+  //         let currentTestName = testName;
+
+  //         if (testMode === "single" || testIndex === null) {
+  //           testType = stage2.type || "N/A";
+  //           equipment = stage2.equipment || "N/A";
+  //           requiredQty = stage2.requiredQty || "N/A";
+  //           testCondition = stage2.testCondition || "N/A";
+  //           selectedParts = Array.isArray(stage2.selectedParts)
+  //             ? stage2.selectedParts
+  //             : [];
+  //         } else {
+  //           const typeList = Array.isArray(stage2.type)
+  //             ? stage2.type
+  //             : (stage2.type || "").split(',').map((t) => t.trim());
+  //           const equipmentList = Array.isArray(stage2.equipment)
+  //             ? stage2.equipment
+  //             : (stage2.equipment || "").split(',').map((e) => e.trim());
+  //           const qtyList = Array.isArray(stage2.requiredQty)
+  //             ? stage2.requiredQty
+  //             : (stage2.requiredQty || "").split(',').map((q) => q.trim());
+  //           const conditionList = Array.isArray(stage2.testCondition)
+  //             ? stage2.testCondition
+  //             : (stage2.testCondition || "").split(',').map((c) => c.trim());
+
+  //           testType = typeList[testIndex] || "N/A";
+  //           equipment = equipmentList[testIndex] || "N/A";
+  //           requiredQty = qtyList[testIndex] || "N/A";
+  //           testCondition = conditionList[testIndex] || "N/A";
+
+  //           if (stage2.selectedParts && typeof stage2.selectedParts === 'object') {
+  //             const parts = stage2.selectedParts[testName];
+  //             selectedParts = Array.isArray(parts) ? parts : [];
+  //           } else {
+  //             selectedParts = [];
+  //           }
+  //         }
+
+  //         // Add separator between records
+  //         if (recordIdx > 0) {
+  //           wsData.push(Array(17).fill('')); // Empty row
+  //         }
+
+  //         // Row 1: Test Name, EHS, Test Condition, Date
+  //         wsData.push([
+  //           'Test Name :-',
+  //           currentTestName,
+  //           '',
+  //           'EHS :-',
+  //           equipment,
+  //           '',
+  //           '',
+  //           'Test condition:-',
+  //           testCondition,
+  //           '',
+  //           '',
+  //           'Date:-',
+  //           record.stage2?.submittedAt ? new Date(record.stage2.submittedAt).toLocaleDateString() : record.testStartDate || 'N/A',
+  //           '', '', '', ''
+  //         ]);
+
+  //         // Row 2: Failure Criteria, Test Stage, Project, Sample Qty
+  //         wsData.push([
+  //           'Specification:',
+  //           stage2.checkpoint ? `Checkpoint ${stage2.checkpoint}` : 'N/A',
+  //           '',
+  //           'Test Stage:-',
+  //           stage2.processStage || 'N/A',
+  //           '',
+  //           '',
+  //           'Project:-',
+  //           stage2.project || record.detailsBox?.project || 'N/A',
+  //           '',
+  //           '',
+  //           'Sample Qty:-',
+  //           requiredQty,
+  //           '', '', '', ''
+  //         ]);
+
+  //         // Row 3: Section header - Cosmetic Inspection
+  //         wsData.push([
+  //           'Cosmetic Inspection',
+  //           '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+  //         ]);
+
+  //         // Row 4: Main column headers - WITH DYNAMIC TEST NAME
+  //         wsData.push([
+  //           'Sr.No',
+  //           'Test date',
+  //           'Parts',
+  //           'Visual',
+  //           'T0 Picture',
+  //           '',
+  //           `After ${currentTestName}`, // Dynamic test name here
+  //           '',
+  //           `After ${currentTestName}`, // Dynamic test name here
+  //           '',
+  //           'Cosmetic Inspection',
+  //           '',
+  //           'Status',
+  //           '', '', '', ''
+  //         ]);
+
+  //         // Row 5: Sub-headers
+  //         wsData.push([
+  //           '',
+  //           '',
+  //           '',
+  //           '',
+  //           'Cosmetic',
+  //           'Non-cosmetic',
+  //           'Cosmetic',
+  //           'Non-cosmetic',
+  //           'Cosmetic',
+  //           'Non-cosmetic',
+  //           'Pre-test',
+  //           'Post-test',
+  //           '',
+  //           '', '', '', ''
+  //         ]);
+
+  //         // Data rows for each selected part
+  //         if (selectedParts.length > 0) {
+  //           selectedParts.forEach((partId, idx) => {
+  //             wsData.push([
+  //               idx + 1,
+  //               record.testStartDate || new Date().toLocaleDateString(),
+  //               partId,
+  //               'Ok',
+  //               '', // Cosmetic (T0)
+  //               '', // Non-cosmetic (T0)
+  //               '', // Cosmetic (After test 1)
+  //               '', // Non-cosmetic (After test 1)
+  //               '', // Cosmetic (After test 2)
+  //               '', // Non-cosmetic (After test 2)
+  //               'No damage found on the foot',
+  //               'No damage found on the foot',
+  //               'Pass',
+  //               '', '', '', ''
+  //             ]);
+  //           });
+  //         } else {
+  //           // Add at least one empty row
+  //           wsData.push([
+  //             1,
+  //             record.testStartDate || new Date().toLocaleDateString(),
+  //             'N/A',
+  //             'N/A',
+  //             '', '', '', '', '', '',
+  //             'No parts assigned',
+  //             '',
+  //             'N/A',
+  //             '', '', '', ''
+  //           ]);
+  //         }
   //       }
   //     });
 
@@ -624,23 +775,29 @@ const Dashboard = () => {
   //       // Row 4 merges: Main column headers
   //       merges.push(
   //         { s: { r: currentRow, c: 4 }, e: { r: currentRow, c: 5 } },   // T0 Picture
-  //         { s: { r: currentRow, c: 6 }, e: { r: currentRow, c: 7 } },   // After Heat Soak
-  //         { s: { r: currentRow, c: 8 }, e: { r: currentRow, c: 9 } },   // After Foot Survivability
+  //         { s: { r: currentRow, c: 6 }, e: { r: currentRow, c: 7 } },   // After [TestName] - first occurrence
+  //         { s: { r: currentRow, c: 8 }, e: { r: currentRow, c: 9 } },   // After [TestName] - second occurrence
   //         { s: { r: currentRow, c: 10 }, e: { r: currentRow, c: 11 } }  // Cosmetic Inspection
   //       );
   //       currentRow += 2; // Skip to data rows (header + subheader)
 
   //       // Count data rows
-  //       const { record, testIndex } = item;
-  //       const stage2 = record.stage2 || {};
+  //       const { record, testIndex, testRecord } = item;
   //       let selectedParts = [];
 
-  //       if (testIndex === null) {
-  //         selectedParts = Array.isArray(stage2.selectedParts) ? stage2.selectedParts : [];
+  //       if (testRecord) {
+  //         // New structure
+  //         selectedParts = testRecord.assignedParts || [];
   //       } else {
-  //         if (stage2.selectedParts && typeof stage2.selectedParts === 'object') {
-  //           const parts = stage2.selectedParts[testName];
-  //           selectedParts = Array.isArray(parts) ? parts : [];
+  //         // Old structure
+  //         const stage2 = record.stage2 || {};
+  //         if (testIndex === null) {
+  //           selectedParts = Array.isArray(stage2.selectedParts) ? stage2.selectedParts : [];
+  //         } else {
+  //           if (stage2.selectedParts && typeof stage2.selectedParts === 'object') {
+  //             const parts = stage2.selectedParts[testName];
+  //             selectedParts = Array.isArray(parts) ? parts : [];
+  //           }
   //         }
   //       }
 
@@ -657,10 +814,10 @@ const Dashboard = () => {
   //       { wch: 10 },  // Visual
   //       { wch: 12 },  // Cosmetic (T0)
   //       { wch: 15 },  // Non-cosmetic (T0)
-  //       { wch: 12 },  // Cosmetic (Heat Soak)
-  //       { wch: 15 },  // Non-cosmetic (Heat Soak)
-  //       { wch: 12 },  // Cosmetic (Foot)
-  //       { wch: 15 },  // Non-cosmetic (Foot)
+  //       { wch: 12 },  // Cosmetic (After test 1)
+  //       { wch: 15 },  // Non-cosmetic (After test 1)
+  //       { wch: 12 },  // Cosmetic (After test 2)
+  //       { wch: 15 },  // Non-cosmetic (After test 2)
   //       { wch: 25 },  // Pre-test
   //       { wch: 25 },  // Post-test
   //       { wch: 10 },  // Status
@@ -699,41 +856,6 @@ const Dashboard = () => {
   //     XLSX.utils.book_append_sheet(workbook, worksheet, finalSheetName);
   //   });
 
-  //   // Create summary sheet
-  //   const summaryData = testNames.map((testName) => ({
-  //     "Test Name": testName,
-  //     "Total Records": recordsByTest[testName].length,
-  //     "Total Parts": recordsByTest[testName].reduce((sum, item) => {
-  //       const { record, testIndex } = item;
-  //       const stage2 = record.stage2 || {};
-  //       let selectedParts = [];
-
-  //       if (testIndex === null) {
-  //         selectedParts = Array.isArray(stage2.selectedParts) ? stage2.selectedParts : [];
-  //       } else {
-  //         if (stage2.selectedParts && typeof stage2.selectedParts === 'object') {
-  //           const parts = stage2.selectedParts[testName];
-  //           selectedParts = Array.isArray(parts) ? parts : [];
-  //         }
-  //       }
-
-  //       return sum + selectedParts.length;
-  //     }, 0)
-  //   }));
-
-  //   const summarySheet = XLSX.utils.json_to_sheet(summaryData);
-  //   summarySheet['!cols'] = [{ wch: 30 }, { wch: 15 }, { wch: 15 }];
-
-  //   XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
-
-  //   // Move summary to first position
-  //   const sheets = workbook.SheetNames;
-  //   const summaryIndex = sheets.indexOf("Summary");
-  //   if (summaryIndex > 0) {
-  //     sheets.splice(summaryIndex, 1);
-  //     sheets.unshift("Summary");
-  //   }
-
   //   // Generate filename
   //   const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
   //   const filename = `ORT_TestReports_${timestamp}.xlsx`;
@@ -760,14 +882,20 @@ const Dashboard = () => {
         record.testRecords.forEach((testRecord, testIndex) => {
           const testName = testRecord.testName || "Unknown Test";
 
-          if (!recordsByTest[testName]) {
-            recordsByTest[testName] = [];
-          }
+          // Split test name by '+' to handle combined tests
+          const individualTests = testName.split('+').map(t => t.trim());
 
-          recordsByTest[testName].push({
-            record,
-            testIndex,
-            testRecord // Store the specific test record
+          individualTests.forEach(individualTest => {
+            if (!recordsByTest[individualTest]) {
+              recordsByTest[individualTest] = [];
+            }
+
+            recordsByTest[individualTest].push({
+              record,
+              testIndex,
+              testRecord,
+              originalTestName: testName // Keep original combined name
+            });
           });
         });
       } else {
@@ -777,10 +905,21 @@ const Dashboard = () => {
 
         if (testMode === "single") {
           const testName = stage2.testName || "Unknown Test";
-          if (!recordsByTest[testName]) {
-            recordsByTest[testName] = [];
-          }
-          recordsByTest[testName].push({ record, testIndex: null, testRecord: null });
+
+          // Split test name by '+' to handle combined tests
+          const individualTests = testName.split('+').map(t => t.trim());
+
+          individualTests.forEach(individualTest => {
+            if (!recordsByTest[individualTest]) {
+              recordsByTest[individualTest] = [];
+            }
+            recordsByTest[individualTest].push({
+              record,
+              testIndex: null,
+              testRecord: null,
+              originalTestName: testName
+            });
+          });
         } else {
           const testNames = Array.isArray(stage2.testName)
             ? stage2.testName
@@ -788,10 +927,21 @@ const Dashboard = () => {
 
           testNames.forEach((testName, index) => {
             if (!testName) return;
-            if (!recordsByTest[testName]) {
-              recordsByTest[testName] = [];
-            }
-            recordsByTest[testName].push({ record, testIndex: index, testRecord: null });
+
+            // Split test name by '+' to handle combined tests
+            const individualTests = testName.split('+').map(t => t.trim());
+
+            individualTests.forEach(individualTest => {
+              if (!recordsByTest[individualTest]) {
+                recordsByTest[individualTest] = [];
+              }
+              recordsByTest[individualTest].push({
+                record,
+                testIndex: index,
+                testRecord: null,
+                originalTestName: testName
+              });
+            });
           });
         }
       }
@@ -812,7 +962,7 @@ const Dashboard = () => {
       const wsData = [];
 
       records.forEach((item, recordIdx) => {
-        const { record, testIndex, testRecord } = item;
+        const { record, testIndex, testRecord, originalTestName } = item;
 
         // For new structure (testRecords)
         if (testRecord) {
@@ -824,7 +974,7 @@ const Dashboard = () => {
           // Extract data from testRecord
           const assignedParts = testRecord.assignedParts || [];
           const testResults = testRecord.testResults || [];
-          const currentTestName = testRecord.testName || testName;
+          const currentTestName = testName; // Use the individual test name
 
           // Row 1: Test Name, EHS, Test Condition, Date
           wsData.push([
@@ -872,7 +1022,7 @@ const Dashboard = () => {
           wsData.push([
             'Sr.No',
             'Test date',
-            'Sample I\'d',
+            'Assigned Parts',
             'Visual',
             'T0 Picture',
             '',
@@ -948,7 +1098,7 @@ const Dashboard = () => {
 
           // Extract test-specific data
           let testType, equipment, requiredQty, testCondition, selectedParts;
-          let currentTestName = testName;
+          let currentTestName = testName; // Use the individual test name
 
           if (testMode === "single" || testIndex === null) {
             testType = stage2.type || "N/A";
@@ -978,7 +1128,7 @@ const Dashboard = () => {
             testCondition = conditionList[testIndex] || "N/A";
 
             if (stage2.selectedParts && typeof stage2.selectedParts === 'object') {
-              const parts = stage2.selectedParts[testName];
+              const parts = stage2.selectedParts[originalTestName];
               selectedParts = Array.isArray(parts) ? parts : [];
             } else {
               selectedParts = [];
@@ -1149,7 +1299,7 @@ const Dashboard = () => {
         currentRow += 2; // Skip to data rows (header + subheader)
 
         // Count data rows
-        const { record, testIndex, testRecord } = item;
+        const { record, testIndex, testRecord, originalTestName } = item;
         let selectedParts = [];
 
         if (testRecord) {
@@ -1162,7 +1312,7 @@ const Dashboard = () => {
             selectedParts = Array.isArray(stage2.selectedParts) ? stage2.selectedParts : [];
           } else {
             if (stage2.selectedParts && typeof stage2.selectedParts === 'object') {
-              const parts = stage2.selectedParts[testName];
+              const parts = stage2.selectedParts[originalTestName];
               selectedParts = Array.isArray(parts) ? parts : [];
             }
           }
