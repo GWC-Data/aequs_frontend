@@ -2020,7 +2020,7 @@ const SOURCE_OPTIONS_ANO = ["Entire", "Other"];
 const SOURCE_OPTIONS_ASSEMBLY = ["Line1", "Line2", "Other"];
 const SOURCE_OPTIONS_OLEO = ["Other"];
 const PROJECT_OPTIONS = ["FLASH", "LIGHT", "HULK", "AQUA"];
-const COLOUR_OPTIONS = ["NDA", "LIGHT BLUE"];
+const COLOUR_OPTIONS = ["NDA", "Stardust", "Blue"];
 const REASON_OPTIONS = ["Line qualification", "Machine qualification", "MP", "NPI", "Other"];
 
 // LocalStorage key
