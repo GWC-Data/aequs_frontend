@@ -238,7 +238,8 @@
 //             status: "Pending",
 //             detailsBox,
 //           };
-//         });
+//         })
+//         .filter(row => row.status !== "Received"); // Filter out "Received" status records
 
 //       setTableData(rows);
 //       setLoading(false);
@@ -256,7 +257,6 @@
 //     }
 //   };
 
-//   // Add modal handler functions
 //   const handleNoButtonClick = (id: number) => {
 //     setNoReasonModal({
 //       isOpen: true,
@@ -354,11 +354,10 @@
 //     localStorage.setItem('partialReceiptInfo', JSON.stringify(partialReceiptInfo));
 
 //     // Navigate directly to OQC System All Tickets tab
-//     navigate('/oqcpage', {
-//       state: {
-//         tab: 'tickets',
-//         isPartialReceipt: true
-//       }
+//     toast({
+//       title: "Partial Receipt Initiated",
+//       description: `Partial receipt saved for Ticket ${row.ticketCode}. You can continue scanning parts in OQC.`,
+//       duration: 2000,
 //     });
 //   };
 //   // Update the handleReceivedChange function to use modal for "No"
@@ -848,7 +847,6 @@ import {
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/use-toast";
 import { Save, ArrowRight, CheckCircle } from "lucide-react";
-// Add these imports for the modal
 import {
   Dialog,
   DialogContent,
@@ -858,14 +856,12 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
-// Add this interface for modal state
 interface NoReasonModal {
   isOpen: boolean;
   rowId: number | null;
   reason: string;
 }
 
-// Define the incoming assignment format from OQC System
 interface ORTSubmissionData {
   id: string;
   timestamp: string;
@@ -896,7 +892,6 @@ interface ORTSubmissionData {
   submitted?: boolean;
 }
 
-// Define OQC record structure (from "testRecords")
 interface OqcRecord {
   id: number;
   ticketCode: string;
@@ -916,7 +911,6 @@ interface OqcRecord {
   oqcApprovedAt?: string;
 }
 
-// Table row interface for ORT Lab
 interface TableRow {
   id: number;
   ticketCode: string;
@@ -947,14 +941,12 @@ const ORTLabPage = () => {
   const navigate = useNavigate();
   const [tableData, setTableData] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(true);
-  // Add modal state
   const [noReasonModal, setNoReasonModal] = useState<NoReasonModal>({
     isOpen: false,
     rowId: null,
     reason: ""
   });
 
-  // Load data from localStorage on mount
   useEffect(() => {
     loadORTSubmissions();
   }, []);
@@ -963,7 +955,6 @@ const ORTLabPage = () => {
     try {
       setLoading(true);
 
-      // Load ORT submissions from localStorage
       const ortSubmissionsStr = localStorage.getItem("ort_lab_submissions");
       let ortSubmissions: ORTSubmissionData[] = ortSubmissionsStr
         ? JSON.parse(ortSubmissionsStr)
@@ -971,7 +962,6 @@ const ORTLabPage = () => {
 
       console.log("Loaded ORT submissions:", ortSubmissions);
 
-      // If no submissions in array, check single submission
       if (ortSubmissions.length === 0) {
         const singleSubmissionStr = localStorage.getItem("ort_lab_submission");
         if (singleSubmissionStr) {
@@ -980,7 +970,6 @@ const ORTLabPage = () => {
         }
       }
 
-      // Filter only submissions that are marked as submitted
       ortSubmissions = ortSubmissions.filter(item =>
         item.submitted === true
       );
@@ -992,36 +981,29 @@ const ORTLabPage = () => {
         return;
       }
 
-      // Load OQC records for additional details
       const oqcDataStr = localStorage.getItem("testRecords");
       const oqcRecords: OqcRecord[] = oqcDataStr ? JSON.parse(oqcDataStr) : [];
 
-      // Create a map for quick lookup
       const oqcMap = new Map<string, OqcRecord>();
       oqcRecords.forEach(record => {
         oqcMap.set(record.ticketCode, record);
       });
 
-      // Load existing Stage 1 data to preserve user inputs
       const stage1DataStr = localStorage.getItem("stage1TableData");
       const stage1Data: TableRow[] = stage1DataStr ? JSON.parse(stage1DataStr) : [];
       const stage1Map = new Map(
         stage1Data.map(row => [row.sessionId, row])
       );
 
-      // Filter out already processed sessions
       const processedSessionsStr = localStorage.getItem("processedORTSubmissions");
       const processedSessionIds = new Set<string>(
         processedSessionsStr ? JSON.parse(processedSessionsStr) : []
       );
 
-      // Generate table rows
       const rows: TableRow[] = ortSubmissions
         .filter(submission => !processedSessionIds.has(submission.id))
         .map((submission, index) => {
           const oqcRecord = oqcMap.get(submission.ticketCode);
-
-          // Check if this submission has existing saved data
           const existingRow = stage1Map.get(submission.id);
 
           const fallbackDetails = {
@@ -1052,7 +1034,6 @@ const ORTLabPage = () => {
             }
             : fallbackDetails;
 
-          // Restore previous state if exists, otherwise create new row
           return existingRow ? {
             ...existingRow,
             id: index + 1,
@@ -1069,7 +1050,7 @@ const ORTLabPage = () => {
             detailsBox,
           };
         })
-        .filter(row => row.status !== "Received"); // Filter out "Received" status records
+        .filter(row => row.status !== "Received");
 
       setTableData(rows);
       setLoading(false);
@@ -1102,7 +1083,6 @@ const ORTLabPage = () => {
     }));
   };
 
-
   const handleSaveNoReason = () => {
     if (!noReasonModal.rowId || !noReasonModal.reason.trim()) {
       toast({
@@ -1114,7 +1094,6 @@ const ORTLabPage = () => {
       return;
     }
 
-    // Update the table data with "No" and the reason
     setTableData((prevData) =>
       prevData.map((row) => {
         if (row.id === noReasonModal.rowId) {
@@ -1132,7 +1111,6 @@ const ORTLabPage = () => {
       })
     );
 
-    // Close modal
     setNoReasonModal({
       isOpen: false,
       rowId: null,
@@ -1154,16 +1132,28 @@ const ORTLabPage = () => {
     });
   };
 
-
   const handlePartialButtonClick = (id: number) => {
-    // Find the row that was clicked
     const row = tableData.find(row => row.id === id);
     if (!row) return;
 
-    // Save current table state
+    // Update the row to mark as Partial
+    setTableData((prevData) =>
+      prevData.map((r) => {
+        if (r.id === id) {
+          return {
+            ...r,
+            received: "Partial",
+            status: "Partial Receipt",
+            date: getCurrentDate(),
+            shiftTime: getCurrentShift(),
+          };
+        }
+        return r;
+      })
+    );
+
     localStorage.setItem("stage1TableData", JSON.stringify(tableData));
 
-    // Store partial receipt info to be used by OQC system
     const partialReceiptInfo = {
       isPartial: true,
       ticketCode: row.ticketCode,
@@ -1171,7 +1161,6 @@ const ORTLabPage = () => {
       receivedQuantity: row.partsBeingSent,
       requiredQuantity: row.detailsBox.totalQuantity,
       timestamp: new Date().toISOString(),
-      // ADD these details from the row
       project: row.detailsBox.project,
       build: row.detailsBox.batch,
       colour: row.detailsBox.color,
@@ -1183,15 +1172,13 @@ const ORTLabPage = () => {
 
     localStorage.setItem('partialReceiptInfo', JSON.stringify(partialReceiptInfo));
 
-    // Navigate directly to OQC System All Tickets tab
-    navigate('/oqcpage', {
-      state: {
-        tab: 'tickets',
-        isPartialReceipt: true
-      }
+    toast({
+      title: "Partial Receipt Initiated",
+      description: `Partial receipt saved for Ticket ${row.ticketCode}. You can continue scanning parts in OQC.`,
+      duration: 2000,
     });
   };
-  // Update the handleReceivedChange function to use modal for "No"
+
   const handleReceivedChange = (id: number, value: "Yes" | "No" | "Partial") => {
     if (value === "Yes") {
       setTableData((prevData) =>
@@ -1208,13 +1195,11 @@ const ORTLabPage = () => {
           return row;
         })
       );
-    } else {
-      // Open modal for "No" selection
+    } else if (value === "No") {
       handleNoButtonClick(id);
     }
   };
 
-  // Get current shift time
   const getCurrentShift = () => {
     const hour = new Date().getHours();
     if (hour >= 6 && hour < 14) return "Morning Shift (6 AM - 2 PM)";
@@ -1233,7 +1218,6 @@ const ORTLabPage = () => {
   };
 
   const handleSave = () => {
-    // Validation: ensure all "Yes" rows have inventory remarks
     const invalidRows = tableData.filter(
       (row) => row.received === "Yes" && !row.inventoryRemarks.trim()
     );
@@ -1248,24 +1232,16 @@ const ORTLabPage = () => {
       return;
     }
 
-    // Update stage2Enabled based on valid "Yes" + remarks
     const updatedData = tableData.map((row) => ({
       ...row,
       stage2Enabled: row.received === "Yes" && row.inventoryRemarks.trim() !== "",
     }));
 
-    // Save current state
     localStorage.setItem("stage1TableData", JSON.stringify(updatedData));
-
-    // Mark received items as processed in OQC records
     updateOQCStatus(updatedData);
-
-    // Mark sessions as processed in ORT submissions
     markSessionsAsProcessed(updatedData);
-
     setTableData(updatedData);
 
-    // Show success toast
     toast({
       title: "Data Saved Successfully",
       description: `Saved ${updatedData.filter((r) => r.received === "Yes").length} received item(s)`,
@@ -1279,7 +1255,6 @@ const ORTLabPage = () => {
       if (oqcDataStr) {
         let oqcRecords: OqcRecord[] = JSON.parse(oqcDataStr);
 
-        // Update status for received tickets
         const receivedTicketCodes = new Set(
           updatedData
             .filter(row => row.received === "Yes")
@@ -1288,7 +1263,6 @@ const ORTLabPage = () => {
 
         oqcRecords = oqcRecords.map(record => {
           if (receivedTicketCodes.has(record.ticketCode)) {
-            // Update session sentToORT status
             const updatedSessions = record.sessions.map(session => {
               const sessionRow = updatedData.find(row =>
                 row.ticketCode === record.ticketCode &&
@@ -1332,14 +1306,12 @@ const ORTLabPage = () => {
         .filter(row => row.received === "Yes")
         .map(row => row.sessionId);
 
-      // Add new processed sessions
       receivedSessions.forEach(sessionId => {
         if (!processedSessionIds.includes(sessionId)) {
           processedSessionIds.push(sessionId);
         }
       });
 
-      // localStorage.setItem("processedORTSubmissions", JSON.stringify(processedSessionIds));
       console.log("Marked sessions as processed:", processedSessionIds);
     } catch (error) {
       console.error("Error marking sessions as processed:", error);
@@ -1347,10 +1319,8 @@ const ORTLabPage = () => {
   };
 
   const handleStage2Navigate = (row: TableRow) => {
-    // Save current table state before navigating
     localStorage.setItem("stage1TableData", JSON.stringify(tableData));
 
-    // Navigate to Stage 2 form
     navigate("/stage2-form", {
       state: {
         record: row,
@@ -1487,25 +1457,37 @@ const ORTLabPage = () => {
                           <div className="flex gap-2 justify-center">
                             <Button
                               size="sm"
-                              variant={row.received === "Yes" ? "default" : "outline"}
+                              variant="outline"
                               onClick={() => handleReceivedChange(row.id, "Yes")}
-                              className={row.received === "Yes" ? "bg-green-600 hover:bg-green-700" : ""}
+                              className={
+                                row.received === "Yes"
+                                  ? "bg-green-600 hover:bg-green-700 text-white border-green-600"
+                                  : "hover:bg-green-50"
+                              }
                             >
                               ✓ Yes
                             </Button>
                             <Button
                               size="sm"
-                              variant={row.received === "Partial" ? "default" : "outline"}
+                              variant="outline"
                               onClick={() => handlePartialButtonClick(row.id)}
-                              className={row.received === "Partial" ? "bg-yellow-600 hover:bg-yellow-700" : ""}
+                              className={
+                                row.received === "Partial"
+                                  ? "bg-yellow-600 hover:bg-yellow-700 text-white border-yellow-600"
+                                  : "hover:bg-yellow-50"
+                              }
                             >
                               Partial
                             </Button>
                             <Button
                               size="sm"
-                              variant={row.received === "No" ? "default" : "outline"}
+                              variant="outline"
                               onClick={() => handleReceivedChange(row.id, "No")}
-                              className={row.received === "No" ? "bg-red-600 hover:bg-red-700" : ""}
+                              className={
+                                row.received === "No"
+                                  ? "bg-red-600 hover:bg-red-700 text-white border-red-600"
+                                  : "hover:bg-red-50"
+                              }
                             >
                               ✗ No
                             </Button>
@@ -1581,7 +1563,9 @@ const ORTLabPage = () => {
                               ? "bg-green-100 text-green-800"
                               : row.status === "Not Received"
                                 ? "bg-red-100 text-red-800"
-                                : "bg-gray-100 text-gray-800"
+                                : row.status === "Partial Receipt"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-gray-100 text-gray-800"
                           }>
                             {row.status}
                           </Badge>
@@ -1612,7 +1596,6 @@ const ORTLabPage = () => {
         </CardContent>
       </Card>
 
-      {/* No Reason Modal */}
       <Dialog open={noReasonModal.isOpen} onOpenChange={handleCancelNoReason}>
         <DialogContent>
           <DialogHeader>
@@ -1640,7 +1623,6 @@ const ORTLabPage = () => {
   );
 };
 
-// Add Badge component if not available
 const Badge = ({ children, variant = "default", className = "" }: any) => {
   const baseStyles = "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold";
   const variants = {
