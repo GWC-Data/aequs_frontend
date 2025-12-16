@@ -3,9 +3,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
-import { Scan, Trash2, Copy, Check, Save, ArrowLeft, Ticket } from "lucide-react";
+import { 
+  Scan, 
+  Trash2, 
+  Copy, 
+  Check, 
+  Save, 
+  ArrowLeft, 
+  Ticket,
+  Eye,
+  CheckCircle,
+  XCircle,
+  AlertCircle
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate, useLocation } from "react-router-dom";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Badge } from "@/components/ui/badge";
 
 interface BarcodeScannerProps {
   onBarcodeScanned?: (barcodeData: string, serialNumber: string, partNumbers: string[]) => void;
@@ -34,13 +48,25 @@ interface TestRecord {
   colour: string;
   dateTime: string;
   createdAt: string;
+  status: string;
+  parts: Array<{
+    id: string;
+    partNumber: string;
+    status: string;
+    scanStatus: "Cosmetic" | "OK" | "Not OK" | null;
+    scannedAt: string | null;
+    serialNumber: string;
+    location: string;
+  }>;
 }
 
-interface ScannedBarcode {
+interface ScannedPart {
+  id: string;
+  partNumber: string;
   serialNumber: string;
-  partNumbers: string[];
+  scanStatus: "Cosmetic" | "OK" | "Not OK" | null;
   scannedAt: Date;
-  id?: string;
+  location: string;
 }
 
 interface StoredBarcodeData {
@@ -49,7 +75,7 @@ interface StoredBarcodeData {
   ticketId: number;
   ticketCode: string;
   serialNumber: string;
-  partNumbers: string[];
+  parts: ScannedPart[];
   totalParts: number;
   rawBarcodeData?: string;
 }
@@ -62,10 +88,10 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   onBarcodeScanned,
   disabled = false,
   autoFocus = true,
-  placeholder = "Enter barcode manually or click test buttons (Press Enter to scan)",
+  placeholder = "Scan barcode or enter manually (Press Enter to scan)",
   clearButton = true,
   onClear,
-  showCamera = true,
+  showCamera = false,
   showPartNumbers = true,
   maxParts = 20,
   showSubmitButton = true,
@@ -75,34 +101,25 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const ticketRecord = location.state?.record as TestRecord;
+  const assignmentId = location.state?.assignmentId;
 
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [barcodeInput, setBarcodeInput] = useState("");
   const [isScanning, setIsScanning] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
-  const [scannedBarcode, setScannedBarcode] = useState<ScannedBarcode | null>(null);
-  const [copiedPart, setCopiedPart] = useState<string | null>(null);
+  const [scannedParts, setScannedParts] = useState<ScannedPart[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [storedEntries, setStoredEntries] = useState<StoredBarcodeData[]>([]);
   const [currentTicket, setCurrentTicket] = useState<TestRecord | null>(null);
-  
-  // Track the current part index for each serial number
-  const [serialPartIndex, setSerialPartIndex] = useState<{[key: string]: number}>({});
+  const [currentPartIndex, setCurrentPartIndex] = useState(0);
 
   useEffect(() => {
     if (ticketRecord) {
       setCurrentTicket(ticketRecord);
+      loadStoredDataForTicket(ticketRecord.id);
     } else {
       loadLatestTicket();
     }
   }, []);
-
-  useEffect(() => {
-    if (currentTicket) {
-      loadStoredDataForTicket();
-    }
-  }, [currentTicket]);
 
   useEffect(() => {
     if (autoFocus && barcodeInputRef.current && !disabled) {
@@ -112,44 +129,27 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
 
   const loadLatestTicket = () => {
     try {
-      const oqcData = localStorage.getItem("Oqcformdata");
-      if (oqcData) {
-        const records = JSON.parse(oqcData);
+      const testData = localStorage.getItem("testRecords");
+      if (testData) {
+        const records = JSON.parse(testData);
         if (records.length > 0) {
           const latestRecord = records[records.length - 1];
           setCurrentTicket(latestRecord);
-          toast({
-            title: "Ticket Loaded",
-            description: `Loaded ticket ${latestRecord.ticketCode}`,
-            duration: 2000,
-          });
-        } else {
-          toast({
-            variant: "destructive",
-            title: "No Tickets Found",
-            description: "Please create a ticket first.",
-            duration: 3000,
-          });
+          loadStoredDataForTicket(latestRecord.id);
         }
       }
     } catch (error) {
       console.error("Error loading ticket:", error);
-      toast({
-        variant: "destructive",
-        title: "Error Loading Ticket",
-        description: "Could not load ticket data. Please try again.",
-        duration: 3000,
-      });
     }
   };
 
-  const loadStoredDataForTicket = () => {
+  const loadStoredDataForTicket = (ticketId: number) => {
     try {
       const stored = localStorage.getItem(storageKey);
       if (stored) {
         const allData = JSON.parse(stored);
         const ticketData = allData.filter((entry: StoredBarcodeData) => 
-          entry.ticketId === currentTicket?.id
+          entry.ticketId === ticketId
         );
         setStoredEntries(ticketData);
       }
@@ -160,37 +160,27 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
 
   const getTotalQuantity = () => {
     if (!currentTicket) return 0;
-    const quantity = currentTicket.totalQuantity;
-    return typeof quantity === 'string' ? parseInt(quantity, 10) : quantity;
+    return typeof currentTicket.totalQuantity === 'string' 
+      ? parseInt(currentTicket.totalQuantity, 10) 
+      : currentTicket.totalQuantity;
   };
 
-  const getTicketId = () => {
-    if (!currentTicket) return 0;
-    return currentTicket.id || 0;
+  const getAssignedParts = () => {
+    return storedEntries.reduce((total, entry) => total + entry.totalParts, 0);
   };
 
-  const getTicketCode = () => {
-    if (!currentTicket) return "";
-    return currentTicket.ticketCode || "";
+  const getRemainingParts = () => {
+    const totalQuantity = getTotalQuantity();
+    const assignedParts = getAssignedParts();
+    const currentScanned = scannedParts.length;
+    return Math.max(0, totalQuantity - assignedParts - currentScanned);
   };
 
   const parseBarcodeData = (data: string): { serialNumber: string; partNumbers: string[] } => {
     let serialNumber = "";
     let partNumbers: string[] = [];
 
-    const staticBarcode = STATIC_BARCODE_DATA.find(barcode =>
-      barcode === data.toUpperCase()
-    );
-
-    if (staticBarcode) {
-      serialNumber = staticBarcode.trim();
-      // Generate dynamic part numbers based on total quantity
-      const totalQuantity = getTotalQuantity();
-      partNumbers = Array.from({ length: totalQuantity }, (_, i) => 
-        `PART${String(i + 1).padStart(3, '0')}`
-      );
-    }
-    else if (data.includes(':') && data.includes(',')) {
+    if (data.includes(':') && data.includes(',')) {
       const parts = data.split(':');
       serialNumber = parts[0].trim();
       if (parts.length > 1) {
@@ -198,15 +188,13 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           .map(p => p.trim())
           .filter(p => p.length > 0);
       }
-    }
-    else if (data.includes(':') && !data.includes(',')) {
+    } else if (data.includes(':')) {
       const parts = data.split(':');
       serialNumber = parts[0].trim();
       if (parts.length > 1) {
         partNumbers = [parts[1].trim()];
       }
-    }
-    else {
+    } else {
       serialNumber = data.trim();
     }
 
@@ -216,12 +204,10 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const handleBarcodeInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !disabled) {
       e.preventDefault();
-
       const barcodeData = barcodeInput.trim();
       if (barcodeData) {
         processBarcode(barcodeData);
         setBarcodeInput("");
-
         setTimeout(() => {
           if (barcodeInputRef.current && !disabled) {
             barcodeInputRef.current.focus();
@@ -232,21 +218,11 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   };
 
   const processBarcode = (data: string) => {
-    if (!data.trim()) {
+    if (!data.trim() || !currentTicket) {
       toast({
         variant: "destructive",
-        title: "Invalid Barcode",
-        description: "Scanned data is empty",
-        duration: 2000,
-      });
-      return;
-    }
-
-    if (!currentTicket) {
-      toast({
-        variant: "destructive",
-        title: "No Active Ticket",
-        description: "Please create or select a ticket first.",
+        title: "Invalid Input",
+        description: "Please enter a barcode or select a ticket first.",
         duration: 3000,
       });
       return;
@@ -254,160 +230,187 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
 
     try {
       const { serialNumber, partNumbers } = parseBarcodeData(data);
-
+      
       if (!serialNumber) {
         toast({
           variant: "destructive",
-          title: "Invalid Barcode Format",
-          description: "No serial number found in scanned data",
+          title: "Invalid Barcode",
+          description: "No serial number found.",
           duration: 3000,
         });
         return;
       }
 
-      const totalQuantity = getTotalQuantity();
-      const alreadyAssignedParts = storedEntries.reduce((total, entry) => total + entry.totalParts, 0);
-      const currentScannedParts = scannedBarcode ? scannedBarcode.partNumbers.length : 0;
-      const remainingQuantity = totalQuantity - alreadyAssignedParts - currentScannedParts;
-      
-      if (remainingQuantity <= 0) {
-        toast({
-          variant: "destructive",
-          title: "Quantity Limit Reached",
-          description: `Cannot scan more parts. Remaining parts: 0. Please submit current scan first or reduce scanned parts.`,
-          duration: 4000,
-        });
-        return;
-      }
-
-      // Get the current index for this serial number
-      const currentIndex = serialPartIndex[serialNumber] || 0;
-      
-      // Check if we've exhausted all parts for this serial
-      if (currentIndex >= partNumbers.length) {
+      const remainingParts = getRemainingParts();
+      if (remainingParts <= 0) {
         toast({
           variant: "destructive",
           title: "All Parts Scanned",
-          description: `All ${partNumbers.length} parts from serial ${serialNumber} have been scanned.`,
+          description: `All ${getTotalQuantity()} parts have been scanned.`,
           duration: 3000,
         });
         return;
       }
 
-      // Get only the next part based on current index
-      const nextPart = partNumbers[currentIndex];
-      const partsToUse = [nextPart];
-
-      // Update the index for next scan
-      setSerialPartIndex(prev => ({
-        ...prev,
-        [serialNumber]: currentIndex + 1
-      }));
-
-      if (scannedBarcode && scannedBarcode.serialNumber === serialNumber) {
-        // Check if adding this part would exceed the limit
-        if (remainingQuantity < 1) {
-          toast({
-            variant: "destructive",
-            title: "Cannot Add More Parts",
-            description: `Remaining quantity: ${remainingQuantity}. Cannot add another part. Please submit current scan first.`,
-            duration: 4000,
-          });
-          return;
-        }
-
-        // Same serial - add the new part to existing parts
-        const newBarcode: ScannedBarcode = {
-          serialNumber,
-          partNumbers: [...scannedBarcode.partNumbers, ...partsToUse],
-          scannedAt: new Date()
-        };
-        setScannedBarcode(newBarcode);
-        
+      // Get next pending part from ticket
+      const pendingParts = currentTicket.parts.filter(p => p.status === "Pending");
+      if (pendingParts.length === 0) {
         toast({
-          title: "Part Added",
-          description: `Added ${nextPart} (Part ${currentIndex + 1} of ${partNumbers.length}) to serial ${serialNumber}. Remaining: ${remainingQuantity - 1}`,
-          duration: 2000,
+          variant: "destructive",
+          title: "No Pending Parts",
+          description: "All parts have been scanned.",
+          duration: 3000,
         });
-      } else if (scannedBarcode && scannedBarcode.serialNumber !== serialNumber) {
-        // Different serial - ask to replace
-        if (window.confirm(`You already have serial ${scannedBarcode.serialNumber} scanned. Do you want to replace it with ${serialNumber}?`)) {
-          const newBarcode: ScannedBarcode = {
-            serialNumber,
-            partNumbers: partsToUse,
-            scannedAt: new Date()
-          };
-          setScannedBarcode(newBarcode);
-          
-          toast({
-            title: "Serial Replaced",
-            description: `Replaced serial ${scannedBarcode.serialNumber} with ${serialNumber}`,
-            duration: 2000,
-          });
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Scan Cancelled",
-            description: `Keeping existing serial ${scannedBarcode.serialNumber}`,
-            duration: 2000,
-          });
-          return;
-        }
-      } else {
-        // First scan
-        const newBarcode: ScannedBarcode = {
-          serialNumber,
-          partNumbers: partsToUse,
-          scannedAt: new Date()
-        };
-        setScannedBarcode(newBarcode);
-        
-        toast({
-          title: "Part Scanned",
-          description: `Scanned ${nextPart} (Part ${currentIndex + 1} of ${partNumbers.length}) from serial ${serialNumber}. Remaining: ${remainingQuantity - 1}`,
-          duration: 2000,
-        });
+        return;
       }
 
-      const currentScannedTotal = (scannedBarcode?.partNumbers.length || 0) + partsToUse.length;
-      const newTotalAssigned = alreadyAssignedParts + currentScannedTotal;
-      if (newTotalAssigned >= totalQuantity) {
-        toast({
-          title: "✅ Ticket Requirement Met!",
-          description: `All ${totalQuantity} parts have been assigned to ticket ${getTicketCode()}. Please submit now.`,
-          duration: 4000,
-        });
-      }
+      const nextPart = pendingParts[0];
+      
+      // Create scanned part without status (status will be selected by user)
+      const scannedPart: ScannedPart = {
+        id: nextPart.id,
+        partNumber: nextPart.partNumber,
+        serialNumber,
+        scanStatus: null, // Status will be selected by user
+        scannedAt: new Date(),
+        location: "home"
+      };
 
-      if (onBarcodeScanned) {
-        onBarcodeScanned(data, serialNumber, partNumbers);
-      }
+      setScannedParts(prev => [...prev, scannedPart]);
+      
+      toast({
+        title: "Part Scanned",
+        description: `${nextPart.partNumber} scanned with serial ${serialNumber}. Please select status.`,
+        duration: 3000,
+      });
 
     } catch (error) {
       console.error("Barcode processing error:", error);
       toast({
         variant: "destructive",
         title: "Scan Error",
-        description: "Failed to process barcode data. Please check the format.",
+        description: "Failed to process barcode.",
         duration: 3000,
       });
     }
   };
 
-  const testWithStaticBarcode = (serialNumber: string) => {
-    if (disabled || !currentTicket) return;
-    
-    processBarcode(serialNumber);
+  const handleStatusChange = (partId: string, status: "Cosmetic" | "OK" | "Not OK") => {
+    setScannedParts(prev => 
+      prev.map(part => 
+        part.id === partId ? { ...part, scanStatus: status } : part
+      )
+    );
+  };
+
+  const handleSubmit = () => {
+    if (scannedParts.length === 0 || !currentTicket) {
+      toast({
+        variant: "destructive",
+        title: "No Data",
+        description: "Please scan at least one part.",
+        duration: 3000,
+      });
+      return;
+    }
+
+    // Check if all scanned parts have status selected
+    const partsWithoutStatus = scannedParts.filter(p => !p.scanStatus);
+    if (partsWithoutStatus.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Missing Status",
+        description: `Please select status for ${partsWithoutStatus.length} part(s).`,
+        duration: 3000,
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const submissionData: StoredBarcodeData = {
+        id: `assign_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        ticketId: currentTicket.id,
+        ticketCode: currentTicket.ticketCode,
+        serialNumber: scannedParts[0]?.serialNumber || "Unknown",
+        parts: scannedParts,
+        totalParts: scannedParts.length,
+        rawBarcodeData: scannedParts.map(p => p.partNumber).join(',')
+      };
+
+      // Update localStorage
+      const existingData = localStorage.getItem(storageKey);
+      const allAssignments = existingData ? JSON.parse(existingData) : [];
+      allAssignments.push(submissionData);
+      localStorage.setItem(storageKey, JSON.stringify(allAssignments));
+
+      // Update testRecords with scanned parts
+      const testData = localStorage.getItem("testRecords");
+      if (testData) {
+        const records = JSON.parse(testData);
+        const updatedRecords = records.map((record: TestRecord) => {
+          if (record.id === currentTicket.id) {
+            const updatedParts = record.parts.map(part => {
+              const scannedPart = scannedParts.find(sp => sp.id === part.id);
+              if (scannedPart) {
+                return {
+                  ...part,
+                  status: "Scanned",
+                  scanStatus: scannedPart.scanStatus,
+                  scannedAt: new Date().toISOString(),
+                  serialNumber: scannedPart.serialNumber,
+                  location: scannedPart.location
+                };
+              }
+              return part;
+            });
+
+            // Check if all parts are scanned
+            const allScanned = updatedParts.every(p => p.status === "Scanned");
+            
+            return {
+              ...record,
+              parts: updatedParts,
+              status: allScanned ? "Completed" : "In Progress"
+            };
+          }
+          return record;
+        });
+        localStorage.setItem("testRecords", JSON.stringify(updatedRecords));
+      }
+
+      setStoredEntries(prev => [...prev, submissionData]);
+      setScannedParts([]);
+
+      toast({
+        title: "✅ Parts Submitted!",
+        description: `${scannedParts.length} parts saved to ticket ${currentTicket.ticketCode}`,
+        duration: 3000,
+      });
+
+      // Navigate back to tickets table
+      setTimeout(() => {
+        navigate("/tickets");
+      }, 1500);
+
+    } catch (error) {
+      console.error("Error saving data:", error);
+      toast({
+        variant: "destructive",
+        title: "Save Failed",
+        description: "Failed to save scanned parts.",
+        duration: 3000,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const clearScannedData = () => {
+    setScannedParts([]);
     setBarcodeInput("");
-    setScannedBarcode(null);
-    // Reset the part index when clearing
-    setSerialPartIndex({});
-    if (onClear) {
-      onClear();
-    }
     if (barcodeInputRef.current && !disabled) {
       barcodeInputRef.current.focus();
     }
@@ -418,261 +421,33 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     });
   };
 
-  const saveScanSession = (scannedBarcode: ScannedBarcode) => {
-    try {
-      const scanSessionsKey = "ticketScanSessions";
-      const existingSessions = localStorage.getItem(scanSessionsKey);
-      const allSessions = existingSessions ? JSON.parse(existingSessions) : [];
-      
-      const newSession = {
-        id: `session_${Date.now()}`,
-        ticketCode: getTicketCode(),
-        ticketId: getTicketId(),
-        sessionDate: new Date().toISOString(),
-        scannedParts: scannedBarcode.partNumbers.length,
-        serialNumber: scannedBarcode.serialNumber,
-        partNumbers: scannedBarcode.partNumbers
-      };
-      
-      allSessions.push(newSession);
-      localStorage.setItem(scanSessionsKey, JSON.stringify(allSessions));
-      
-      return newSession;
-    } catch (error) {
-      console.error("Error saving scan session:", error);
-      return null;
+  const getStatusColor = (status: "Cosmetic" | "OK" | "Not OK" | null) => {
+    switch (status) {
+      case "OK": return "bg-green-100 text-green-800 border-green-200";
+      case "Cosmetic": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "Not OK": return "bg-red-100 text-red-800 border-red-200";
+      default: return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
-  const startScanner = async () => {
-    if (disabled || !currentTicket) return;
-    
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setIsScanning(true);
-        setShowScanner(true);
-      }
-    } catch (err) {
-      console.error("Error accessing camera:", err);
-      toast({
-        variant: "destructive",
-        title: "Camera Error",
-        description: "Unable to access camera. Please check permissions.",
-        duration: 3000,
-      });
+  const getStatusIcon = (status: "Cosmetic" | "OK" | "Not OK" | null) => {
+    switch (status) {
+      case "OK": return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case "Cosmetic": return <AlertCircle className="h-4 w-4 text-yellow-600" />;
+      case "Not OK": return <XCircle className="h-4 w-4 text-red-600" />;
+      default: return null;
     }
   };
-
-  const stopScanner = () => {
-    if (videoRef.current?.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-      videoRef.current.srcObject = null;
-    }
-    setIsScanning(false);
-    setShowScanner(false);
-  };
-
-  const simulateCameraScan = () => {
-    if (disabled || !currentTicket) return;
-    
-    const testBarcode = STATIC_BARCODE_DATA[0];
-    processBarcode(testBarcode);
-  };
-
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedPart(text);
-      toast({
-        title: "Copied!",
-        description: `"${text}" copied to clipboard`,
-        duration: 1500,
-      });
-      setTimeout(() => setCopiedPart(null), 2000);
-    } catch (err) {
-      console.error("Failed to copy:", err);
-    }
-  };
-
-  const removeBarcode = () => {
-    if (scannedBarcode) {
-      const serialNumber = scannedBarcode.serialNumber;
-      setScannedBarcode(null);
-      // Reset the index for this serial when removing
-      setSerialPartIndex(prev => {
-        const newIndex = { ...prev };
-        delete newIndex[serialNumber];
-        return newIndex;
-      });
-      toast({
-        title: "Removed",
-        description: `Serial ${serialNumber} removed`,
-        duration: 2000,
-      });
-    }
-  };
-
-  const handleSubmit = () => {
-    if (!scannedBarcode || !currentTicket) {
-      toast({
-        variant: "destructive",
-        title: "No Data to Submit",
-        description: "Please scan a barcode first.",
-        duration: 2000,
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const fromTable = location.state?.fromTable;
-      
-      const submissionData: StoredBarcodeData = {
-        id: `assign_${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        ticketId: getTicketId(),
-        ticketCode: getTicketCode(),
-        serialNumber: scannedBarcode.serialNumber,
-        partNumbers: scannedBarcode.partNumbers,
-        totalParts: scannedBarcode.partNumbers.length,
-        rawBarcodeData: `${scannedBarcode.serialNumber}:${scannedBarcode.partNumbers.join(',')}`
-      };
-
-      if (fromTable) {
-        saveScanSession(scannedBarcode);
-      }
-
-      const existingData = localStorage.getItem(storageKey);
-      const allAssignments = existingData ? JSON.parse(existingData) : [];
-      allAssignments.push(submissionData);
-      localStorage.setItem(storageKey, JSON.stringify(allAssignments));
-
-      setStoredEntries(prev => [...prev, submissionData]);
-      updateOqcRecordWithAssignment(submissionData);
-
-      toast({
-        title: "✅ Parts Assigned to Ticket!",
-        description: `${scannedBarcode.partNumbers.length} parts from serial ${scannedBarcode.serialNumber} assigned to ticket ${getTicketCode()}`,
-        duration: 3000,
-      });
-
-      // Clear the index for this serial after successful submission
-      setSerialPartIndex(prev => {
-        const newIndex = { ...prev };
-        delete newIndex[scannedBarcode.serialNumber];
-        return newIndex;
-      });
-
-      clearScannedData();
-
-      if (fromTable) {
-        setTimeout(() => {
-          navigate("/tickets");
-        }, 1500);
-      } else {
-        navigate("/tickets");
-      }
-
-      if (onDataSubmitted) {
-        onDataSubmitted(submissionData);
-      }
-
-    } catch (error) {
-      console.error("Error saving data:", error);
-      toast({
-        variant: "destructive",
-        title: "Assignment Failed",
-        description: "Failed to assign parts to ticket. Please try again.",
-        duration: 3000,
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const updateOqcRecordWithAssignment = (assignment: StoredBarcodeData) => {
-    try {
-      const oqcData = localStorage.getItem("Oqcformdata");
-      if (oqcData) {
-        const records = JSON.parse(oqcData);
-        const updatedRecords = records.map((record: any) => {
-          if (record.id === getTicketId()) {
-            const existingAssignments = record.barcodeAssignments || [];
-            return {
-              ...record,
-              barcodeAssignments: [...existingAssignments, assignment],
-              assignedParts: (record.assignedParts || 0) + assignment.totalParts,
-              lastUpdated: new Date().toISOString()
-            };
-          }
-          return record;
-        });
-        
-        localStorage.setItem("Oqcformdata", JSON.stringify(updatedRecords));
-      }
-    } catch (error) {
-      console.error("Error updating OQC record:", error);
-    }
-  };
-
-  const clearAllStoredData = () => {
-    if (!currentTicket) return;
-    
-    if (window.confirm("Are you sure you want to clear ALL barcode assignments for this ticket? This action cannot be undone.")) {
-      const existingData = localStorage.getItem(storageKey);
-      if (existingData) {
-        const allAssignments = JSON.parse(existingData);
-        const filteredAssignments = allAssignments.filter(
-          (entry: StoredBarcodeData) => entry.ticketId !== getTicketId()
-        );
-        localStorage.setItem(storageKey, JSON.stringify(filteredAssignments));
-      }
-      
-      setStoredEntries([]);
-      // Reset all indices when clearing all data
-      setSerialPartIndex({});
-      
-      const oqcData = localStorage.getItem("Oqcformdata");
-      if (oqcData) {
-        const records = JSON.parse(oqcData);
-        const updatedRecords = records.map((record: any) => {
-          if (record.id === getTicketId()) {
-            const { barcodeAssignments, assignedParts, ...rest } = record;
-            return rest;
-          }
-          return record;
-        });
-        localStorage.setItem("Oqcformdata", JSON.stringify(updatedRecords));
-      }
-      
-      toast({
-        title: "All Assignments Cleared",
-        description: `All barcode assignments for ticket ${getTicketCode()} have been removed.`,
-        duration: 2000,
-      });
-    }
-  };
-
-  const assignedParts = storedEntries.reduce((total, entry) => total + entry.totalParts, 0);
-  const currentScannedParts = scannedBarcode ? scannedBarcode.partNumbers.length : 0;
-  const totalQuantity = getTotalQuantity();
-  const remainingParts = Math.max(0, totalQuantity - assignedParts - currentScannedParts);
 
   if (!currentTicket) {
     return (
       <div className="p-6">
         <Card>
           <CardContent className="p-6 text-center">
-            <div className="text-gray-500 mb-4">No active ticket found.</div>
-            <Button onClick={() => navigate("/")} className="bg-[#e0413a] text-white hover:bg-[#ad322c]">
+            <div className="text-gray-500 mb-4">No ticket selected.</div>
+            <Button onClick={() => navigate("/tickets")} className="bg-[#e0413a] text-white hover:bg-[#ad322c]">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Form
+              Back to Tickets
             </Button>
           </CardContent>
         </Card>
@@ -680,23 +455,27 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     );
   }
 
+  const assignedParts = getAssignedParts();
+  const totalQuantity = getTotalQuantity();
+  const remainingParts = getRemainingParts();
+
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-6 p-4 max-w-6xl mx-auto">
       <Card>
         <CardContent className="p-6">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
-                onClick={() => navigate("/")}
+                onClick={() => navigate("/tickets")}
                 className="hover:bg-gray-100"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Form
+                Back to Tickets
               </Button>
               <div>
-                <h1 className="text-xl font-bold">Barcode Scanner</h1>
-                <p className="text-sm text-gray-500">Assign parts to OQC ticket (Sequential Scanning)</p>
+                <h1 className="text-xl font-bold">Barcode Scanning</h1>
+                <p className="text-sm text-gray-500">Scan parts for ticket {currentTicket.ticketCode}</p>
               </div>
             </div>
           </div>
@@ -706,24 +485,20 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
               <div className="text-sm font-medium text-blue-700">Ticket Code</div>
               <div className="font-bold text-lg flex items-center gap-2">
                 <Ticket className="h-4 w-4" />
-                {getTicketCode()}
+                {currentTicket.ticketCode}
               </div>
             </div>
             <div>
-              <div className="text-sm font-medium text-blue-700">Required Quantity</div>
+              <div className="text-sm font-medium text-blue-700">Required</div>
               <div className="font-bold text-lg">{totalQuantity}</div>
             </div>
             <div>
-              <div className="text-sm font-medium text-blue-700">Assigned Parts</div>
-              <div className="font-bold text-lg text-green-600">{assignedParts}</div>
+              <div className="text-sm font-medium text-blue-700">Scanned</div>
+              <div className="font-bold text-lg text-green-600">{assignedParts + scannedParts.length}</div>
             </div>
             <div>
-              <div className="text-sm font-medium text-blue-700">Current Scan</div>
-              <div className="font-bold text-lg text-purple-600">{currentScannedParts}</div>
-            </div>
-            <div className="md:col-span-4">
-              <div className="text-sm font-medium text-blue-700">Remaining to Scan</div>
-              <div className={`font-bold text-2xl ${remainingParts > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+              <div className="text-sm font-medium text-blue-700">Remaining</div>
+              <div className={`font-bold text-lg ${remainingParts > 0 ? 'text-orange-600' : 'text-green-600'}`}>
                 {remainingParts}
               </div>
             </div>
@@ -733,7 +508,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
 
       <Card>
         <CardContent className="p-6">
-          <h3 className="font-semibold text-lg mb-4">Scan Barcode (Sequential Mode)</h3>
+          <h3 className="font-semibold text-lg mb-4">Scan Barcode</h3>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="barcodeInput" className="text-base font-medium">
@@ -747,121 +522,148 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                 onKeyDown={handleBarcodeInput}
                 placeholder={placeholder}
                 className="h-12 font-mono text-lg border-2 border-blue-300 focus:border-blue-500"
-                disabled={disabled}
+                disabled={disabled || remainingParts <= 0}
                 autoFocus={autoFocus && !disabled}
               />
+              <p className="text-sm text-gray-500">
+                Press Enter to scan. Each scan will process one part.
+              </p>
             </div>
 
             <div className="space-y-2">
               <Label className="text-sm font-medium text-gray-700">
-                Test Barcode (Click multiple times to scan parts sequentially):
+                Test Barcodes:
               </Label>
               <div className="flex flex-wrap gap-2">
-                {STATIC_BARCODE_DATA.map((barcode, index) => {
-                  const serialNumber = barcode;
-                  const currentIndex = serialPartIndex[serialNumber] || 0;
-                  const totalParts = getTotalQuantity();
-                  
-                  return (
-                    <Button
-                      key={`test-barcode-${barcode}-${index}`}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => testWithStaticBarcode(serialNumber)}
-                      className="text-xs font-mono"
-                      disabled={disabled || remainingParts <= 0 || currentIndex >= totalParts}
-                    >
-                      {serialNumber}
-                    </Button>
-                  );
-                })}
+                {STATIC_BARCODE_DATA.map((barcode, index) => (
+                  <Button
+                    key={`test-barcode-${index}`}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setBarcodeInput(barcode);
+                      setTimeout(() => {
+                        const event = new KeyboardEvent('keydown', { key: 'Enter' });
+                        barcodeInputRef.current?.dispatchEvent(event);
+                      }, 100);
+                    }}
+                    className="text-xs font-mono"
+                    disabled={disabled || remainingParts <= 0}
+                  >
+                    {barcode}
+                  </Button>
+                ))}
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Click the button multiple times - each click scans one part sequentially
-              </p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {scannedBarcode && showPartNumbers && (
+      {scannedParts.length > 0 && (
         <Card>
           <CardContent className="p-6">
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h3 className="font-semibold text-lg text-gray-700">
-                  Current Scan
+                  Scanned Parts ({scannedParts.length})
                 </h3>
                 <p className="text-sm text-gray-500">
-                  {scannedBarcode.partNumbers.length} parts ready to assign
+                  Select status for each scanned part
                 </p>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={removeBarcode}
+                onClick={clearScannedData}
                 className="text-red-500 hover:text-red-700 hover:bg-red-50"
               >
-                Remove Scan
+                <Trash2 className="mr-2 h-4 w-4" />
+                Clear All
               </Button>
             </div>
 
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <h4 className="font-medium text-gray-700">
-                  Part Numbers ({scannedBarcode.partNumbers.length})
-                </h4>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => copyToClipboard(scannedBarcode.partNumbers.join(', '))}
+            <div className="space-y-4">
+              {scannedParts.map((part, index) => (
+                <div
+                  key={part.id}
+                  className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
                 >
-                  <Copy className="mr-2 h-3 w-3" />
-                  Copy All
-                </Button>
-              </div>
-              
-              <div className="grid grid-cols-4 gap-3">
-                {scannedBarcode.partNumbers.map((partNumber, index) => (
-                  <div
-                    key={`${scannedBarcode.serialNumber}-${partNumber}-${index}`}
-                    className="relative"
-                  >
-                    <button
-                      onClick={() => copyToClipboard(partNumber)}
-                      className="w-full p-3 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg transition-all hover:shadow-sm text-left group"
-                    >
-                      <div className="text-xs text-gray-500 font-mono">
-                        {partNumber}
+                  <div className="flex justify-between items-center mb-3">
+                    <div>
+                      <div className="font-medium flex items-center gap-2">
+                        <span className="text-blue-600">#{index + 1}</span>
+                        <span className="font-mono">{part.partNumber}</span>
                       </div>
-                    </button>
+                      <div className="text-sm text-gray-500">
+                        Serial: <span className="font-mono">{part.serialNumber}</span>
+                      </div>
+                    </div>
+                    <Badge className={getStatusColor(part.scanStatus)}>
+                      {getStatusIcon(part.scanStatus)}
+                      <span className="ml-1">{part.scanStatus || "Pending"}</span>
+                    </Badge>
                   </div>
-                ))}
-              </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Select Status:</Label>
+                    <RadioGroup
+                      value={part.scanStatus || ""}
+                      onValueChange={(value: "Cosmetic" | "OK" | "Not OK") => 
+                        handleStatusChange(part.id, value)
+                      }
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="OK" id={`ok-${part.id}`} />
+                        <Label htmlFor={`ok-${part.id}`} className="flex items-center gap-2 cursor-pointer">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          OK
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="Cosmetic" id={`cosmetic-${part.id}`} />
+                        <Label htmlFor={`cosmetic-${part.id}`} className="flex items-center gap-2 cursor-pointer">
+                          <AlertCircle className="h-4 w-4 text-yellow-600" />
+                          Cosmetic
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="Not OK" id={`notok-${part.id}`} />
+                        <Label htmlFor={`notok-${part.id}`} className="flex items-center gap-2 cursor-pointer">
+                          <XCircle className="h-4 w-4 text-red-600" />
+                          Not OK
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                </div>
+              ))}
             </div>
 
-            {showSubmitButton && (
-              <div className="pt-6 border-t">
-                <Button
-                  onClick={handleSubmit}
-                  disabled={isSubmitting || !scannedBarcode || remainingParts < 0}
-                  className="w-40 bg-green-600 hover:bg-green-700 text-white py-6 text-lg font-medium"
-                  size="lg"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                      Assigning...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-3 h-5 w-5" />
-                      Submit
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
+            <div className="pt-6 border-t mt-6">
+              <Button
+                onClick={handleSubmit}
+                disabled={isSubmitting || scannedParts.length === 0 || 
+                  scannedParts.some(p => !p.scanStatus)}
+                className="w-40 bg-green-600 hover:bg-green-700 text-white py-6 text-lg font-medium"
+                size="lg"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-3 h-5 w-5" />
+                    Submit All Parts
+                  </>
+                )}
+              </Button>
+              <p className="text-sm text-gray-500 mt-2">
+                {scannedParts.filter(p => !p.scanStatus).length} part(s) need status selection
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -872,47 +674,54 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="font-semibold text-lg text-gray-700">
-                  Assigned Barcodes
+                  Previously Scanned Parts
                 </h3>
                 <p className="text-sm text-gray-500">
-                  {assignedParts} parts assigned to ticket {getTicketCode()}
+                  {assignedParts} parts already assigned to this ticket
                 </p>
               </div>
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearAllStoredData}
-                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                variant="outline"
+                onClick={() => navigate("/tickets")}
               >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Clear All
+                <Eye className="mr-2 h-4 w-4" />
+                View All Tickets
               </Button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {storedEntries.slice().reverse().map((entry) => (
                 <div
                   key={entry.id}
-                  className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+                  className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
                 >
                   <div className="flex justify-between items-center mb-2">
                     <div className="font-medium">
-                      Serial: <span className="font-mono">{entry.serialNumber}</span>
+                      Session: <span className="font-mono">{new Date(entry.timestamp).toLocaleTimeString()}</span>
                     </div>
-                    <div className="text-sm text-gray-500">
-                      {new Date(entry.timestamp).toLocaleString()}
-                    </div>
+                    <Badge variant="outline">{entry.totalParts} parts</Badge>
                   </div>
-                  <div className="flex justify-between items-center">
+                  <div className="grid grid-cols-3 gap-2 text-sm">
                     <div>
-                      <span className="text-sm font-medium">Parts: </span>
-                      <span className="font-mono text-sm">
-                        {entry.partNumbers.slice(0, 3).join(', ')}
-                        {entry.partNumbers.length > 3 && `... (+${entry.partNumbers.length - 3} more)`}
-                      </span>
+                      <span className="text-gray-500">Serial:</span>
+                      <span className="font-mono ml-2">{entry.serialNumber}</span>
                     </div>
-                    <div className="text-sm font-medium text-green-600">
-                      {entry.totalParts} parts
+                    <div>
+                      <span className="text-gray-500">Status Summary:</span>
+                      <div className="flex gap-1 mt-1">
+                        {entry.parts.filter(p => p.scanStatus === "OK").length > 0 && (
+                          <Badge className="bg-green-100 text-green-800">OK: {entry.parts.filter(p => p.scanStatus === "OK").length}</Badge>
+                        )}
+                        {entry.parts.filter(p => p.scanStatus === "Cosmetic").length > 0 && (
+                          <Badge className="bg-yellow-100 text-yellow-800">Cosmetic: {entry.parts.filter(p => p.scanStatus === "Cosmetic").length}</Badge>
+                        )}
+                        {entry.parts.filter(p => p.scanStatus === "Not OK").length > 0 && (
+                          <Badge className="bg-red-100 text-red-800">Not OK: {entry.parts.filter(p => p.scanStatus === "Not OK").length}</Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right text-gray-500">
+                      {new Date(entry.timestamp).toLocaleDateString()}
                     </div>
                   </div>
                 </div>
@@ -921,29 +730,6 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           </CardContent>
         </Card>
       )}
-
-      <div className="flex justify-between items-center pt-4">
-        <Button
-          variant="outline"
-          onClick={() => navigate("/tickets")}
-          className="border-gray-300 hover:bg-gray-50"
-        >
-          View All Tickets
-        </Button>
-        
-        <div className="flex gap-3">
-          {clearButton && scannedBarcode && (
-            <Button
-              variant="outline"
-              onClick={clearScannedData}
-              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Clear Scanner
-            </Button>
-          )}
-        </div>
-      </div>
     </div>
   );
 };

@@ -5,6 +5,29 @@ import { Clock, CheckCircle2, AlertCircle, Package } from "lucide-react";
 import { testData } from "@/data/testData";
 import { useEffect, useState } from "react";
 
+// interface Stage2Record {
+//   documentNumber: string;
+//   documentTitle: string;
+//   projectName: string;
+//   color: string;
+//   testLocation: string;
+//   testStartDate: string;
+//   testCompletionDate: string;
+//   sampleConfig: string;
+//   status: string;
+//   id: number;
+//   createdAt: string;
+//   stage2: {
+//     processStage: string;
+//     type: string;
+//     testName: string;
+//     testCondition: string;
+//     requiredQty: string;
+//     equipment: string;
+//     submittedAt: string;
+//   };
+// }
+
 interface Stage2Record {
   documentNumber: string;
   documentTitle: string;
@@ -16,16 +39,52 @@ interface Stage2Record {
   sampleConfig: string;
   status: string;
   id: number;
+  anoType: string;
   createdAt: string;
   stage2: {
     processStage: string;
-    type: string;
     testName: string;
     testCondition: string;
     requiredQty: string;
     equipment: string;
     submittedAt: string;
   };
+  // Add testRecords array to the interface
+  testRecords?: Array<{
+    testId: string;
+    testName: string;
+    processStage: string;
+    testIndex: number;
+    testCondition: string;
+    requiredQuantity: string;
+    specification: string;
+    machineEquipment: string;
+    machineEquipment2: string;
+    timing: string;
+    startDateTime: string;
+    endDateTime: string;
+    assignedParts: Array<{
+      id: string;
+      partNumber: string;
+      serialNumber: string;
+      location: string;
+      scanStatus: string;
+      assignedToTest: string;
+    }>;
+    assignedPartsCount: number;
+    calculations: {
+      requiredQtyNumeric: number;
+      totalRequiredQty: number;
+      proportion: string;
+      allocatedParts: number;
+      assignedCount: number;
+      remainingToAssign: number;
+      isComplete: boolean;
+    };
+    remark: string;
+    status: string;
+    submittedAt: string;
+  }>;
 }
 
 interface Stats {
@@ -50,6 +109,7 @@ const Index = () => {
     const loadStage2Records = () => {
       try {
         const storedRecords = localStorage.getItem('stage2Records');
+        console.log(storedRecords); ``
         if (storedRecords) {
           const records = JSON.parse(storedRecords);
           setStage2Records(Array.isArray(records) ? records : []);
@@ -116,7 +176,7 @@ const Index = () => {
       case 'project':
         return record.projectName || '-';
       case 'testType':
-        return record.stage2.type || '-';
+        return record.anoType || '-';
       case 'build':
         return record.documentNumber || '-';
       case 'testName':
@@ -292,30 +352,57 @@ const Index = () => {
                       </TableRow>
                     ) : (
                       stage2Records.flatMap((record) => {
-                        // Split the multiple values by comma
-                        const testNames = record.stage2.testName.split(',').map(name => name.trim());
-                        const testConditions = record.stage2.testCondition.split(',').map(condition => condition.trim());
-                        const requiredQtys = record.stage2.requiredQty.split(',').map(qty => qty.trim());
+                        // Check if testRecords exists and has items
+                        if (!record.testRecords || record.testRecords.length === 0) {
+                          // Fall back to stage2 data if testRecords doesn't exist
+                          return (
+                            <TableRow key={record.id} className="hover:bg-gray-50">
+                              <TableCell className="font-medium">
+                                {record.projectName || '-'}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="whitespace-nowrap">
+                                  {record.anoType || '-'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{record.documentNumber || '-'}</TableCell>
+                              <TableCell>{record.stage2.testName || '-'}</TableCell>
+                              <TableCell className="text-sm">{record.stage2.testCondition || '-'}</TableCell>
+                              <TableCell>{getTableCellValue(record, 'duration')}</TableCell>
+                              <TableCell>{record.stage2.requiredQty || '-'}</TableCell>
+                              <TableCell className="whitespace-nowrap">
+                                {getTableCellValue(record, 'startTime')}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap">
+                                {getTableCellValue(record, 'tentativeEnd')}
+                              </TableCell>
+                              <TableCell>{getTableCellValue(record, 'operatorLoaded')}</TableCell>
+                              <TableCell>{getTableCellValue(record, 'operatorUnload')}</TableCell>
+                              <TableCell className="text-sm">{record.stage2.processStage || '-'}</TableCell>
+                              <TableCell className="font-medium">
+                                {getTableCellValue(record, 'remaining')}
+                              </TableCell>
+                              <TableCell>{getStatusBadge(record.status || '-')}</TableCell>
+                            </TableRow>
+                          );
+                        }
 
-                        // Get the maximum length to handle different number of items
-                        const maxLength = Math.max(testNames.length, testConditions.length, requiredQtys.length);
-
-                        // Create rows for each test item
-                        return Array.from({ length: maxLength }).map((_, index) => (
+                        // Use testRecords data
+                        return record.testRecords.map((testRecord, index) => (
                           <TableRow key={`${record.id}-${index}`} className="hover:bg-gray-50">
                             <TableCell className="font-medium">
                               {record.projectName || '-'}
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline" className="whitespace-nowrap">
-                                {record.stage2.type || '-'}
+                                {record.anoType || '-'}
                               </Badge>
                             </TableCell>
                             <TableCell>{record.documentNumber || '-'}</TableCell>
-                            <TableCell>{testNames[index] || '-'}</TableCell>
-                            <TableCell className="text-sm">{testConditions[index] || '-'}</TableCell>
+                            <TableCell>{testRecord.testName || '-'}</TableCell>
+                            <TableCell className="text-sm">{testRecord.testCondition || '-'}</TableCell>
                             <TableCell>{getTableCellValue(record, 'duration')}</TableCell>
-                            <TableCell>{requiredQtys[index] || '-'}</TableCell>
+                            <TableCell>{testRecord.requiredQuantity || '-'}</TableCell>
                             <TableCell className="whitespace-nowrap">
                               {getTableCellValue(record, 'startTime')}
                             </TableCell>
@@ -324,11 +411,11 @@ const Index = () => {
                             </TableCell>
                             <TableCell>{getTableCellValue(record, 'operatorLoaded')}</TableCell>
                             <TableCell>{getTableCellValue(record, 'operatorUnload')}</TableCell>
-                            <TableCell className="text-sm">{record.stage2.processStage || '-'}</TableCell>
+                            <TableCell className="text-sm">{testRecord.processStage || record.stage2.processStage || '-'}</TableCell>
                             <TableCell className="font-medium">
                               {getTableCellValue(record, 'remaining')}
                             </TableCell>
-                            <TableCell>{getStatusBadge(record.status || '-')}</TableCell>
+                            <TableCell>{getStatusBadge(testRecord.status || record.status || '-')}</TableCell>
                           </TableRow>
                         ));
                       })
