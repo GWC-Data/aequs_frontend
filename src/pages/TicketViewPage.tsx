@@ -115,44 +115,18 @@ const TicketViewPage: React.FC = () => {
     loadTickets();
   }, []);
 
-  const ticketCode = localStorage.getItem('oqc_ticket_records');
-  console.log("ticketCode", ticketCode);
-
-  const parseData = JSON.parse(ticketCode);
-  console.log("parseData", parseData);
-
-
-
   // Apply filters when search or filters change
   useEffect(() => {
     applyFilters();
   }, [searchTerm, filterAnoType, filterProject, tickets]);
-
-  const removeDuplicateTickets = (tickets: Stage1Record[]): Stage1Record[] => {
-  const seenTicketCodes = new Set<string>();
-  const uniqueTickets: Stage1Record[] = [];
-
-  tickets.forEach(ticket => {
-    if (!seenTicketCodes.has(ticket.ticketCode)) {
-      seenTicketCodes.add(ticket.ticketCode);
-      uniqueTickets.push(ticket);
-    } else {
-      console.warn(`Duplicate ticket code found and skipped: ${ticket.ticketCode}`);
-    }
-  });
-
-  return uniqueTickets;
-};
 
   const loadTickets = () => {
     try {
       const ticketsData = localStorage.getItem("stage1TableData");
       if (ticketsData) {
         const parsedTickets: Stage1Record[] = JSON.parse(ticketsData);
-        const uniqueTickets = removeDuplicateTickets(parsedTickets);
-
-        setTickets(uniqueTickets);
-        setFilteredTickets(uniqueTickets);
+        setTickets(parsedTickets);
+        setFilteredTickets(parsedTickets);
       }
     } catch (err) {
       console.error("Failed to load tickets:", err);
@@ -642,7 +616,7 @@ const TicketViewPage: React.FC = () => {
               </div>
 
               {/* Calculation Notes */}
-              {/* <div className="p-4 border rounded-lg bg-yellow-50">
+              <div className="p-4 border rounded-lg bg-yellow-50">
                 <h4 className="font-medium text-yellow-800 mb-2">Allocation Calculation Method</h4>
                 <ul className="text-sm text-yellow-700 space-y-1">
                   <li>• Parts are allocated proportionally based on each test's required quantity</li>
@@ -650,7 +624,7 @@ const TicketViewPage: React.FC = () => {
                   <li>• Tests with higher requirements get priority in allocation</li>
                   <li>• Unallocated parts (if any) are shown in the summary</li>
                 </ul>
-              </div> */}
+              </div>
 
               <div className="flex justify-end gap-4 pt-4 border-t">
                 <Button
@@ -659,7 +633,7 @@ const TicketViewPage: React.FC = () => {
                 >
                   Close
                 </Button>
-                {/* <Button
+                <Button
                   onClick={() => {
                     // Navigate to Stage 2 form with this ticket
                     if (selectedTicket) {
@@ -669,7 +643,7 @@ const TicketViewPage: React.FC = () => {
                   className="bg-[#e0413a] text-white hover:bg-[#c53730]"
                 >
                   Proceed to Stage 2
-                </Button> */}
+                </Button>
               </div>
             </div>
           )}
