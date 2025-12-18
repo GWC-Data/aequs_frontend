@@ -72,6 +72,26 @@ const REASON_OPTIONS = ["Line qualification", "Machine qualification", "MP", "NP
 // LocalStorage key
 const STORAGE_KEY = 'oqc_ticket_records';
 
+const PROJECT_CODES = {
+  'FLASH': 'FLS',
+  'LIGHT': 'LGT',
+  'HULK': 'HLK',
+  'AQUA': 'AQU'
+};
+
+const COLOUR_CODES = {
+  'NDA': 'NDA',
+  'Stardust': 'SD',
+  'Light Blue': 'LB',
+};
+
+const ANO_TYPE_CODES = {
+  'ANO': 'ANO',
+  'ASSEMBLY': 'ASSY',
+  'OLEO': 'OLEO'
+};
+
+
 const OQCSystem = () => {
   const navigate = useNavigate(); // Initialize navigate
   const [activeTab, setActiveTab] = useState<'create' | 'scan' | 'tickets'>('create');
@@ -120,6 +140,7 @@ const OQCSystem = () => {
   const [oqcApprover, setOqcApprover] = useState('');
   const [showOQCApproval, setShowOQCApproval] = useState<number | null>(null);
 
+
   // Load data from localStorage on component mount
   useEffect(() => {
     const storedData = localStorage.getItem(STORAGE_KEY);
@@ -150,18 +171,33 @@ const OQCSystem = () => {
   };
 
   // Generate ticket code
-  const generateTicketCode = (project: string) => {
+  const generateTicketCode = (project: string, colour: string, anoType: string, build: string, quantity: number) => {
+    // Get codes
+    const projectCode = PROJECT_CODES[project.toUpperCase()] || 'UNK';
+    const colourCode = COLOUR_CODES[colour] || 'UNK';
+    const anoCode = ANO_TYPE_CODES[anoType.toUpperCase()] || 'UNK';
+
+    // Pad quantity to 3 digits
+    const quantityPadded = String(quantity).padStart(3, '0');
+
+    // Get the next sequence number for this project
     const projectRecords = testRecords.filter(r => r.project === project);
     let maxNumber = 0;
+
     projectRecords.forEach(record => {
-      const match = record.ticketCode?.match(new RegExp(`^${project}-(\\d+)$`));
+      // Extract the sequence number from existing ticket codes
+      // Format: 001_FLS_LB_ANO_BUILD_040
+      const match = record.ticketCode?.match(/^(\d+)_/);
       if (match) {
         const num = parseInt(match[1], 10);
         if (num > maxNumber) maxNumber = num;
       }
     });
-    const nextNumber = maxNumber + 1;
-    return `${project}-${nextNumber.toString().padStart(3, '0')}`;
+
+    const sequenceNumber = String(maxNumber + 1).padStart(3, '0');
+
+    // Generate the final ticket code
+    return `${sequenceNumber}_${projectCode}_${colourCode}_${anoCode}_${build}_${quantityPadded}`;
   };
 
   // Update source options based on ANO type
@@ -198,11 +234,24 @@ const OQCSystem = () => {
     }
   }, [formData.reason]);
 
+  // useEffect(() => {
+  //   if (formData.project) {
+  //     setFormData(prev => ({ ...prev, ticketCode: generateTicketCode(formData.project) }));
+  //   }
+  // }, [formData.project, testRecords]);
+
   useEffect(() => {
-    if (formData.project) {
-      setFormData(prev => ({ ...prev, ticketCode: generateTicketCode(formData.project) }));
+    if (formData.project && formData.colour && formData.anoType && formData.build && formData.totalQuantity > 0) {
+      const newCode = generateTicketCode(
+        formData.project,
+        formData.colour,
+        formData.anoType,
+        formData.build,
+        formData.totalQuantity
+      );
+      setFormData(prev => ({ ...prev, ticketCode: newCode }));
     }
-  }, [formData.project, testRecords]);
+  }, [formData.project, formData.colour, formData.anoType, formData.build, formData.totalQuantity, testRecords]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -216,6 +265,11 @@ const OQCSystem = () => {
 
   const handleSubmitForm = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.ticketCode || !formData.ticketCode.includes('_')) {
+      showNotification('error', 'Please fill all required fields to generate ticket code');
+      return;
+    }
 
     const finalSource = formData.source === 'Other' ? formData.otherSource : formData.source;
     const finalReason = formData.reason === 'Other' ? formData.otherReason : formData.reason;
@@ -234,6 +288,12 @@ const OQCSystem = () => {
 
     if (formData.reason === 'Other' && !formData.otherReason.trim()) {
       showNotification('error', 'Please specify the reason when Other is selected');
+      return;
+    }
+
+    const existingTicket = testRecords.find(record => record.ticketCode === formData.ticketCode);
+    if (existingTicket) {
+      showNotification('error', 'Ticket code already exists. Please check your inputs.');
       return;
     }
 
@@ -751,7 +811,7 @@ const OQCSystem = () => {
         <CardContent>
           <form onSubmit={handleSubmitForm} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label className="font-bold uppercase">
                   Ticket Code <span className="text-red-600">*</span>
                   <span className="text-xs font-normal text-gray-500 ml-2">(Auto-generated)</span>
@@ -763,6 +823,25 @@ const OQCSystem = () => {
                   className="bg-gray-50"
                   placeholder="Select project to generate code"
                 />
+              </div> */}
+
+              <div className="space-y-2">
+                <Label className="font-bold uppercase">
+                  Ticket Code <span className="text-red-600">*</span>
+                  <span className="text-xs font-normal text-gray-500 ml-2">(Auto-generated)</span>
+                </Label>
+                <Input
+                  type="text"
+                  value={formData.ticketCode}
+                  readOnly
+                  className="bg-gray-50 font-mono"
+                  placeholder="Fill all fields to generate code"
+                />
+                {formData.ticketCode && (
+                  <div className="text-sm text-blue-600 font-mono mt-1">
+                    Format: {formData.ticketCode.replace(/^_|_$/g, '')}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
