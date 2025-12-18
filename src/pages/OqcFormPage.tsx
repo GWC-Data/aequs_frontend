@@ -1034,7 +1034,7 @@ const OQCSystem = () => {
     const hasUnsubmittedSessions = selectedTicket.sessions.some(session => !session.submitted);
 
     return (
-      <div className="space-y-6 p-4 max-w-6xl mx-auto">
+      <div className="space-y-6 p-4  mx-auto">
         <Card>
           <CardContent className="p-6">
             <div className="flex justify-between items-center mb-6">
