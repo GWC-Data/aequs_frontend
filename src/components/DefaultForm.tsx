@@ -2756,50 +2756,140 @@ export default function MultiStageTestFormEnhanced() {
     //     if (isSecondRound) {
     //         alert("✅ Final submission complete! All test data and images have been recorded.");
 
-    //         // Here you would typically save to backend/localStorage
-    //         const records = localStorage.getItem("testingLoadData");
-    //         if (records) {
-    //             const parsed = JSON.parse(records);
-    //             const updatedRecords = parsed.map((record: Stage2Record) => {
-    //                 if (record.id === currentRecord?.id) {
-    //                     return currentRecord;
-    //                 }
-    //                 return record;
-    //             });
-    //             localStorage.setItem("stage2Records", JSON.stringify(updatedRecords));
-    //         }
+    //         try {
+    //             // Get testingLoadData from localStorage
+    //             const testingLoadDataStr = localStorage.getItem("testingLoadData");
 
-    //         // Navigate back or to success page
-    //         navigate(-1);
+    //             if (testingLoadDataStr) {
+    //                 const testingLoadData = JSON.parse(testingLoadDataStr);
+
+    //                 // Update test records with form data and images
+    //                 const updatedTestRecords = testingLoadData.testRecords.map((record: any) => {
+    //                     // Find matching form data for this part
+    //                     const formData = Object.values(forms).find(
+    //                         (form: any) =>
+    //                             form.partNumber === record.partNumber &&
+    //                             form.serialNumber === record.serialNumber
+    //                     );
+
+    //                     if (formData) {
+    //                         return {
+    //                             ...record,
+    //                             ...formData,
+    //                             cosmeticImage: sharedImagesByPart[record.partNumber] || '',
+    //                             status: "Completed",
+    //                             completedAt: new Date().toISOString(),
+    //                             isCompleted: true
+    //                         };
+    //                     }
+
+    //                     return record;
+    //                 });
+
+    //                 // Update the main testingLoadData object
+    //                 const updatedTestingLoadData = {
+    //                     ...testingLoadData,
+    //                     testRecords: updatedTestRecords,
+    //                     status: "Completed",
+    //                     completedAt: new Date().toISOString()
+    //                 };
+
+    //                 // Save updated testingLoadData back to localStorage
+    //                 localStorage.setItem("testingLoadData", JSON.stringify(updatedTestingLoadData));
+
+    //                 // Also save to stage2Records for historical tracking
+    //                 const stage2RecordsStr = localStorage.getItem("stage2Records");
+    //                 let stage2Records = stage2RecordsStr ? JSON.parse(stage2RecordsStr) : [];
+
+    //                 // Check if this load already exists in stage2Records
+    //                 const existingIndex = stage2Records.findIndex(
+    //                     (record: any) => record.loadId === testingLoadData.loadId
+    //                 );
+
+    //                 if (existingIndex !== -1) {
+    //                     // Update existing record
+    //                     stage2Records[existingIndex] = updatedTestingLoadData;
+    //                 } else {
+    //                     // Add new record
+    //                     stage2Records.push(updatedTestingLoadData);
+    //                 }
+
+    //                 localStorage.setItem("stage2Records", JSON.stringify(stage2Records));
+
+    //                 console.log("Updated testingLoadData:", updatedTestingLoadData);
+    //                 console.log("Saved to stage2Records");
+    //             }
+
+    //             // Navigate back or to success page
+    //             navigate(-1);
+    //         } catch (error) {
+    //             console.error("Error saving data:", error);
+    //             alert("Error saving final data. Please try again.");
+    //         }
     //     } else {
     //         alert("✅ Tests completed! You can now upload final non-cosmetic images for the second round.");
+
+    //         // Save current progress to testingLoadData
+    //         try {
+    //             const testingLoadDataStr = localStorage.getItem("testingLoadData");
+
+    //             if (testingLoadDataStr) {
+    //                 const testingLoadData = JSON.parse(testingLoadDataStr);
+
+    //                 const updatedTestRecords = testingLoadData.testRecords.map((record: any) => {
+    //                     const formData = Object.values(forms).find(
+    //                         (form: any) =>
+    //                             form.partNumber === record.partNumber &&
+    //                             form.serialNumber === record.serialNumber
+    //                     );
+
+    //                     if (formData) {
+    //                         return {
+    //                             ...record,
+    //                             ...formData,
+    //                             status: "First Round Completed"
+    //                         };
+    //                     }
+
+    //                     return record;
+    //                 });
+
+    //                 testingLoadData.testRecords = updatedTestRecords;
+    //                 localStorage.setItem("testingLoadData", JSON.stringify(testingLoadData));
+    //             }
+    //         } catch (error) {
+    //             console.error("Error saving first round data:", error);
+    //         }
+
     //         setIsSecondRound(true);
     //         setCurrentStage(0);
     //         setCurrentTestIndex(0);
     //     }
     // };
 
-    const handleSubmit = () => {
+    // Create stages array
+    
+      const handleSubmit = () => {
         const saved = saveFormData();
-
+ 
         if (!saved) {
             alert("Error saving form data. Please try again.");
             return;
         }
-
+ 
         console.log("Submitting form data:", forms);
         console.log("Shared images:", sharedImagesByPart);
-
+ 
         if (isSecondRound) {
-            alert("✅ Final submission complete! All test data and images have been recorded.");
-
+            alert("Final submission complete! All test data and images have been recorded.");
+ 
             try {
                 // Get testingLoadData from localStorage
                 const testingLoadDataStr = localStorage.getItem("testingLoadData");
-
+ 
                 if (testingLoadDataStr) {
                     const testingLoadData = JSON.parse(testingLoadDataStr);
-
+ 
                     // Update test records with form data and images
                     const updatedTestRecords = testingLoadData.testRecords.map((record: any) => {
                         // Find matching form data for this part
@@ -2808,7 +2898,7 @@ export default function MultiStageTestFormEnhanced() {
                                 form.partNumber === record.partNumber &&
                                 form.serialNumber === record.serialNumber
                         );
-
+ 
                         if (formData) {
                             return {
                                 ...record,
@@ -2819,10 +2909,10 @@ export default function MultiStageTestFormEnhanced() {
                                 isCompleted: true
                             };
                         }
-
+ 
                         return record;
                     });
-
+ 
                     // Update the main testingLoadData object
                     const updatedTestingLoadData = {
                         ...testingLoadData,
@@ -2830,19 +2920,19 @@ export default function MultiStageTestFormEnhanced() {
                         status: "Completed",
                         completedAt: new Date().toISOString()
                     };
-
+ 
                     // Save updated testingLoadData back to localStorage
                     localStorage.setItem("testingLoadData", JSON.stringify(updatedTestingLoadData));
-
+ 
                     // Also save to stage2Records for historical tracking
                     const stage2RecordsStr = localStorage.getItem("stage2Records");
                     let stage2Records = stage2RecordsStr ? JSON.parse(stage2RecordsStr) : [];
-
+ 
                     // Check if this load already exists in stage2Records
                     const existingIndex = stage2Records.findIndex(
                         (record: any) => record.loadId === testingLoadData.loadId
                     );
-
+ 
                     if (existingIndex !== -1) {
                         // Update existing record
                         stage2Records[existingIndex] = updatedTestingLoadData;
@@ -2850,13 +2940,13 @@ export default function MultiStageTestFormEnhanced() {
                         // Add new record
                         stage2Records.push(updatedTestingLoadData);
                     }
-
+ 
                     localStorage.setItem("stage2Records", JSON.stringify(stage2Records));
-
+ 
                     console.log("Updated testingLoadData:", updatedTestingLoadData);
                     console.log("Saved to stage2Records");
                 }
-
+ 
                 // Navigate back or to success page
                 navigate(-1);
             } catch (error) {
@@ -2864,22 +2954,22 @@ export default function MultiStageTestFormEnhanced() {
                 alert("Error saving final data. Please try again.");
             }
         } else {
-            alert("✅ Tests completed! You can now upload final non-cosmetic images for the second round.");
-
+            alert("Tests completed! You can now upload final non-cosmetic images for the second round.");
+ 
             // Save current progress to testingLoadData
             try {
                 const testingLoadDataStr = localStorage.getItem("testingLoadData");
-
+ 
                 if (testingLoadDataStr) {
                     const testingLoadData = JSON.parse(testingLoadDataStr);
-
+ 
                     const updatedTestRecords = testingLoadData.testRecords.map((record: any) => {
                         const formData = Object.values(forms).find(
                             (form: any) =>
                                 form.partNumber === record.partNumber &&
                                 form.serialNumber === record.serialNumber
                         );
-
+ 
                         if (formData) {
                             return {
                                 ...record,
@@ -2887,24 +2977,23 @@ export default function MultiStageTestFormEnhanced() {
                                 status: "First Round Completed"
                             };
                         }
-
+ 
                         return record;
                     });
-
+ 
                     testingLoadData.testRecords = updatedTestRecords;
                     localStorage.setItem("testingLoadData", JSON.stringify(testingLoadData));
                 }
             } catch (error) {
                 console.error("Error saving first round data:", error);
             }
-
+ 
             setIsSecondRound(true);
             setCurrentStage(0);
             setCurrentTestIndex(0);
         }
     };
-
-    // Create stages array
+    
     const stages = [
         { id: 0, name: "Image Upload" },
         { id: 1, name: "Test Forms" }

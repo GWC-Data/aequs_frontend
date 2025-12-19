@@ -184,10 +184,10 @@ const OQCSystem = () => {
     const quantityPadded = String(quantity).padStart(3, '0');
 
     // Get the next sequence number for this project
-    const projectRecords = testRecords.filter(r => r.project === project);
+    // const projectRecords = testRecords.filter(r => r.project === project);
     let maxNumber = 0;
 
-    projectRecords.forEach(record => {
+    testRecords.forEach(record => {
       // Extract the sequence number from existing ticket codes
       // Format: 001_FLS_LB_ANO_BUILD_040
       const match = record.ticketCode?.match(/^(\d+)_/);

@@ -833,132 +833,110 @@ const GanttChart = () => {
                       </div>
                     );
                   })}
-
-                  {/* Loaded parts as yellow bars with precise timing */}
-                  {activeChamberLoads.map((load, loadIdx) => {
-                    const loadStart = new Date(load.loadedAt);
-                    const loadEnd = new Date(load.estimatedCompletion);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    
-                    // Calculate days from today for the start date
-                    const loadStartDate = new Date(loadStart);
-                    loadStartDate.setHours(0, 0, 0, 0);
-                    const daysFromStart = Math.floor((loadStartDate - today) / (1000 * 60 * 60 * 24));
-                    
-                    // Calculate total duration in days
-                    const loadDurationMs = loadEnd - loadStart;
-                    const loadDurationDays = loadDurationMs / (1000 * 60 * 60 * 24);
-                    
-                    // Calculate position based on exact time of day
-                    const startHour = loadStart.getHours();
-                    const startMinute = loadStart.getMinutes();
-                    const startSecond = loadStart.getSeconds();
-                    const startFraction = (startHour * 3600 + startMinute * 60 + startSecond) / (24 * 3600); // 0 to 1
-                    
-                    const leftPercent = (daysFromStart / totalDays) * 100 + (startFraction / totalDays) * 100;
-                    const widthPercent = (loadDurationDays / totalDays) * 100;
-
-                    const adjustedLeft = Math.max(0, leftPercent);
-                    const adjustedWidth = Math.min(100 - adjustedLeft, widthPercent + Math.min(0, leftPercent));
-
-                    if (adjustedWidth <= 0) return null;
-
-                    // Check for gaps between loads
-                    let gapBefore = null;
-                    if (loadIdx > 0) {
-                      const prevLoad = activeChamberLoads[loadIdx - 1];
-                      const prevLoadEnd = new Date(prevLoad.estimatedCompletion);
-                      const gapMs = loadStart - prevLoadEnd;
+                  {/* Loaded parts - Yellow vertical line at exact loadedAt, Red bar from next moment to completion */}
+                    {activeChamberLoads.map((load, loadIdx) => {
+                      const loadStart = new Date(load.loadedAt);
+                      const loadEnd = new Date(load.estimatedCompletion);
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
                       
-                      if (gapMs > 0) {
-                        const gapDays = gapMs / (1000 * 60 * 60 * 24);
-                        const gapStartDate = new Date(prevLoadEnd);
-                        gapStartDate.setHours(0, 0, 0, 0);
-                        const gapDaysFromStart = Math.floor((gapStartDate - today) / (1000 * 60 * 60 * 24));
-                        
-                        const gapStartHour = prevLoadEnd.getHours();
-                        const gapStartMinute = prevLoadEnd.getMinutes();
-                        const gapStartSecond = prevLoadEnd.getSeconds();
-                        const gapStartFraction = (gapStartHour * 3600 + gapStartMinute * 60 + gapStartSecond) / (24 * 3600);
-                        
-                        const gapLeftPercent = (gapDaysFromStart / totalDays) * 100 + (gapStartFraction / totalDays) * 100;
-                        const gapWidthPercent = (gapDays / totalDays) * 100;
-                        
-                        const gapAdjustedLeft = Math.max(0, gapLeftPercent);
-                        const gapAdjustedWidth = Math.min(100 - gapAdjustedLeft, gapWidthPercent + Math.min(0, gapLeftPercent));
-                        
-                        if (gapAdjustedWidth > 0.1) { // Only show gaps wider than 0.1% of the total width
-                          gapBefore = {
-                            left: gapAdjustedLeft,
-                            width: gapAdjustedWidth,
-                            start: prevLoadEnd,
-                            end: loadStart,
-                            duration: gapMs / (1000 * 60 * 60)
-                          };
-                        }
-                      }
-                    }
+                      // Calculate total duration in days
+                      const loadDurationMs = loadEnd - loadStart;
+                      const loadDurationDays = loadDurationMs / (1000 * 60 * 60 * 24);
+                      
+                      // Calculate positions
+                      const loadStartDate = new Date(loadStart);
+                      loadStartDate.setHours(0, 0, 0, 0);
+                      const daysFromStart = Math.floor((loadStartDate - today) / (1000 * 60 * 60 * 24));
+                      
+                      // Get exact time of day in seconds
+                      const startHour = loadStart.getHours();
+                      const startMinute = loadStart.getMinutes();
+                      const startSecond = loadStart.getSeconds();
+                      const startMillisecond = loadStart.getMilliseconds();
+                      
+                      // Calculate fraction of day for exact time
+                      const totalSecondsInDay = 24 * 60 * 60;
+                      const exactFraction = (startHour * 3600 + startMinute * 60 + startSecond + startMillisecond/1000) / totalSecondsInDay;
+                      
+                      // Position for yellow vertical line (exact loadedAt time)
+                      const yellowLineLeftPercent = (daysFromStart / totalDays) * 100 + (exactFraction / totalDays) * 100;
+                      
+                      // Position for red bar (starts immediately after yellow line)
+                      const oneMsInDays = 1 / (1000 * 60 * 60 * 24);
+                      const redBarStartPercent = yellowLineLeftPercent + (oneMsInDays / totalDays) * 100;
+                      
+                      // Calculate width for red bar (from loadedAt+1ms to estimatedCompletion)
+                      const redBarWidthPercent = (loadDurationDays / totalDays) * 100;
+                      
+                      const yellowLineAdjustedLeft = Math.max(0, yellowLineLeftPercent);
+                      const redBarAdjustedLeft = Math.max(0, redBarStartPercent);
+                      const redBarAdjustedWidth = Math.min(100 - redBarAdjustedLeft, redBarWidthPercent + Math.min(0, redBarStartPercent));
+                      
+                      // Only show if within visible area
+                      const isYellowVisible = yellowLineAdjustedLeft >= 0 && yellowLineAdjustedLeft <= 100;
+                      const isRedVisible = redBarAdjustedWidth > 0;
+                      
+                      if (!isYellowVisible && !isRedVisible) return null;
 
-                    return (
-                      <React.Fragment key={`load-${load.id}`}>
-                        {/* Gap before this load (shows as green) */}
-                        {gapBefore && (
-                          <div
-                            className="absolute top-2 bottom-2 transition-all z-10"
-                            style={{
-                              left: `${gapBefore.left}%`,
-                              width: `${gapBefore.width}%`,
-                              backgroundColor: '#81c784',
-                              minWidth: '1px'
-                            }}
-                            title={`Available: ${gapBefore.duration.toFixed(2)} hours\nFrom: ${gapBefore.start.toLocaleString()}\nTo: ${gapBefore.end.toLocaleString()}`}
-                          >
-                            {gapBefore.width > 0.5 && (
-                              <div className="w-full h-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                                <div className="text-[8px] text-green-700 bg-green-100 px-1 py-0.5 rounded">
-                                  {gapBefore.duration.toFixed(1)}h gap
+                      return (
+                        <React.Fragment key={`load-${load.id}`}>
+                          {/* Yellow vertical line at exact loadedAt time */}
+                          {isYellowVisible && (
+                            <div
+                              className="absolute top-0 bottom-0 cursor-pointer z-30"
+                              style={{
+                                left: `${yellowLineAdjustedLeft}%`,
+                                width: '3px',
+                                marginLeft: '-1.5px', // Center the line
+                                backgroundColor: '#FFEB3B',
+                                boxShadow: '0 0 5px 2px rgba(255, 235, 59, 0.5)',
+                                pointerEvents: 'auto'
+                              }}
+                              title={`Parts Loaded At:\n${loadStart.toLocaleString()}\n${load.parts.length} part${load.parts.length > 1 ? 's' : ''}: ${load.parts.map(p => p.partNumber).join(', ')}`}
+                            />
+                          )}
+                          
+                          {/* Red bar for the test duration (starts immediately after yellow line) */}
+                          {isRedVisible && (
+                            <div
+                              className="absolute top-2 bottom-2 flex flex-col items-center justify-center text-white text-xs font-medium shadow-md cursor-pointer z-20"
+                              style={{
+                                left: `${redBarAdjustedLeft}%`,
+                                width: `${redBarAdjustedWidth}%`,
+                                backgroundColor: '#f44336',
+                                minWidth: '2px',
+                                borderRadius: '0 4px 4px 0',
+                                border: '1px solid #d32f2f'
+                              }}
+                              title={`Test Running\nDuration: ${load.duration} hours\nStart: ${loadStart.toLocaleString()}\nEnd: ${loadEnd.toLocaleString()}\nStatus: ${load.status}\nParts: ${load.parts.map(p => p.partNumber).join(', ')}`}
+                            >
+                              {redBarAdjustedWidth > 3 && (
+                                <div className="px-1 text-center">
+                                  <div className="font-semibold text-[10px] truncate text-white">
+                                    {load.parts.length} part{load.parts.length > 1 ? 's' : ''}
+                                  </div>
+                                  <div className="text-[8px] text-white opacity-90 mt-0.5">
+                                    {load.duration}h
+                                  </div>
+                                  <div className="text-[7px] text-white opacity-70 mt-0.5">
+                                    {loadStart.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                  </div>
                                 </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* The actual load as yellow bar */}
-                        <div
-                          className="absolute top-2 bottom-2 rounded-lg flex flex-col items-center justify-center text-white text-xs font-medium shadow-md transition-all hover:shadow-lg cursor-pointer z-20 border border-yellow-600"
-                          style={{
-                            left: `${adjustedLeft}%`,
-                            width: `${adjustedWidth}%`,
-                            backgroundColor: '#ffeb3b',
-                            minWidth: '4px'
-                          }}
-                          title={`Loaded: ${load.parts.length} part(s)\nStart: ${loadStart.toLocaleString()}\nEnd: ${loadEnd.toLocaleString()}\nDuration: ${load.duration}h\nParts: ${load.parts.map(p => p.partNumber).join(', ')}`}
-                        >
-                          {adjustedWidth > 3 && (
-                            <div className="px-1 text-center">
-                              <div className="font-semibold text-[10px] truncate text-yellow-800">
-                                {load.parts.length} part{load.parts.length > 1 ? 's' : ''}
-                              </div>
-                              <div className="text-[8px] text-yellow-700 opacity-90 mt-0.5">
-                                {loadStart.getHours().toString().padStart(2, '0')}:{loadStart.getMinutes().toString().padStart(2, '0')}
-                              </div>
-                              {adjustedWidth > 6 && (
-                                <div className="text-[8px] text-yellow-700 opacity-80 mt-0.5">
-                                  {load.duration}h
+                              )}
+                              {redBarAdjustedWidth <= 3 && redBarAdjustedWidth > 1 && (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-white/90"></div>
                                 </div>
+                              )}
+                              {redBarAdjustedWidth <= 1 && (
+                                <div className="w-full h-full bg-red-600"></div>
                               )}
                             </div>
                           )}
-                          {adjustedWidth <= 3 && adjustedWidth > 1 && (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <div className="w-1.5 h-1.5 rounded-full bg-yellow-700/90"></div>
-                            </div>
-                          )}
-                        </div>
-                      </React.Fragment>
-                    );
-                  })}
+                        </React.Fragment>
+                      );
+                    })}
                 </div>
               </div>
             );
