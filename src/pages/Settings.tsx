@@ -984,7 +984,7 @@ const TicketViewPage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-medium">ANO Type</Label>
+              <Label className="text-sm font-medium">Stage</Label>
               <select
                 value={filterAnoType}
                 onChange={(e) => setFilterAnoType(e.target.value)}
@@ -1086,7 +1086,7 @@ const TicketViewPage: React.FC = () => {
                   <TableHead className="font-semibold">Ticket Code</TableHead>
                   <TableHead className="font-semibold">Project</TableHead>
                   <TableHead className="font-semibold">Total Quantity</TableHead>
-                  <TableHead className="font-semibold">ANO Type</TableHead>
+                  <TableHead className="font-semibold">Stage</TableHead>
                   <TableHead className="font-semibold">Allocation Status</TableHead>
                   <TableHead className="font-semibold">Received Date</TableHead>
                   <TableHead className="font-semibold">SOP Link</TableHead>
@@ -1246,7 +1246,7 @@ const TicketViewPage: React.FC = () => {
                   <p className="font-medium">{allocationData.project}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-600">ANO Type</Label>
+                  <Label className="text-xs text-gray-600">Stage</Label>
                   <p className="font-medium">{allocationData.anoType}</p>
                 </div>
                 <div>
@@ -1352,7 +1352,7 @@ const TicketViewPage: React.FC = () => {
                           {test.machineEquipment}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {test.time}
+                          {test.time}h
                         </TableCell>
                         <TableCell>
                           {/* <Badge className={STATUS_OPTIONS.find(s => s.value === test.status)?.color}>
@@ -1492,7 +1492,7 @@ const TicketViewPage: React.FC = () => {
                     <TableHead className="font-semibold">Ticket Code</TableHead>
                     <TableHead className="font-semibold">Project</TableHead>
                     <TableHead className="font-semibold">Total Parts</TableHead>
-                    <TableHead className="font-semibold">ANO Type</TableHead>
+                    <TableHead className="font-semibold">Stage</TableHead>
                     <TableHead className="font-semibold">No. of Tests</TableHead>
                     <TableHead className="font-semibold">Allocated Parts</TableHead>
                     <TableHead className="font-semibold">Last Updated</TableHead>

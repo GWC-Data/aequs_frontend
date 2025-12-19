@@ -66,7 +66,7 @@ const SOURCE_OPTIONS_ANO = ["Entire", "Other"];
 const SOURCE_OPTIONS_ASSEMBLY = ["Line1", "Line2", "Other"];
 const SOURCE_OPTIONS_OLEO = ["Other"];
 const PROJECT_OPTIONS = ["FLASH", "LIGHT", "HULK", "AQUA"];
-const COLOUR_OPTIONS = ["NDA", "Stardust", "Blue"];
+const COLOUR_OPTIONS = ["NDA", "Stardust", "Blue", "N/A"];
 const REASON_OPTIONS = ["Line qualification", "Machine qualification", "MP", "NPI", "Other"];
 
 // LocalStorage key
@@ -83,6 +83,7 @@ const COLOUR_CODES = {
   'NDA': 'NDA',
   'Stardust': 'SD',
   'Light Blue': 'LB',
+  'N/A': 'N/A'
 };
 
 const ANO_TYPE_CODES = {
@@ -100,7 +101,9 @@ const OQCSystem = () => {
   const [expandedTickets, setExpandedTickets] = useState<{ [key: string]: boolean }>({});
   const [expandedSessions, setExpandedSessions] = useState<{ [key: string]: boolean }>({});
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
+  // const [dateFilter, setDateFilter] = useState('');
+  const [startDateFilter, setStartDateFilter] = useState('');
+  const [endDateFilter, setEndDateFilter] = useState('');
 
   const [projectFilter, setProjectFilter] = useState<string>('All');
   const [buildFilter, setBuildFilter] = useState<string>('All');
@@ -770,7 +773,24 @@ const OQCSystem = () => {
         )
       );
 
-    const matchesDate = !dateFilter || record.dateTime === dateFilter;
+    // const matchesDate = !dateFilter || record.dateTime === dateFilter;
+    const recordDate = new Date(record.dateTime);
+    let matchesDate = true;
+
+     if (startDateFilter) {
+    const startDate = new Date(startDateFilter);
+    if (recordDate < startDate) {
+      matchesDate = false;
+    }
+  }
+  
+  if (endDateFilter) {
+    const endDate = new Date(endDateFilter);
+    endDate.setHours(23, 59, 59, 999); // Include entire end day
+    if (recordDate > endDate) {
+      matchesDate = false;
+    }
+  }
 
     // New filter conditions
     const matchesProject = projectFilter === 'All' || record.project === projectFilter;
@@ -1364,7 +1384,7 @@ const OQCSystem = () => {
               </div>
 
               {/* Colour Filter */}
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label htmlFor="colourFilter" className="flex items-center gap-2">
                   <Filter className="h-4 w-4" />
                   Colour
@@ -1379,10 +1399,31 @@ const OQCSystem = () => {
                     <option key={colour} value={colour}>{colour}</option>
                   ))}
                 </select>
+              </div> */}
+
+              <div className="space-y-2">
+                <Label htmlFor="colourFilter" className="flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  Colour
+                </Label>
+                <div className="flex gap-2">
+                  <select
+                    id="colourFilter"
+                    value={colourFilter}
+                    onChange={(e) => setColourFilter(e.target.value)}
+                    className="w-full h-10 px-3 border-2 border-gray-300 rounded-md"
+                  >
+                    {uniqueColours.map(colour => (
+                      <option key={colour} value={colour}>{colour}</option>
+                    ))}
+                  </select>
+                  
+                </div>
               </div>
 
+
               {/* Reason Filter */}
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label htmlFor="reasonFilter" className="flex items-center gap-2">
                   <Filter className="h-4 w-4" />
                   Reason
@@ -1397,28 +1438,80 @@ const OQCSystem = () => {
                     <option key={reason} value={reason}>{reason}</option>
                   ))}
                 </select>
-              </div>
-
-              {/* Date Filter and Action Buttons */}
+              </div> */}
               <div className="space-y-2">
-                <Label htmlFor="date" className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Date
+                <Label htmlFor="reasonFilter" className="flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  Reason
                 </Label>
                 <div className="flex gap-2">
-                  <Input
-                    id="date"
-                    type="date"
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                    className="flex-1"
-                  />
-                  <div className="flex items-end gap-2">
+                  <select
+                    id="reasonFilter"
+                    value={reasonFilter}
+                    onChange={(e) => setReasonFilter(e.target.value)}
+                    className="w-full h-10 px-3 border-2 border-gray-300 rounded-md"
+                  >
+                    {uniqueReasons.map(reason => (
+                      <option key={reason} value={reason}>{reason}</option>
+                    ))}
+                  </select>
+                  {/* Export Button - Uncomment if needed */}
+                  {/* <Button
+                  variant="outline"
+                  onClick={() => {
+                    const dataStr = JSON.stringify(testRecords, null, 2);
+                    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(dataBlob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `oqc_tickets_${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                  title="Export data"
+                >
+                  <Upload className="h-4 w-4" />
+                </Button> */}
+                </div>
+              </div>
+
+              {/* Start Date Filter */}
+              <div className="space-y-2">
+                <Label htmlFor="startDate" className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Start Date
+                </Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={startDateFilter}
+                  onChange={(e) => setStartDateFilter(e.target.value)}
+                />
+              </div>
+
+              {/* End Date Filter */}
+              <div className="space-y-2">
+                <Label htmlFor="endDate" className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  End Date
+                </Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={endDateFilter}
+                  onChange={(e) => setEndDateFilter(e.target.value)}
+                  min={startDateFilter} // End date cannot be before start date
+                />
+              </div>
+              <div className="flex items-end gap-2">
                     <Button
                       variant="outline"
                       onClick={() => {
                         setSearchTerm('');
-                        setDateFilter('');
+                        setStartDateFilter('');
+                        setEndDateFilter('');
                         setProjectFilter('All');
                         setBuildFilter('All');
                         setColourFilter('All');
@@ -1430,27 +1523,7 @@ const OQCSystem = () => {
                     >
                       <X className="h-4 w-4" />
                     </Button>
-                    {/* <Button
-                      variant="outline"
-                      onClick={() => {
-                        const dataStr = JSON.stringify(testRecords, null, 2);
-                        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                        const url = URL.createObjectURL(dataBlob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `oqc_tickets_${new Date().toISOString().split('T')[0]}.json`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                      }}
-                      title="Export data"
-                    >
-                      <Upload className="h-4 w-4" />
-                    </Button> */}
                   </div>
-                </div>
-              </div>
 
               {/* Filter Summary */}
               <div className="md:col-span-2 lg:col-span-5">
