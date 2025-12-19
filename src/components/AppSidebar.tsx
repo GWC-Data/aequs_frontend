@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const navigationItems = [
-  
+
   { title: "OQC Form", url: "/oqcpage", icon: List },
   // { title: "Barcode Scanner", url: "/barcode-scanner", icon: ScanBarcode },
   // { title: "Ticket Assignment", url: "/tickets", icon: Ticket },
@@ -31,7 +31,8 @@ const navigationItems = [
   { title: "Planning Dashboard", url: "/planning-detail", icon: Calendar },
   { title: "Chamber Load Dashboard", url: "/", icon: Home },
   { title: "Testing", url: "/form-default", icon: Settings },
-  
+  { title: "Report Dashboard", url: "/report-dashboard", icon: Settings },
+
 ];
 
 export function AppSidebar() {

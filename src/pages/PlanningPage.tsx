@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, FileSpreadsheet, X, Scan, Search, Info, Clock } from 'lucide-react';
+import { RefreshCw, FileSpreadsheet, X, Scan, Search, Info, Clock, Calendar, Grid } from 'lucide-react';
 
 const GanttChart = () => {
   const [data, setData] = useState([]);
@@ -16,10 +16,64 @@ const GanttChart = () => {
   const [scanning, setScanning] = useState(false);
   const [machineDetails, setMachineDetails] = useState(null);
   const [chamberLoadingStatus, setChamberLoadingStatus] = useState({});
+  const [viewMode, setViewMode] = useState('calendar'); // 'calendar' or 'table'
+  const [machineAvailability, setMachineAvailability] = useState({});
 
   useEffect(() => {
     initializeData();
   }, []);
+
+  useEffect(() => {
+    if (data.length > 0) {
+      calculateMachineAvailability();
+    }
+  }, [data]);
+
+  const calculateMachineAvailability = () => {
+    const availability = {};
+    const chamberLoads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
+    
+    data.forEach(row => {
+      const machineName = row.chamber;
+      const activeLoads = chamberLoads.filter(load => 
+        load.chamber === machineName && load.status === 'loaded'
+      );
+      
+      let status = 'available'; // green
+      
+      // Check if machine is currently loading (in modal)
+      if (chamberLoadingStatus[machineName] && selectedChamber === machineName) {
+        status = 'loading'; // yellow
+      } 
+      // Check if machine has active loads
+      else if (activeLoads.length > 0) {
+        // Check if any load is currently active (not completed)
+        const now = new Date();
+        const hasActiveLoad = activeLoads.some(load => {
+          const loadEnd = new Date(load.estimatedCompletion);
+          return loadEnd > now;
+        });
+        
+        if (hasActiveLoad) {
+          status = 'occupied'; // red
+        } else {
+          status = 'available'; // green (all loads completed)
+        }
+      }
+      
+      // Count parts in active loads
+      const activePartsCount = activeLoads.reduce((sum, load) => sum + load.parts.length, 0);
+      
+      availability[machineName] = {
+        status,
+        activeLoads: activeLoads.length,
+        activeParts: activePartsCount,
+        lastUpdated: new Date().toLocaleTimeString()
+      };
+    });
+    
+    setMachineAvailability(availability);
+  };
 
   const initializeData = async () => {
     setLoading(true);
@@ -277,7 +331,7 @@ const GanttChart = () => {
                 requiredQty: requiredQty,
                 remainingQty: remainingToAllocate,
                 alreadyAllocated: alreadyAllocated,
-                statusText: getStatusText(test.status)
+                statusText: getTestStatusText(test.status) // Changed to getTestStatusText
               });
             }
           }
@@ -317,7 +371,8 @@ const GanttChart = () => {
     }
   };
 
-  const getStatusText = (statusCode) => {
+  // Renamed this function to avoid conflict
+  const getTestStatusText = (statusCode) => {
     switch(statusCode) {
       case 1: return 'Pending';
       case 2: return 'In Progress';
@@ -344,7 +399,7 @@ const GanttChart = () => {
           testName: test.testName,
           duration: test.time,
           status: test.status,
-          statusText: getStatusText(test.status),
+          statusText: getTestStatusText(test.status), // Updated reference
           requiredQty: test.requiredQty,
           allocatedParts: test.allocatedParts,
           remainingQty: test.remainingQty,
@@ -507,6 +562,7 @@ const GanttChart = () => {
     setTimeout(() => {
       const tests = loadRunningTests();
       loadSampleData(tests);
+      calculateMachineAvailability();
     }, 100);
   };
 
@@ -533,12 +589,383 @@ const GanttChart = () => {
   const dateHeaders = generateDateHeaders(numberOfDays);
   const totalDays = numberOfDays;
 
-  const getChamberBackgroundColor = (chamberName) => {
-    if (chamberLoadingStatus[chamberName] && showLoadModal && selectedChamber === chamberName) {
-      return '#ffeb3b';
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'available': return '#4CAF50'; // Green
+      case 'occupied': return '#F44336'; // Red
+      case 'loading': return '#FFEB3B'; // Yellow
+      default: return '#9E9E9E'; // Grey
     }
-    
-    return '#81c784';
+  };
+
+  // This is the second getStatusText function (for machine status)
+  const getStatusText = (status) => {
+    switch(status) {
+      case 'available': return 'Available';
+      case 'occupied': return 'Occupied';
+      case 'loading': return 'Loading...';
+      default: return 'Unknown';
+    }
+  };
+
+  const renderTableView = () => {
+    return (
+      <div className="p-6">
+        <div className="overflow-x-auto bg-white rounded-lg shadow border">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Machine / Chamber
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Active Loads
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Parts in Chamber
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Last Updated
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {data.map((row, index) => {
+                const availability = machineAvailability[row.chamber] || { 
+                  status: 'available', 
+                  activeLoads: 0, 
+                  activeParts: 0,
+                  lastUpdated: 'N/A'
+                };
+                
+                return (
+                  <tr key={index} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div 
+                          className="w-3 h-3 rounded-full mr-3"
+                          style={{ backgroundColor: getStatusColor(availability.status) }}
+                        ></div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {row.chamber}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        availability.status === 'available' ? 'bg-green-100 text-green-800' :
+                        availability.status === 'occupied' ? 'bg-red-100 text-red-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {getStatusText(availability.status)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {availability.activeLoads}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {availability.activeParts}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {availability.lastUpdated}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => handleLoadChamber(row.chamber)}
+                        // disabled={availability.status === 'occupied' || availability.status === 'loading'}
+                        className={'px-4 py-2 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700'}
+                      >
+                        {availability.status === 'loading' ? 'Loading...' : 'Load Chamber'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        
+        {/* Legend for table view */}
+        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+          <h4 className="text-sm font-medium text-gray-700 mb-3">Status Legend:</h4>
+          <div className="flex flex-wrap gap-4">
+            <div className="flex items-center">
+              <div className="w-4 h-4 rounded-full bg-green-500 mr-2"></div>
+              <span className="text-sm text-gray-600">Available - Ready to load</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 rounded-full bg-red-500 mr-2"></div>
+              <span className="text-sm text-gray-600">Occupied - Currently in use</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 rounded-full bg-yellow-500 mr-2"></div>
+              <span className="text-sm text-gray-600">Loading - Being loaded now</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderCalendarView = () => {
+    return (
+      <div className="overflow-x-auto border-t">
+        <div style={{ minWidth: '1200px' }}>
+          <div className="flex border-b bg-gray-50">
+            <div className="w-80 p-4 border-r font-semibold text-sm text-gray-700">
+              Equipment / Machine
+            </div>
+            <div className="flex-1 relative">
+              <div className="absolute inset-0 flex">
+                {dateHeaders.map((header, idx) => (
+                  <div
+                    key={idx}
+                    className="flex-1 text-center py-2 border-r border-gray-200"
+                  >
+                    <div className="text-[10px] font-semibold text-gray-700">{header.dayName}</div>
+                    <div className="text-xs text-gray-600 mt-0.5">{header.dateStr}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {data.map((row, rowIdx) => {
+            const chamberLoads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
+            const activeChamberLoads = chamberLoads.filter(load => 
+              load.chamber === row.chamber && 
+              load.status === 'loaded'
+            ).sort((a, b) => new Date(a.loadedAt) - new Date(b.loadedAt));
+            
+            return (
+              <div key={rowIdx} className="flex border-b hover:bg-blue-50 transition-colors">
+                <div className="w-80 p-3 border-r bg-white font-medium text-sm text-gray-800 flex items-center justify-between">
+                  <div className="flex items-center flex-1">
+                    <div 
+                      className="w-3 h-3 rounded-full mr-3"
+                      style={{ 
+                        backgroundColor: getStatusColor(machineAvailability[row.chamber]?.status || 'available')
+                      }}
+                    ></div>
+                    <span className="truncate">{row.chamber}</span>
+                    {activeChamberLoads.length > 0 && (
+                      <div className="ml-2 flex items-center text-xs text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded">
+                        <Clock size={12} className="mr-1" />
+                        {activeChamberLoads.length} load(s) • {activeChamberLoads.reduce((sum, load) => sum + load.parts.length, 0)} parts
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex-1 relative h-20 bg-gradient-to-r from-white to-gray-50">
+                  <div className="absolute inset-0 flex">
+                    {dateHeaders.map((_, i) => (
+                      <div key={i} className="flex-1 border-r border-gray-100"></div>
+                    ))}
+                  </div>
+
+                  {/* Chamber availability bar - transparent green background */}
+                  <div
+                    className="absolute top-2 bottom-2 rounded-lg transition-all duration-300 opacity-30"
+                    style={{
+                      left: '0%',
+                      width: '100%',
+                      backgroundColor: '#81c784'
+                    }}
+                  ></div>
+
+                  {/* Existing tests */}
+                  {row.tests.map((test, testIdx) => {
+                    const testStart = new Date(test.startDateTime || test.submittedAt);
+                    testStart.setHours(0, 0, 0, 0);
+                    
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    const daysFromStart = Math.floor((testStart - today) / (1000 * 60 * 60 * 24));
+                    const testDurationDays = Math.ceil(test.duration / 24);
+                    
+                    const leftPercent = (daysFromStart / totalDays) * 100;
+                    const widthPercent = (testDurationDays / totalDays) * 100;
+
+                    if (leftPercent + widthPercent < 0 || leftPercent > 100) {
+                      return null;
+                    }
+
+                    const adjustedLeft = Math.max(0, leftPercent);
+                    const adjustedWidth = Math.min(100 - adjustedLeft, widthPercent + Math.min(0, leftPercent));
+
+                    const endDate = new Date(testStart);
+                    endDate.setDate(endDate.getDate() + testDurationDays);
+
+                    return (
+                      <div
+                        key={testIdx}
+                        className="absolute top-2 bottom-2 rounded-lg flex flex-col items-center justify-center text-white text-xs font-medium shadow-md transition-all hover:shadow-lg cursor-pointer z-10"
+                        style={{
+                          left: `${adjustedLeft}%`,
+                          width: `${adjustedWidth}%`,
+                          backgroundColor: '#e57373',
+                          minWidth: '30px'
+                        }}
+                        title={`${test.testName}\nDuration: ${test.duration}h (${testDurationDays} days)\nFrom: ${testStart.toLocaleDateString()}\nTo: ${endDate.toLocaleDateString()}`}
+                      >
+                        {adjustedWidth > 8 && (
+                          <div className="px-2 text-center">
+                            <div className="font-semibold text-[11px] truncate">{test.testName}</div>
+                            <div className="text-[9px] opacity-90 mt-0.5">
+                              {testStart.getDate()} {testStart.toLocaleDateString('en-US', { month: 'short' })} - {endDate.getDate()} {endDate.toLocaleDateString('en-US', { month: 'short' })}
+                            </div>
+                            <div className="text-[9px] opacity-80">{testDurationDays}d</div>
+                          </div>
+                        )}
+                        {adjustedWidth <= 8 && adjustedWidth > 3 && (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <div className="w-2 h-2 rounded-full bg-white/90"></div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Loaded parts as yellow bars with precise timing */}
+                  {activeChamberLoads.map((load, loadIdx) => {
+                    const loadStart = new Date(load.loadedAt);
+                    const loadEnd = new Date(load.estimatedCompletion);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    // Calculate days from today for the start date
+                    const loadStartDate = new Date(loadStart);
+                    loadStartDate.setHours(0, 0, 0, 0);
+                    const daysFromStart = Math.floor((loadStartDate - today) / (1000 * 60 * 60 * 24));
+                    
+                    // Calculate total duration in days
+                    const loadDurationMs = loadEnd - loadStart;
+                    const loadDurationDays = loadDurationMs / (1000 * 60 * 60 * 24);
+                    
+                    // Calculate position based on exact time of day
+                    const startHour = loadStart.getHours();
+                    const startMinute = loadStart.getMinutes();
+                    const startSecond = loadStart.getSeconds();
+                    const startFraction = (startHour * 3600 + startMinute * 60 + startSecond) / (24 * 3600); // 0 to 1
+                    
+                    const leftPercent = (daysFromStart / totalDays) * 100 + (startFraction / totalDays) * 100;
+                    const widthPercent = (loadDurationDays / totalDays) * 100;
+
+                    const adjustedLeft = Math.max(0, leftPercent);
+                    const adjustedWidth = Math.min(100 - adjustedLeft, widthPercent + Math.min(0, leftPercent));
+
+                    if (adjustedWidth <= 0) return null;
+
+                    // Check for gaps between loads
+                    let gapBefore = null;
+                    if (loadIdx > 0) {
+                      const prevLoad = activeChamberLoads[loadIdx - 1];
+                      const prevLoadEnd = new Date(prevLoad.estimatedCompletion);
+                      const gapMs = loadStart - prevLoadEnd;
+                      
+                      if (gapMs > 0) {
+                        const gapDays = gapMs / (1000 * 60 * 60 * 24);
+                        const gapStartDate = new Date(prevLoadEnd);
+                        gapStartDate.setHours(0, 0, 0, 0);
+                        const gapDaysFromStart = Math.floor((gapStartDate - today) / (1000 * 60 * 60 * 24));
+                        
+                        const gapStartHour = prevLoadEnd.getHours();
+                        const gapStartMinute = prevLoadEnd.getMinutes();
+                        const gapStartSecond = prevLoadEnd.getSeconds();
+                        const gapStartFraction = (gapStartHour * 3600 + gapStartMinute * 60 + gapStartSecond) / (24 * 3600);
+                        
+                        const gapLeftPercent = (gapDaysFromStart / totalDays) * 100 + (gapStartFraction / totalDays) * 100;
+                        const gapWidthPercent = (gapDays / totalDays) * 100;
+                        
+                        const gapAdjustedLeft = Math.max(0, gapLeftPercent);
+                        const gapAdjustedWidth = Math.min(100 - gapAdjustedLeft, gapWidthPercent + Math.min(0, gapLeftPercent));
+                        
+                        if (gapAdjustedWidth > 0.1) { // Only show gaps wider than 0.1% of the total width
+                          gapBefore = {
+                            left: gapAdjustedLeft,
+                            width: gapAdjustedWidth,
+                            start: prevLoadEnd,
+                            end: loadStart,
+                            duration: gapMs / (1000 * 60 * 60)
+                          };
+                        }
+                      }
+                    }
+
+                    return (
+                      <React.Fragment key={`load-${load.id}`}>
+                        {/* Gap before this load (shows as green) */}
+                        {gapBefore && (
+                          <div
+                            className="absolute top-2 bottom-2 transition-all z-10"
+                            style={{
+                              left: `${gapBefore.left}%`,
+                              width: `${gapBefore.width}%`,
+                              backgroundColor: '#81c784',
+                              minWidth: '1px'
+                            }}
+                            title={`Available: ${gapBefore.duration.toFixed(2)} hours\nFrom: ${gapBefore.start.toLocaleString()}\nTo: ${gapBefore.end.toLocaleString()}`}
+                          >
+                            {gapBefore.width > 0.5 && (
+                              <div className="w-full h-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                                <div className="text-[8px] text-green-700 bg-green-100 px-1 py-0.5 rounded">
+                                  {gapBefore.duration.toFixed(1)}h gap
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* The actual load as yellow bar */}
+                        <div
+                          className="absolute top-2 bottom-2 rounded-lg flex flex-col items-center justify-center text-white text-xs font-medium shadow-md transition-all hover:shadow-lg cursor-pointer z-20 border border-yellow-600"
+                          style={{
+                            left: `${adjustedLeft}%`,
+                            width: `${adjustedWidth}%`,
+                            backgroundColor: '#ffeb3b',
+                            minWidth: '4px'
+                          }}
+                          title={`Loaded: ${load.parts.length} part(s)\nStart: ${loadStart.toLocaleString()}\nEnd: ${loadEnd.toLocaleString()}\nDuration: ${load.duration}h\nParts: ${load.parts.map(p => p.partNumber).join(', ')}`}
+                        >
+                          {adjustedWidth > 3 && (
+                            <div className="px-1 text-center">
+                              <div className="font-semibold text-[10px] truncate text-yellow-800">
+                                {load.parts.length} part{load.parts.length > 1 ? 's' : ''}
+                              </div>
+                              <div className="text-[8px] text-yellow-700 opacity-90 mt-0.5">
+                                {loadStart.getHours().toString().padStart(2, '0')}:{loadStart.getMinutes().toString().padStart(2, '0')}
+                              </div>
+                              {adjustedWidth > 6 && (
+                                <div className="text-[8px] text-yellow-700 opacity-80 mt-0.5">
+                                  {load.duration}h
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {adjustedWidth <= 3 && adjustedWidth > 1 && (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <div className="w-1.5 h-1.5 rounded-full bg-yellow-700/90"></div>
+                            </div>
+                          )}
+                        </div>
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -554,6 +981,32 @@ const GanttChart = () => {
           </div>
 
           <div className="flex gap-2 items-center">
+            {/* View Mode Toggle */}
+            <div className="flex border border-gray-300 rounded-lg overflow-hidden mr-2">
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`px-3 py-2 flex items-center gap-2 text-sm font-medium transition-colors ${
+                  viewMode === 'calendar' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <Calendar size={16} />
+                Calendar View
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={`px-3 py-2 flex items-center gap-2 text-sm font-medium transition-colors ${
+                  viewMode === 'table' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <Grid size={16} />
+                Table View
+              </button>
+            </div>
+
             <div className="mr-2">
               <label className="text-xs text-gray-600 mr-2">Timeline:</label>
               <select
@@ -592,276 +1045,7 @@ const GanttChart = () => {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto border-t">
-              <div style={{ minWidth: '1200px' }}>
-                <div className="flex border-b bg-gray-50">
-                  <div className="w-80 p-4 border-r font-semibold text-sm text-gray-700">
-                    Equipment / Machine
-                  </div>
-                  <div className="flex-1 relative">
-                    <div className="absolute inset-0 flex">
-                      {dateHeaders.map((header, idx) => (
-                        <div
-                          key={idx}
-                          className="flex-1 text-center py-2 border-r border-gray-200"
-                        >
-                          <div className="text-[10px] font-semibold text-gray-700">{header.dayName}</div>
-                          <div className="text-xs text-gray-600 mt-0.5">{header.dateStr}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {data.map((row, rowIdx) => {
-                  const chamberLoads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
-                  const activeChamberLoads = chamberLoads.filter(load => 
-                    load.chamber === row.chamber && 
-                    load.status === 'loaded'
-                  ).sort((a, b) => new Date(a.loadedAt) - new Date(b.loadedAt));
-                  
-                  return (
-                    <div key={rowIdx} className="flex border-b hover:bg-blue-50 transition-colors">
-                      <div className="w-80 p-3 border-r bg-white font-medium text-sm text-gray-800 flex items-center justify-between">
-                        <div className="flex items-center flex-1">
-                          <div 
-                            className="w-3 h-3 rounded-full mr-3"
-                            style={{ 
-                              backgroundColor: getChamberBackgroundColor(row.chamber)
-                            }}
-                          ></div>
-                          <span className="truncate">{row.chamber}</span>
-                          {activeChamberLoads.length > 0 && (
-                            <div className="ml-2 flex items-center text-xs text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded">
-                              <Clock size={12} className="mr-1" />
-                              {activeChamberLoads.length} load(s) • {activeChamberLoads.reduce((sum, load) => sum + load.parts.length, 0)} parts
-                            </div>
-                          )}
-                          {chamberLoadingStatus[row.chamber] && showLoadModal && selectedChamber === row.chamber && (
-                            <div className="ml-2 flex items-center text-xs text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded">
-                              <Clock size={12} className="mr-1" />
-                              Loading...
-                            </div>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => handleLoadChamber(row.chamber)}
-                          disabled={chamberLoadingStatus[row.chamber]}
-                          className={`px-3 py-1.5 rounded hover:opacity-90 transition-colors text-xs font-medium shadow-sm whitespace-nowrap ${
-                            chamberLoadingStatus[row.chamber]
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-green-600 text-white hover:bg-green-700'
-                          }`}
-                          title={chamberLoadingStatus[row.chamber]
-                            ? 'Chamber currently being loaded'
-                            : `Load parts into ${row.chamber}`}
-                        >
-                          {chamberLoadingStatus[row.chamber] ? 'Loading...' : 'Load Chamber'}
-                        </button>
-                      </div>
-
-                      <div className="flex-1 relative h-20 bg-gradient-to-r from-white to-gray-50">
-                        <div className="absolute inset-0 flex">
-                          {dateHeaders.map((_, i) => (
-                            <div key={i} className="flex-1 border-r border-gray-100"></div>
-                          ))}
-                        </div>
-
-                        {/* Chamber availability bar - transparent green background */}
-                        <div
-                          className="absolute top-2 bottom-2 rounded-lg transition-all duration-300 opacity-30"
-                          style={{
-                            left: '0%',
-                            width: '100%',
-                            backgroundColor: '#81c784'
-                          }}
-                        ></div>
-
-                        {/* Existing tests */}
-                        {row.tests.map((test, testIdx) => {
-                          const testStart = new Date(test.startDateTime || test.submittedAt);
-                          testStart.setHours(0, 0, 0, 0);
-                          
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          
-                          const daysFromStart = Math.floor((testStart - today) / (1000 * 60 * 60 * 24));
-                          const testDurationDays = Math.ceil(test.duration / 24);
-                          
-                          const leftPercent = (daysFromStart / totalDays) * 100;
-                          const widthPercent = (testDurationDays / totalDays) * 100;
-
-                          if (leftPercent + widthPercent < 0 || leftPercent > 100) {
-                            return null;
-                          }
-
-                          const adjustedLeft = Math.max(0, leftPercent);
-                          const adjustedWidth = Math.min(100 - adjustedLeft, widthPercent + Math.min(0, leftPercent));
-
-                          const endDate = new Date(testStart);
-                          endDate.setDate(endDate.getDate() + testDurationDays);
-
-                          return (
-                            <div
-                              key={testIdx}
-                              className="absolute top-2 bottom-2 rounded-lg flex flex-col items-center justify-center text-white text-xs font-medium shadow-md transition-all hover:shadow-lg cursor-pointer z-10"
-                              style={{
-                                left: `${adjustedLeft}%`,
-                                width: `${adjustedWidth}%`,
-                                backgroundColor: '#e57373',
-                                minWidth: '30px'
-                              }}
-                              title={`${test.testName}\nDuration: ${test.duration}h (${testDurationDays} days)\nFrom: ${testStart.toLocaleDateString()}\nTo: ${endDate.toLocaleDateString()}`}
-                            >
-                              {adjustedWidth > 8 && (
-                                <div className="px-2 text-center">
-                                  <div className="font-semibold text-[11px] truncate">{test.testName}</div>
-                                  <div className="text-[9px] opacity-90 mt-0.5">
-                                    {testStart.getDate()} {testStart.toLocaleDateString('en-US', { month: 'short' })} - {endDate.getDate()} {endDate.toLocaleDateString('en-US', { month: 'short' })}
-                                  </div>
-                                  <div className="text-[9px] opacity-80">{testDurationDays}d</div>
-                                </div>
-                              )}
-                              {adjustedWidth <= 8 && adjustedWidth > 3 && (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <div className="w-2 h-2 rounded-full bg-white/90"></div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-
-                        {/* Loaded parts as yellow bars with precise timing */}
-                        {activeChamberLoads.map((load, loadIdx) => {
-                          const loadStart = new Date(load.loadedAt);
-                          const loadEnd = new Date(load.estimatedCompletion);
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          
-                          // Calculate days from today for the start date
-                          const loadStartDate = new Date(loadStart);
-                          loadStartDate.setHours(0, 0, 0, 0);
-                          const daysFromStart = Math.floor((loadStartDate - today) / (1000 * 60 * 60 * 24));
-                          
-                          // Calculate total duration in days
-                          const loadDurationMs = loadEnd - loadStart;
-                          const loadDurationDays = loadDurationMs / (1000 * 60 * 60 * 24);
-                          
-                          // Calculate position based on exact time of day
-                          const startHour = loadStart.getHours();
-                          const startMinute = loadStart.getMinutes();
-                          const startSecond = loadStart.getSeconds();
-                          const startFraction = (startHour * 3600 + startMinute * 60 + startSecond) / (24 * 3600); // 0 to 1
-                          
-                          const leftPercent = (daysFromStart / totalDays) * 100 + (startFraction / totalDays) * 100;
-                          const widthPercent = (loadDurationDays / totalDays) * 100;
-
-                          const adjustedLeft = Math.max(0, leftPercent);
-                          const adjustedWidth = Math.min(100 - adjustedLeft, widthPercent + Math.min(0, leftPercent));
-
-                          if (adjustedWidth <= 0) return null;
-
-                          // Check for gaps between loads
-                          let gapBefore = null;
-                          if (loadIdx > 0) {
-                            const prevLoad = activeChamberLoads[loadIdx - 1];
-                            const prevLoadEnd = new Date(prevLoad.estimatedCompletion);
-                            const gapMs = loadStart - prevLoadEnd;
-                            
-                            if (gapMs > 0) {
-                              const gapDays = gapMs / (1000 * 60 * 60 * 24);
-                              const gapStartDate = new Date(prevLoadEnd);
-                              gapStartDate.setHours(0, 0, 0, 0);
-                              const gapDaysFromStart = Math.floor((gapStartDate - today) / (1000 * 60 * 60 * 24));
-                              
-                              const gapStartHour = prevLoadEnd.getHours();
-                              const gapStartMinute = prevLoadEnd.getMinutes();
-                              const gapStartSecond = prevLoadEnd.getSeconds();
-                              const gapStartFraction = (gapStartHour * 3600 + gapStartMinute * 60 + gapStartSecond) / (24 * 3600);
-                              
-                              const gapLeftPercent = (gapDaysFromStart / totalDays) * 100 + (gapStartFraction / totalDays) * 100;
-                              const gapWidthPercent = (gapDays / totalDays) * 100;
-                              
-                              const gapAdjustedLeft = Math.max(0, gapLeftPercent);
-                              const gapAdjustedWidth = Math.min(100 - gapAdjustedLeft, gapWidthPercent + Math.min(0, gapLeftPercent));
-                              
-                              if (gapAdjustedWidth > 0.1) { // Only show gaps wider than 0.1% of the total width
-                                gapBefore = {
-                                  left: gapAdjustedLeft,
-                                  width: gapAdjustedWidth,
-                                  start: prevLoadEnd,
-                                  end: loadStart,
-                                  duration: gapMs / (1000 * 60 * 60)
-                                };
-                              }
-                            }
-                          }
-
-                          return (
-                            <React.Fragment key={`load-${load.id}`}>
-                              {/* Gap before this load (shows as green) */}
-                              {gapBefore && (
-                                <div
-                                  className="absolute top-2 bottom-2 transition-all z-10"
-                                  style={{
-                                    left: `${gapBefore.left}%`,
-                                    width: `${gapBefore.width}%`,
-                                    backgroundColor: '#81c784',
-                                    minWidth: '1px'
-                                  }}
-                                  title={`Available: ${gapBefore.duration.toFixed(2)} hours\nFrom: ${gapBefore.start.toLocaleString()}\nTo: ${gapBefore.end.toLocaleString()}`}
-                                >
-                                  {gapBefore.width > 0.5 && (
-                                    <div className="w-full h-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                                      <div className="text-[8px] text-green-700 bg-green-100 px-1 py-0.5 rounded">
-                                        {gapBefore.duration.toFixed(1)}h gap
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* The actual load as yellow bar */}
-                              <div
-                                className="absolute top-2 bottom-2 rounded-lg flex flex-col items-center justify-center text-white text-xs font-medium shadow-md transition-all hover:shadow-lg cursor-pointer z-20 border border-yellow-600"
-                                style={{
-                                  left: `${adjustedLeft}%`,
-                                  width: `${adjustedWidth}%`,
-                                  backgroundColor: '#ffeb3b',
-                                  minWidth: '4px'
-                                }}
-                                title={`Loaded: ${load.parts.length} part(s)\nStart: ${loadStart.toLocaleString()}\nEnd: ${loadEnd.toLocaleString()}\nDuration: ${load.duration}h\nParts: ${load.parts.map(p => p.partNumber).join(', ')}`}
-                              >
-                                {adjustedWidth > 3 && (
-                                  <div className="px-1 text-center">
-                                    <div className="font-semibold text-[10px] truncate text-yellow-800">
-                                      {load.parts.length} part{load.parts.length > 1 ? 's' : ''}
-                                    </div>
-                                    <div className="text-[8px] text-yellow-700 opacity-90 mt-0.5">
-                                      {loadStart.getHours().toString().padStart(2, '0')}:{loadStart.getMinutes().toString().padStart(2, '0')}
-                                    </div>
-                                    {adjustedWidth > 6 && (
-                                      <div className="text-[8px] text-yellow-700 opacity-80 mt-0.5">
-                                        {load.duration}h
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                                {adjustedWidth <= 3 && adjustedWidth > 1 && (
-                                  <div className="w-full h-full flex items-center justify-center">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-yellow-700/90"></div>
-                                  </div>
-                                )}
-                              </div>
-                            </React.Fragment>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            {viewMode === 'calendar' ? renderCalendarView() : renderTableView()}
 
             <div className="p-4 bg-gradient-to-r from-gray-50 to-white border-t">
               <div className="flex items-center justify-between">
@@ -881,7 +1065,10 @@ const GanttChart = () => {
                 </div>
 
                 <div className="text-sm text-gray-500">
-                  Showing {numberOfDays} days • {runningTests.length} active test(s)
+                  {viewMode === 'calendar' 
+                    ? `Showing ${numberOfDays} days • ${runningTests.length} active test(s)`
+                    : `${data.length} machines • Last updated: ${new Date().toLocaleTimeString()}`
+                  }
                 </div>
               </div>
             </div>
@@ -949,17 +1136,6 @@ const GanttChart = () => {
                             title={`${test.testName}\nRequired: ${test.requiredQty} parts\nRemaining to allocate: ${test.remainingQty} parts\nAlready allocated: ${test.alreadyAllocated}/${test.requiredQty}\nStatus: ${test.statusText}`}
                           >
                             <span className="font-semibold">{test.testName}</span>
-                            {/* <span className="text-[10px] mt-1">
-                              {test.duration}h • {test.remainingQty} remaining
-                            </span>
-                            <span className={`text-[10px] mt-0.5 px-1 rounded ${
-                              test.status === 1 ? 'bg-yellow-200 text-yellow-800' :
-                              test.status === 2 ? 'bg-blue-200 text-blue-800' :
-                              test.status === 3 ? 'bg-green-200 text-green-800' :
-                              'bg-gray-200 text-gray-800'
-                            }`}>
-                              {test.statusText}
-                            </span> */}
                           </div>
                         ))}
                       </div>
@@ -1033,35 +1209,6 @@ const GanttChart = () => {
                                 <div>Project: {part.project} | Build: {part.build} | Colour: {part.colour}</div>
                                 <div className="text-gray-400 text-xs">Scanned: {part.scannedAt}</div>
                               </div>
-                              
-                              {/* Test Selection for this part */}
-                              {/* <div className="mt-3">
-                                <label className="block text-xs font-medium text-gray-600 mb-1">
-                                  Select Test:
-                                </label>
-                                <select
-                                  value={part.selectedTestId || ''}
-                                  onChange={(e) => handleTestSelection(part.id, e.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
-                                >
-                                  <option value="">-- Select a test --</option>
-                                  {part.availableTests.map(test => {
-                                    const remaining = test.remainingQty;
-                                    const alreadyAllocated = test.alreadyAllocated || 0;
-                                    return (
-                                      <option 
-                                        key={test.id} 
-                                        value={test.id}
-                                        disabled={remaining <= 0}
-                                      >
-                                        {test.testName} ({test.time}h) - 
-                                        {remaining > 0 ? ` ${remaining} left to allocate` : ' Fully allocated'} - 
-                                        Already allocated: {alreadyAllocated}/{test.requiredQty}
-                                      </option>
-                                    );
-                                  })}
-                                </select>
-                              </div> */}
                             </div>
                             <button
                               onClick={() => handleRemovePart(part.id)}
