@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const navigationItems = [
-
+  {title:"Home", url:"/home-page", icon:Home},
   { title: "OQC Form", url: "/oqcpage", icon: List },
   // { title: "Barcode Scanner", url: "/barcode-scanner", icon: ScanBarcode },
   // { title: "Ticket Assignment", url: "/tickets", icon: Ticket },

@@ -16,7 +16,7 @@ const GanttChart = () => {
   const [scanning, setScanning] = useState(false);
   const [machineDetails, setMachineDetails] = useState(null);
   const [chamberLoadingStatus, setChamberLoadingStatus] = useState({});
-  const [viewMode, setViewMode] = useState('calendar'); // 'calendar' or 'table'
+  const [viewMode, setViewMode] = useState('table'); // 'calendar' or 'table'
   const [machineAvailability, setMachineAvailability] = useState({});
 
   useEffect(() => {
@@ -962,17 +962,6 @@ const GanttChart = () => {
             {/* View Mode Toggle */}
             <div className="flex border border-gray-300 rounded-lg overflow-hidden mr-2">
               <button
-                onClick={() => setViewMode('calendar')}
-                className={`px-3 py-2 flex items-center gap-2 text-sm font-medium transition-colors ${
-                  viewMode === 'calendar' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <Calendar size={16} />
-                Calendar View
-              </button>
-              <button
                 onClick={() => setViewMode('table')}
                 className={`px-3 py-2 flex items-center gap-2 text-sm font-medium transition-colors ${
                   viewMode === 'table' 
@@ -982,6 +971,17 @@ const GanttChart = () => {
               >
                 <Grid size={16} />
                 Table View
+              </button>
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`px-3 py-2 flex items-center gap-2 text-sm font-medium transition-colors ${
+                  viewMode === 'calendar' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <Calendar size={16} />
+                Calendar View
               </button>
             </div>
 
