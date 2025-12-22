@@ -32,6 +32,7 @@ interface StoredBarcodeData {
   serialNumber: string;
   partNumbers: string[];
   totalParts: number;
+  scannedParts?: string[];
   rawBarcodeData?: string;
   submitted?: boolean;
   submittedAt?: string;
@@ -147,7 +148,8 @@ const TicketAssignmentsTable: React.FC = () => {
       // Ensure each assignment has a location field with default "home"
       assignments = assignments.map(assignment => ({
         ...assignment,
-        location: assignment.location || "home"
+        location: assignment.location || "home",
+        scannedParts: assignment.scannedParts || []
       }));
 
       setAllAssignments(assignments);
@@ -170,6 +172,30 @@ const TicketAssignmentsTable: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  const markPartCompleted = (assignmentId: string, partNumber: string) => {
+  const stored = localStorage.getItem(storageKey);
+  if (!stored) return;
+
+  const assignments: StoredBarcodeData[] = JSON.parse(stored);
+
+  const updated = assignments.map(a => {
+    if (a.id === assignmentId) {
+      if (a.scannedParts?.includes(partNumber)) return a;
+
+      return {
+        ...a,
+        scannedParts: [...(a.scannedParts || []), partNumber]
+      };
+    }
+    return a;
+  });
+
+  localStorage.setItem(storageKey, JSON.stringify(updated));
+  setAllAssignments(updated);
+  processTicketSummaries(updated);
+};
+
 
   const processTicketSummaries = (assignments: StoredBarcodeData[]) => {
     // Group assignments by ticket
@@ -379,88 +405,45 @@ const TicketAssignmentsTable: React.FC = () => {
     }
   };
 
-  // const handleSubmitSession = (assignmentId: string, ticketCode: string) => {
-  //   try {
-  //     const stored = localStorage.getItem(storageKey);
-  //     if (!stored) return;
+  const handleSubmitSession = (assignmentId: string, ticketCode: string) => {
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (!stored) return;
 
-  //     const assignments: StoredBarcodeData[] = JSON.parse(stored);
+      const assignments: StoredBarcodeData[] = JSON.parse(stored);
 
-  //     const updatedAssignments = assignments.map(assignment => {
-  //       if (assignment.id === assignmentId) {
-  //         return {
-  //           ...assignment,
-  //           submitted: true,
-  //           submittedAt: new Date().toISOString()
-  //         };
-  //       }
-  //       return assignment;
-  //     });
+      const updatedAssignments = assignments.map(assignment => {
+        if (assignment.id === assignmentId) {
+          return {
+            ...assignment,
+            submitted: true,
+            submittedAt: new Date().toISOString()
+          };
+        }
+        return assignment;
+      });
 
-  //     localStorage.setItem(storageKey, JSON.stringify(updatedAssignments));
+      localStorage.setItem(storageKey, JSON.stringify(updatedAssignments));
 
-  //     setAllAssignments(updatedAssignments);
-  //     processTicketSummaries(updatedAssignments);
+      setAllAssignments(updatedAssignments);
+      processTicketSummaries(updatedAssignments);
 
-  //     toast({
-  //       title: "Session Submitted",
-  //       description: `Scanning session for ${ticketCode} has been submitted successfully`,
-  //       duration: 3000,
-  //     });
+      toast({
+        title: "Session Submitted",
+        description: `Scanning session for ${ticketCode} has been submitted successfully`,
+        duration: 3000,
+      });
 
-  //   } catch (error) {
-  //     console.error("Error submitting session:", error);
-  //     toast({
-  //       variant: "destructive",
-  //       title: "Submission Failed",
-  //       description: "Failed to submit scanning session",
-  //       duration: 3000,
-  //     });
-  //   }
-  // };
-
-  const updateAllocationStatus = (ticketCode: string, partsScanned: number) => {
-  try {
-    const allocationKey = "testAllocations";
-    const existingAllocations = JSON.parse(localStorage.getItem(allocationKey) || "[]");
-    const ticketAllocationIndex = existingAllocations.findIndex(
-      alloc => alloc.ticketCode === ticketCode
-    );
-    
-    if (ticketAllocationIndex === -1) return;
-
-    const currentAllocation = existingAllocations[ticketAllocationIndex];
-    let partsToDistribute = partsScanned;
-    
-    const updatedTestAllocations = [...currentAllocation.testAllocations];
-    
-    for (let i = 0; i < updatedTestAllocations.length && partsToDistribute > 0; i++) {
-      const test = updatedTestAllocations[i];
-      const needed = test.requiredQty - test.status;
-      
-      if (needed > 0) {
-        const partsForThisTest = Math.min(needed, partsToDistribute);
-        updatedTestAllocations[i] = {
-          ...test,
-          status: test.status + partsForThisTest
-        };
-        partsToDistribute -= partsForThisTest;
-      }
+    } catch (error) {
+      console.error("Error submitting session:", error);
+      toast({
+        variant: "destructive",
+        title: "Submission Failed",
+        description: "Failed to submit scanning session",
+        duration: 3000,
+      });
     }
-    
-    existingAllocations[ticketAllocationIndex] = {
-      ...currentAllocation,
-      testAllocations: updatedTestAllocations,
-      remainingParts: Math.max(0, currentAllocation.remainingParts - partsScanned),
-      updatedAt: new Date().toISOString()
-    };
-    
-    localStorage.setItem(allocationKey, JSON.stringify(existingAllocations));
-    
-  } catch (error) {
-    console.error("Error updating allocation:", error);
-  }
-};
+  };
 
   const getTotalRowsForTicket = (ticket: TicketSummary) => {
     let totalRows = 1; // Header row

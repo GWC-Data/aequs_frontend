@@ -857,11 +857,11 @@ const OQCSystem = () => {
                   className="bg-gray-50 font-mono"
                   placeholder="Fill all fields to generate code"
                 />
-                {formData.ticketCode && (
+                {/* {formData.ticketCode && (
                   <div className="text-sm text-blue-600 font-mono mt-1">
                     Format: {formData.ticketCode.replace(/^_|_$/g, '')}
                   </div>
-                )}
+                )} */}
               </div>
 
               <div className="space-y-2">

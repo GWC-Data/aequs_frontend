@@ -143,7 +143,7 @@ const GanttChart = () => {
     let normalized = name.trim().replace(/\s+/g, ' ');
 
     const exactEquipmentNames = [
-      'CKVI', 'CKV1', 'Instron', 'UTM', 'ASI Immersion', 'Ocean Immersion',
+      'CKV1', 'Instron', 'UTM', 'ASI Immersion', 'Ocean Immersion',
       'Pool Immersion', 'Tap Immersion', 'Foot Survivability',
       'Taber Linear Abrasion', 'Rock Tumble', 'Salt Spray',
       'Heat Soak', 'UV', 'Hardness machine', 'Thermal cycle',
@@ -159,7 +159,6 @@ const GanttChart = () => {
     const equipmentVariations = {
       'asi immersion': 'ASI Immersion',
       'ckv1': 'CKV1',
-      'ckvi': 'CKVI',
       'foot survivability': 'Foot Survivability',
       'ocean immersion': 'Ocean Immersion',
       'pool immersion': 'Pool Immersion',
@@ -201,8 +200,8 @@ const GanttChart = () => {
 
     const name = equipmentName.trim();
 
-    if (name.toLowerCase().includes('ckvi+random drop') || name.toLowerCase().includes('ckv1+random drop')) {
-      result.push('CKVI');
+    if (name.toLowerCase().includes('ckv1+random drop')) {
+      // result.push('CKVI');
       result.push('Random Drop');
       return result;
     }
@@ -299,7 +298,6 @@ const GanttChart = () => {
 
       const machineVariations = {
         'ckv1': 'CKV1',
-        'ckvi': 'CKVI',
         'asi immersion': 'ASI Immersion',
         'foot survivability': 'Foot Survivability',
         'ocean immersion': 'Ocean Immersion',
