@@ -66,11 +66,32 @@ const SOURCE_OPTIONS_ANO = ["Entire", "Other"];
 const SOURCE_OPTIONS_ASSEMBLY = ["Line1", "Line2", "Other"];
 const SOURCE_OPTIONS_OLEO = ["Other"];
 const PROJECT_OPTIONS = ["FLASH", "LIGHT", "HULK", "AQUA"];
-const COLOUR_OPTIONS = ["NDA", "Stardust", "Blue"];
+const COLOUR_OPTIONS = ["NDA", "Stardust", "Blue", "N/A"];
 const REASON_OPTIONS = ["Line qualification", "Machine qualification", "MP", "NPI", "Other"];
 
 // LocalStorage key
 const STORAGE_KEY = 'oqc_ticket_records';
+
+const PROJECT_CODES = {
+  'FLASH': 'FLS',
+  'LIGHT': 'LGT',
+  'HULK': 'HLK',
+  'AQUA': 'AQU'
+};
+
+const COLOUR_CODES = {
+  'NDA': 'NDA',
+  'Stardust': 'SD',
+  'Light Blue': 'LB',
+  'N/A': 'N/A'
+};
+
+const ANO_TYPE_CODES = {
+  'ANO': 'ANO',
+  'ASSEMBLY': 'ASSY',
+  'OLEO': 'OLEO'
+};
+
 
 const OQCSystem = () => {
   const navigate = useNavigate(); // Initialize navigate
@@ -80,7 +101,9 @@ const OQCSystem = () => {
   const [expandedTickets, setExpandedTickets] = useState<{ [key: string]: boolean }>({});
   const [expandedSessions, setExpandedSessions] = useState<{ [key: string]: boolean }>({});
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
+  // const [dateFilter, setDateFilter] = useState('');
+  const [startDateFilter, setStartDateFilter] = useState('');
+  const [endDateFilter, setEndDateFilter] = useState('');
 
   const [projectFilter, setProjectFilter] = useState<string>('All');
   const [buildFilter, setBuildFilter] = useState<string>('All');
@@ -120,6 +143,7 @@ const OQCSystem = () => {
   const [oqcApprover, setOqcApprover] = useState('');
   const [showOQCApproval, setShowOQCApproval] = useState<number | null>(null);
 
+
   // Load data from localStorage on component mount
   useEffect(() => {
     const storedData = localStorage.getItem(STORAGE_KEY);
@@ -150,18 +174,33 @@ const OQCSystem = () => {
   };
 
   // Generate ticket code
-  const generateTicketCode = (project: string) => {
-    const projectRecords = testRecords.filter(r => r.project === project);
+  const generateTicketCode = (project: string, colour: string, anoType: string, build: string, quantity: number) => {
+    // Get codes
+    const projectCode = PROJECT_CODES[project.toUpperCase()] || 'UNK';
+    const colourCode = COLOUR_CODES[colour] || 'UNK';
+    const anoCode = ANO_TYPE_CODES[anoType.toUpperCase()] || 'UNK';
+
+    // Pad quantity to 3 digits
+    const quantityPadded = String(quantity).padStart(3, '0');
+
+    // Get the next sequence number for this project
+    // const projectRecords = testRecords.filter(r => r.project === project);
     let maxNumber = 0;
-    projectRecords.forEach(record => {
-      const match = record.ticketCode?.match(new RegExp(`^${project}-(\\d+)$`));
+
+    testRecords.forEach(record => {
+      // Extract the sequence number from existing ticket codes
+      // Format: 001_FLS_LB_ANO_BUILD_040
+      const match = record.ticketCode?.match(/^(\d+)_/);
       if (match) {
         const num = parseInt(match[1], 10);
         if (num > maxNumber) maxNumber = num;
       }
     });
-    const nextNumber = maxNumber + 1;
-    return `${project}-${nextNumber.toString().padStart(3, '0')}`;
+
+    const sequenceNumber = String(maxNumber + 1).padStart(3, '0');
+
+    // Generate the final ticket code
+    return `${sequenceNumber}_${projectCode}_${colourCode}_${anoCode}_${build}_${quantityPadded}`;
   };
 
   // Update source options based on ANO type
@@ -198,11 +237,24 @@ const OQCSystem = () => {
     }
   }, [formData.reason]);
 
+  // useEffect(() => {
+  //   if (formData.project) {
+  //     setFormData(prev => ({ ...prev, ticketCode: generateTicketCode(formData.project) }));
+  //   }
+  // }, [formData.project, testRecords]);
+
   useEffect(() => {
-    if (formData.project) {
-      setFormData(prev => ({ ...prev, ticketCode: generateTicketCode(formData.project) }));
+    if (formData.project && formData.colour && formData.anoType && formData.build && formData.totalQuantity > 0) {
+      const newCode = generateTicketCode(
+        formData.project,
+        formData.colour,
+        formData.anoType,
+        formData.build,
+        formData.totalQuantity
+      );
+      setFormData(prev => ({ ...prev, ticketCode: newCode }));
     }
-  }, [formData.project, testRecords]);
+  }, [formData.project, formData.colour, formData.anoType, formData.build, formData.totalQuantity, testRecords]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -216,6 +268,11 @@ const OQCSystem = () => {
 
   const handleSubmitForm = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.ticketCode || !formData.ticketCode.includes('_')) {
+      showNotification('error', 'Please fill all required fields to generate ticket code');
+      return;
+    }
 
     const finalSource = formData.source === 'Other' ? formData.otherSource : formData.source;
     const finalReason = formData.reason === 'Other' ? formData.otherReason : formData.reason;
@@ -234,6 +291,12 @@ const OQCSystem = () => {
 
     if (formData.reason === 'Other' && !formData.otherReason.trim()) {
       showNotification('error', 'Please specify the reason when Other is selected');
+      return;
+    }
+
+    const existingTicket = testRecords.find(record => record.ticketCode === formData.ticketCode);
+    if (existingTicket) {
+      showNotification('error', 'Ticket code already exists. Please check your inputs.');
       return;
     }
 
@@ -307,7 +370,46 @@ const OQCSystem = () => {
 
     const parts = data.split(':');
     const serialNumber = parts[0].trim();
-    const partNumber = parts.length > 1 ? parts[1].trim() : `${selectedTicket.project}-P${String(totalScanned + 1).padStart(3, '0')}`;
+
+    // If part number is not provided in barcode, generate it
+    let partNumber;
+    if (parts.length > 1) {
+      partNumber = parts[1].trim();
+    } else {
+      // Find the highest existing PART-XXX number across all tickets
+      let highestPartNumber = 0;
+
+      // Check all tickets and sessions to find the highest part number
+      testRecords.forEach(record => {
+        record.sessions.forEach(session => {
+          session.parts.forEach(part => {
+            // Extract number from PART-001 format
+            const match = part.partNumber.match(/PART-(\d+)$/);
+            if (match) {
+              const num = parseInt(match[1], 10);
+              if (num > highestPartNumber) {
+                highestPartNumber = num;
+              }
+            }
+          });
+        });
+      });
+
+      // Also check current tempScannedParts
+      tempScannedParts.forEach(part => {
+        const match = part.partNumber.match(/PART-(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > highestPartNumber) {
+            highestPartNumber = num;
+          }
+        }
+      });
+
+      // Generate next unique part number
+      const nextPartNumber = highestPartNumber + 1;
+      partNumber = `PART-${String(nextPartNumber).padStart(3, '0')}`;
+    }
 
     // Check for duplicate serial number in current session
     const duplicateInSession = tempScannedParts.find(p => p.serialNumber === serialNumber);
@@ -322,6 +424,18 @@ const OQCSystem = () => {
     );
     if (duplicateInAllSessions) {
       showNotification('error', `Duplicate serial number in ticket: ${serialNumber}`);
+      return;
+    }
+
+    // Check for duplicate part number across all tickets
+    const duplicatePartNumber = testRecords.some(record =>
+      record.sessions.some(session =>
+        session.parts.some(part => part.partNumber === partNumber)
+      )
+    ) || tempScannedParts.some(p => p.partNumber === partNumber);
+
+    if (duplicatePartNumber) {
+      showNotification('error', `Duplicate part number detected: ${partNumber}. Please rescan.`);
       return;
     }
 
@@ -710,7 +824,24 @@ const OQCSystem = () => {
         )
       );
 
-    const matchesDate = !dateFilter || record.dateTime === dateFilter;
+    // const matchesDate = !dateFilter || record.dateTime === dateFilter;
+    const recordDate = new Date(record.dateTime);
+    let matchesDate = true;
+
+    if (startDateFilter) {
+      const startDate = new Date(startDateFilter);
+      if (recordDate < startDate) {
+        matchesDate = false;
+      }
+    }
+
+    if (endDateFilter) {
+      const endDate = new Date(endDateFilter);
+      endDate.setHours(23, 59, 59, 999); // Include entire end day
+      if (recordDate > endDate) {
+        matchesDate = false;
+      }
+    }
 
     // New filter conditions
     const matchesProject = projectFilter === 'All' || record.project === projectFilter;
@@ -751,7 +882,7 @@ const OQCSystem = () => {
         <CardContent>
           <form onSubmit={handleSubmitForm} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label className="font-bold uppercase">
                   Ticket Code <span className="text-red-600">*</span>
                   <span className="text-xs font-normal text-gray-500 ml-2">(Auto-generated)</span>
@@ -763,6 +894,25 @@ const OQCSystem = () => {
                   className="bg-gray-50"
                   placeholder="Select project to generate code"
                 />
+              </div> */}
+
+              <div className="space-y-2">
+                <Label className="font-bold uppercase">
+                  Ticket Code <span className="text-red-600">*</span>
+                  <span className="text-xs font-normal text-gray-500 ml-2">(Auto-generated)</span>
+                </Label>
+                <Input
+                  type="text"
+                  value={formData.ticketCode}
+                  readOnly
+                  className="bg-gray-50 font-mono"
+                  placeholder="Fill all fields to generate code"
+                />
+                {/* {formData.ticketCode && (
+                  <div className="text-sm text-blue-600 font-mono mt-1">
+                    Format: {formData.ticketCode.replace(/^_|_$/g, '')}
+                  </div>
+                )} */}
               </div>
 
               <div className="space-y-2">
@@ -955,7 +1105,7 @@ const OQCSystem = () => {
     const hasUnsubmittedSessions = selectedTicket.sessions.some(session => !session.submitted);
 
     return (
-      <div className="space-y-6 p-4 max-w-6xl mx-auto">
+      <div className="space-y-6 p-4  mx-auto">
         <Card>
           <CardContent className="p-6">
             <div className="flex justify-between items-center mb-6">
@@ -1058,27 +1208,6 @@ const OQCSystem = () => {
                 </p>
               </div>
 
-              {/* <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-700">Test Barcodes:</Label>
-                <div className="flex flex-wrap gap-2">
-                  {['SN001:PART-001', 'SN002:PART-002', 'SN003:PART-003'].map((barcode, idx) => (
-                    <Button
-                      key={idx}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setBarcodeInput(barcode);
-                        setTimeout(() => processBarcode(barcode), 100);
-                      }}
-                      className="text-xs font-mono"
-                      disabled={remainingCount <= 0}
-                    >
-                      {barcode}
-                    </Button>
-                  ))}
-                </div>
-              </div> */}
-
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-gray-700">Scan: </Label>
                 <Button
@@ -1087,8 +1216,40 @@ const OQCSystem = () => {
                   onClick={() => {
                     const totalScannedInSession = tempScannedParts.length;
                     const totalScannedOverall = selectedTicket.sessions.reduce((sum, session) => sum + session.parts.length, 0);
-                    const nextNumber = totalScannedInSession + totalScannedOverall + 1;
-                    const barcode = `SN${String(nextNumber).padStart(3, '0')}:PART-${String(nextNumber).padStart(3, '0')}`;
+
+                    // Find the highest existing part number across all tickets
+                    let highestPartNumber = 0;
+                    testRecords.forEach(record => {
+                      record.sessions.forEach(session => {
+                        session.parts.forEach(part => {
+                          // Extract number from PART-001 format
+                          const match = part.partNumber.match(/PART-(\d+)$/);
+                          if (match) {
+                            const num = parseInt(match[1], 10);
+                            if (num > highestPartNumber) {
+                              highestPartNumber = num;
+                            }
+                          }
+                        });
+                      });
+                    });
+
+                    // Also check current tempScannedParts
+                    tempScannedParts.forEach(part => {
+                      const match = part.partNumber.match(/PART-(\d+)$/);
+                      if (match) {
+                        const num = parseInt(match[1], 10);
+                        if (num > highestPartNumber) {
+                          highestPartNumber = num;
+                        }
+                      }
+                    });
+
+                    const nextPartNumber = highestPartNumber + 1;
+                    const partNumber = `PART-${String(nextPartNumber).padStart(3, '0')}`;
+                    const serialNumber = `SN${String(nextPartNumber).padStart(3, '0')}`;
+                    const barcode = `${serialNumber}:${partNumber}`;
+
                     setBarcodeInput(barcode);
                     setTimeout(() => processBarcode(barcode), 100);
                   }}
@@ -1097,9 +1258,6 @@ const OQCSystem = () => {
                 >
                   Scan & Generate
                 </Button>
-                {/* <p className="text-xs text-gray-500">
-                  Click to automatically generate and scan the next sequential barcode
-                </p> */}
               </div>
             </div>
           </CardContent>
@@ -1285,7 +1443,7 @@ const OQCSystem = () => {
               </div>
 
               {/* Colour Filter */}
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label htmlFor="colourFilter" className="flex items-center gap-2">
                   <Filter className="h-4 w-4" />
                   Colour
@@ -1300,10 +1458,31 @@ const OQCSystem = () => {
                     <option key={colour} value={colour}>{colour}</option>
                   ))}
                 </select>
+              </div> */}
+
+              <div className="space-y-2">
+                <Label htmlFor="colourFilter" className="flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  Colour
+                </Label>
+                <div className="flex gap-2">
+                  <select
+                    id="colourFilter"
+                    value={colourFilter}
+                    onChange={(e) => setColourFilter(e.target.value)}
+                    className="w-full h-10 px-3 border-2 border-gray-300 rounded-md"
+                  >
+                    {uniqueColours.map(colour => (
+                      <option key={colour} value={colour}>{colour}</option>
+                    ))}
+                  </select>
+
+                </div>
               </div>
 
+
               {/* Reason Filter */}
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label htmlFor="reasonFilter" className="flex items-center gap-2">
                   <Filter className="h-4 w-4" />
                   Reason
@@ -1318,59 +1497,91 @@ const OQCSystem = () => {
                     <option key={reason} value={reason}>{reason}</option>
                   ))}
                 </select>
-              </div>
-
-              {/* Date Filter and Action Buttons */}
+              </div> */}
               <div className="space-y-2">
-                <Label htmlFor="date" className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Date
+                <Label htmlFor="reasonFilter" className="flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  Reason
                 </Label>
                 <div className="flex gap-2">
-                  <Input
-                    id="date"
-                    type="date"
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                    className="flex-1"
-                  />
-                  <div className="flex items-end gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setSearchTerm('');
-                        setDateFilter('');
-                        setProjectFilter('All');
-                        setBuildFilter('All');
-                        setColourFilter('All');
-                        setReasonFilter('All');
-                        setExpandedTickets({});
-                        setExpandedSessions({});
-                      }}
-                      title="Clear all filters"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                    {/* <Button
-                      variant="outline"
-                      onClick={() => {
-                        const dataStr = JSON.stringify(testRecords, null, 2);
-                        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                        const url = URL.createObjectURL(dataBlob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `oqc_tickets_${new Date().toISOString().split('T')[0]}.json`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                      }}
-                      title="Export data"
-                    >
-                      <Upload className="h-4 w-4" />
-                    </Button> */}
-                  </div>
+                  <select
+                    id="reasonFilter"
+                    value={reasonFilter}
+                    onChange={(e) => setReasonFilter(e.target.value)}
+                    className="w-full h-10 px-3 border-2 border-gray-300 rounded-md"
+                  >
+                    {uniqueReasons.map(reason => (
+                      <option key={reason} value={reason}>{reason}</option>
+                    ))}
+                  </select>
+                  {/* Export Button - Uncomment if needed */}
+                  {/* <Button
+                  variant="outline"
+                  onClick={() => {
+                    const dataStr = JSON.stringify(testRecords, null, 2);
+                    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(dataBlob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `oqc_tickets_${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                  title="Export data"
+                >
+                  <Upload className="h-4 w-4" />
+                </Button> */}
                 </div>
+              </div>
+
+              {/* Start Date Filter */}
+              <div className="space-y-2">
+                <Label htmlFor="startDate" className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Start Date
+                </Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={startDateFilter}
+                  onChange={(e) => setStartDateFilter(e.target.value)}
+                />
+              </div>
+
+              {/* End Date Filter */}
+              <div className="space-y-2">
+                <Label htmlFor="endDate" className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  End Date
+                </Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={endDateFilter}
+                  onChange={(e) => setEndDateFilter(e.target.value)}
+                  min={startDateFilter} // End date cannot be before start date
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setStartDateFilter('');
+                    setEndDateFilter('');
+                    setProjectFilter('All');
+                    setBuildFilter('All');
+                    setColourFilter('All');
+                    setReasonFilter('All');
+                    setExpandedTickets({});
+                    setExpandedSessions({});
+                  }}
+                  title="Clear all filters"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
 
               {/* Filter Summary */}

@@ -20,6 +20,8 @@ import ORTLabPage from "./pages/ORTLabPage";
 import BarcodeScannerPage from "./pages/BarcodeScannerPage";
 import TicketAssignmentsTable from "./pages/TicketAssignmentsTable";
 import QrtCheckList from "./pages/QrtCheckList";
+import ReportDashboard from "./pages/ReportDashboard";
+import Home from "./pages/Home";
 
 const queryClient = new QueryClient();
 
@@ -38,17 +40,19 @@ const App = () => (
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/oqcpage" element={<OqcformPage />} />
-                  <Route path="/barcode-scanner" element={<BarcodeScannerPage/>}/>
-                  <Route path="/tickets" element={<TicketAssignmentsTable/>}/>
+                  <Route path="/barcode-scanner" element={<BarcodeScannerPage />} />
+                  <Route path="/tickets" element={<TicketAssignmentsTable />} />
                   <Route path="/author" element={<Author />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/stage2-form" element={<Stage2FormPage />} />
                   <Route path="/stage2" element={<Stage2DetailRecords />} />
-                  <Route path="/qrtchecklist" element={<QrtCheckList/>} />
+                  <Route path="/qrtchecklist" element={<QrtCheckList />} />
                   <Route path="/form-default" element={<DefaultForm />} />
                   <Route path="/planning-detail" element={<PlanningModule />} />
                   <Route path="/ort-lab-details" element={<ORTLabDetailsPage />} />
-                  <Route path="/ort-lab-form" element={<ORTLabPage/>}/>
+                  <Route path="/ort-lab-form" element={<ORTLabPage />} />
+                  <Route path="/report-dashboard" element={<ReportDashboard />} />
+                  <Route path="/home-page" element={<Home/>}/>
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>

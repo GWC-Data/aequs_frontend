@@ -86,6 +86,52 @@
 //     assignedToTest: string;
 // }
 
+// interface LoadedPart {
+//     partNumber: string;
+//     serialNumber: string;
+//     ticketCode: string;
+//     testId: string;
+//     testName: string;
+//     loadedAt: string;
+//     scanStatus: string;
+//     duration: string;
+// }
+
+// interface MachineTest {
+//     id: string;
+//     testName: string;
+//     duration: string;
+//     status: number;
+//     statusText: string;
+//     requiredQty: number;
+//     allocatedParts: number;
+//     remainingQty: number;
+//     alreadyAllocated: number;
+// }
+
+// interface MachineDetails {
+//     machine: string;
+//     ticketCode: string;
+//     project: string;
+//     build: string;
+//     colour: string;
+//     totalTests: number;
+//     tests: MachineTest[];
+//     estimatedDuration: number;
+// }
+
+// interface MachineLoadData {
+//     loadId: number;
+//     chamber: string;
+//     parts: LoadedPart[];
+//     totalParts: number;
+//     machineDetails: MachineDetails;
+//     loadedAt: string;
+//     estimatedCompletion: string;
+//     duration: number;
+//     testRecords?: LoadedPart[]; // For backward compatibility
+// }
+
 // interface ChildTest {
 //     id: string;
 //     name: string;
@@ -95,9 +141,9 @@
 //     startTime?: string;
 //     endTime?: string;
 //     status: 'pending' | 'active' | 'completed';
-//     requiresImages?: boolean; // Whether this child test requires image upload
-//     dependsOnPrevious?: boolean; // Whether this test depends on previous test completion
-//     previousTestId?: string; // ID of the previous test this depends on
+//     dependsOnPrevious?: boolean;
+//     previousTestId?: string;
+//     requiresImages?: boolean;
 // }
 
 // interface TestRecord {
@@ -142,6 +188,7 @@
 //     submittedAt: string;
 //     version: string;
 //     testingStatus?: string;
+//     machineLoadData?: MachineLoadData; // New field for machine load data
 // }
 
 // // Enhanced FormRow interface
@@ -164,6 +211,7 @@
 //     finalCroppedNonCosmeticImage?: string;
 //     cosmeticImages?: string[];
 //     nonCosmeticImages?: string[];
+//     croppedImages?: string[];
 //     [key: string]: any;
 // }
 
@@ -206,7 +254,6 @@
 //             [childTestId: string]: {
 //                 cosmetic: string[];
 //                 nonCosmetic: string[];
-//                 croppedRegions?: CroppedRegion[];
 //             };
 //         };
 //     };
@@ -241,6 +288,7 @@
 //     currentChildTest?: ChildTest;
 //     onChildTestComplete: () => void;
 //     onChildTestChange: (childTestIndex: number) => void;
+//     machineLoadData?: MachineLoadData;
 // }
 
 // function DefaultForm({
@@ -257,7 +305,8 @@
 //     isSecondRound = false,
 //     currentChildTest,
 //     onChildTestComplete,
-//     onChildTestChange
+//     onChildTestChange,
+//     machineLoadData
 // }: DefaultFormProps) {
 //     const [showAddColumnModal, setShowAddColumnModal] = useState(false);
 //     const [newColumn, setNewColumn] = useState({
@@ -458,7 +507,7 @@
 //     };
 
 //     // Filter rows for current child test
-//     const rowsForCurrentChildTest = formData.rows.filter(row => 
+//     const rowsForCurrentChildTest = formData.rows.filter(row =>
 //         !currentChildTest || row.childTestId === currentChildTest.id
 //     );
 
@@ -477,55 +526,75 @@
 //         }
 //     };
 
-//     // Check if current child test is locked (depends on previous test)
-//     const isTestLocked = currentChildTest?.dependsOnPrevious && 
-//         formData.childTests?.some((test, index) => 
-//             test.id === currentChildTest.previousTestId && 
-//             test.status !== 'completed'
-//         );
-
 //     return (
 //         <div className="p-8 bg-gray-50 min-h-screen">
 //             <div className="max-w-full mx-auto">
+//                 {/* Machine Load Information - New Section */}
+//                 {machineLoadData && (
+//                     <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+//                         <div className="flex items-center justify-between mb-4">
+//                             <h3 className="text-lg font-semibold text-gray-800">Machine Load Information</h3>
+//                             <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+//                                 Load ID: {machineLoadData.loadId}
+//                             </span>
+//                         </div>
+//                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+//                             <div>
+//                                 <span className="text-sm text-gray-600">Machine/Chamber:</span>
+//                                 <div className="font-semibold">{machineLoadData.chamber}</div>
+//                             </div>
+//                             <div>
+//                                 <span className="text-sm text-gray-600">Total Parts:</span>
+//                                 <div className="font-semibold">{machineLoadData.totalParts}</div>
+//                             </div>
+//                             <div>
+//                                 <span className="text-sm text-gray-600">Loaded At:</span>
+//                                 <div className="font-semibold">
+//                                     {new Date(machineLoadData.loadedAt).toLocaleDateString()}
+//                                 </div>
+//                             </div>
+//                             <div>
+//                                 <span className="text-sm text-gray-600">Estimated Completion:</span>
+//                                 <div className="font-semibold">
+//                                     {new Date(machineLoadData.estimatedCompletion).toLocaleDateString()}
+//                                 </div>
+//                             </div>
+//                         </div>
+//                         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+//                             <div>
+//                                 <span className="text-sm text-gray-600">Duration:</span>
+//                                 <div className="font-semibold">{machineLoadData.duration} hours</div>
+//                             </div>
+//                             <div>
+//                                 <span className="text-sm text-gray-600">Ticket:</span>
+//                                 <div className="font-semibold">{machineLoadData.machineDetails.ticketCode}</div>
+//                             </div>
+//                         </div>
+//                     </div>
+//                 )}
+
 //                 {/* Child Test Navigation */}
 //                 {formData.childTests && formData.childTests.length > 1 && (
 //                     <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
 //                         <h3 className="text-lg font-semibold text-gray-800 mb-4">Child Tests Progress</h3>
 //                         <div className="flex flex-wrap gap-2">
-//                             {formData.childTests.map((childTest, index) => {
-//                                 const isLocked = childTest.dependsOnPrevious && 
-//                                     formData.childTests?.some((test, idx) => 
-//                                         test.id === childTest.previousTestId && 
-//                                         test.status !== 'completed' &&
-//                                         idx < index
-//                                     );
-
-//                                 return (
-//                                     <button
-//                                         key={childTest.id}
-//                                         onClick={() => !isLocked && onChildTestChange(index)}
-//                                         disabled={isLocked}
-//                                         className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-//                                             formData.currentChildTestIndex === index
-//                                                 ? 'bg-blue-100 text-blue-700 border-blue-300'
-//                                                 : childTest.status === 'completed'
-//                                                 ? 'bg-green-100 text-green-700 border-green-300'
-//                                                 : isLocked
-//                                                 ? 'bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed'
-//                                                 : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+//                             {formData.childTests.map((childTest, index) => (
+//                                 <button
+//                                     key={childTest.id}
+//                                     onClick={() => onChildTestChange(index)}
+//                                     className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${formData.currentChildTestIndex === index
+//                                         ? 'bg-blue-100 text-blue-700 border-blue-300'
+//                                         : childTest.status === 'completed'
+//                                             ? 'bg-green-100 text-green-700 border-green-300'
+//                                             : 'bg-gray-100 text-gray-700 border-gray-300'
 //                                         }`}
-//                                         title={isLocked ? `Complete ${formData.childTests?.[index-1]?.name} first` : ''}
-//                                     >
-//                                         <span className="font-medium">{childTest.name}</span>
-//                                         {childTest.status === 'completed' && (
-//                                             <CheckCircle size={16} />
-//                                         )}
-//                                         {isLocked && !childTest.status && (
-//                                             <Clock size={16} className="text-gray-400" />
-//                                         )}
-//                                     </button>
-//                                 );
-//                             })}
+//                                 >
+//                                     <span className="font-medium">{childTest.name}</span>
+//                                     {childTest.status === 'completed' && (
+//                                         <CheckCircle size={16} />
+//                                     )}
+//                                 </button>
+//                             ))}
 //                         </div>
 //                     </div>
 //                 )}
@@ -538,11 +607,6 @@
 //                                 <h2 className="text-xl font-bold text-gray-900">{formData.testName}</h2>
 //                                 <p className="text-gray-600">
 //                                     Child Test: <span className="font-semibold text-blue-600">{currentChildTest.name}</span>
-//                                     {currentChildTest.dependsOnPrevious && (
-//                                         <span className="ml-2 text-sm text-yellow-600">
-//                                             (Requires previous test completion)
-//                                         </span>
-//                                     )}
 //                                 </p>
 //                                 <div className="mt-2 text-sm text-gray-500">
 //                                     Machine: {currentChildTest.machineEquipment} | Timing: {currentChildTest.timing} hours
@@ -556,19 +620,15 @@
 //                                     <button
 //                                         type="button"
 //                                         onClick={onTimerToggle}
-//                                         disabled={isTestLocked}
-//                                         className={`flex items-center w-fit border rounded-md px-4 py-2 font-semibold transition-colors ${
-//                                             isTestLocked 
-//                                                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-//                                                 : timerState.isRunning
-//                                                 ? 'bg-red-500 text-white hover:bg-red-600'
-//                                                 : 'bg-green-600 text-white hover:bg-green-700'
-//                                         }`}
+//                                         className={`flex items-center w-fit border rounded-md px-4 py-2 font-semibold transition-colors ${timerState.isRunning
+//                                             ? 'bg-red-500 text-white hover:bg-red-600'
+//                                             : 'bg-green-600 text-white hover:bg-green-700'
+//                                             }`}
 //                                     >
 //                                         <span>{timerState.isRunning ? 'Stop Timer' : 'Start Timer'}</span>
 //                                     </button>
 //                                 </div>
-//                                 {currentChildTest.status !== 'completed' && !isTestLocked && (
+//                                 {currentChildTest.status !== 'completed' && (
 //                                     <button
 //                                         onClick={handleCompleteChildTest}
 //                                         className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 font-semibold"
@@ -579,16 +639,6 @@
 //                                 )}
 //                             </div>
 //                         </div>
-//                         {isTestLocked && (
-//                             <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-//                                 <div className="flex items-center">
-//                                     <AlertCircle size={20} className="text-yellow-600 mr-2" />
-//                                     <span className="text-yellow-700">
-//                                         This test is locked. Please complete the previous test first.
-//                                     </span>
-//                                 </div>
-//                             </div>
-//                         )}
 //                     </div>
 //                 )}
 
@@ -658,21 +708,14 @@
 //                 <div className="flex items-center justify-between mb-3">
 //                     <h3 className="text-lg font-semibold text-gray-800">
 //                         Test Data for {currentChildTest ? currentChildTest.name : 'All Tests'}
-//                         {isTestLocked && (
-//                             <span className="ml-2 text-sm text-yellow-600 font-normal">
-//                                 (Locked - Complete previous test first)
-//                             </span>
-//                         )}
 //                     </h3>
-//                     {!isTestLocked && (
-//                         <button
-//                             onClick={() => setShowAddColumnModal(true)}
-//                             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-//                         >
-//                             <Plus size={16} />
-//                             Add Column
-//                         </button>
-//                     )}
+//                     <button
+//                         onClick={() => setShowAddColumnModal(true)}
+//                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+//                     >
+//                         <Plus size={16} />
+//                         Add Column
+//                     </button>
 //                 </div>
 
 //                 {/* Render table for each part */}
@@ -687,11 +730,6 @@
 //                                 {currentChildTest && (
 //                                     <span className="ml-2 text-sm text-blue-600 font-normal">
 //                                         - {currentChildTest.name}
-//                                     </span>
-//                                 )}
-//                                 {isTestLocked && (
-//                                     <span className="ml-2 text-sm text-yellow-600 font-normal">
-//                                         (Locked)
 //                                     </span>
 //                                 )}
 //                             </h4>
@@ -717,13 +755,13 @@
 //                                                 Sample ID
 //                                             </th>
 //                                             <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-//                                                 Cosmetic Image
+//                                                 Cosmetic Images
 //                                             </th>
 //                                             <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-//                                                 Non-Cosmetic Image
+//                                                 Non-Cosmetic Images
 //                                             </th>
 //                                             <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-//                                                 Cropped Image
+//                                                 Cropped Images
 //                                             </th>
 //                                             {isSecondRound && (
 //                                                 <>
@@ -739,15 +777,13 @@
 //                                                 <th key={column.id} className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200 relative group">
 //                                                     <div className="flex items-center justify-between">
 //                                                         <span>{column.label}</span>
-//                                                         {!isTestLocked && (
-//                                                             <button
-//                                                                 onClick={() => removeCustomColumn(column.id)}
-//                                                                 className="opacity-0 group-hover:opacity-100 ml-2 text-red-500 hover:text-red-700 transition-opacity"
-//                                                                 title="Remove column"
-//                                                             >
-//                                                                 <X size={14} />
-//                                                             </button>
-//                                                         )}
+//                                                         <button
+//                                                             onClick={() => removeCustomColumn(column.id)}
+//                                                             className="opacity-0 group-hover:opacity-100 ml-2 text-red-500 hover:text-red-700 transition-opacity"
+//                                                             title="Remove column"
+//                                                         >
+//                                                             <X size={14} />
+//                                                         </button>
 //                                                     </div>
 //                                                 </th>
 //                                             ))}
@@ -789,181 +825,181 @@
 //                                                     <input
 //                                                         type="date"
 //                                                         value={row.testDate}
-//                                                         onChange={(e) => !isTestLocked && updateRowField(row.id, 'testDate', e.target.value)}
-//                                                         disabled={isTestLocked}
-//                                                         className={`w-full min-w-[140px] px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-//                                                             isTestLocked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border-gray-300'
-//                                                         }`}
+//                                                         onChange={(e) => updateRowField(row.id, 'testDate', e.target.value)}
+//                                                         className="w-full min-w-[140px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 //                                                     />
 //                                                 </td>
 //                                                 <td className="px-4 py-4 border-r border-gray-200">
 //                                                     <input
 //                                                         value={row.config}
-//                                                         onChange={(e) => !isTestLocked && updateRowField(row.id, 'config', e.target.value)}
-//                                                         disabled={isTestLocked}
-//                                                         className={`w-full min-w-[120px] px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-//                                                             isTestLocked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border-gray-300'
-//                                                         }`}
+//                                                         onChange={(e) => updateRowField(row.id, 'config', e.target.value)}
+//                                                         className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 //                                                     />
 //                                                 </td>
 //                                                 <td className="px-4 py-4 border-r border-gray-200">
 //                                                     <input
 //                                                         value={row.sampleId}
-//                                                         onChange={(e) => !isTestLocked && updateRowField(row.id, 'sampleId', e.target.value)}
-//                                                         disabled={isTestLocked}
-//                                                         className={`w-full min-w-[120px] px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-//                                                             isTestLocked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border-gray-300'
-//                                                         }`}
+//                                                         onChange={(e) => updateRowField(row.id, 'sampleId', e.target.value)}
+//                                                         className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 //                                                     />
 //                                                 </td>
 //                                                 <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
 //                                                     <div className="space-y-2">
-//                                                         {!row.cosmeticImage ? (
-//                                                             <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg transition-colors ${
-//                                                                 isTestLocked 
-//                                                                     ? 'border-gray-300 bg-gray-100 cursor-not-allowed' 
-//                                                                     : 'border-blue-300 bg-blue-50 cursor-pointer hover:border-blue-400'
-//                                                             }`}>
-//                                                                 <Upload size={20} className={`${isTestLocked ? 'text-gray-400' : 'text-blue-400'} mb-2`} />
-//                                                                 <span className={`text-sm font-medium ${isTestLocked ? 'text-gray-500' : 'text-blue-600'}`}>
-//                                                                     Upload Cosmetic
-//                                                                 </span>
-//                                                                 {!isTestLocked && (
-//                                                                     <input
-//                                                                         type="file"
-//                                                                         accept="image/*"
-//                                                                         onChange={(e) => {
-//                                                                             const file = e.target.files?.[0];
-//                                                                             if (file) {
-//                                                                                 handleImageUpload(row.id, 'cosmetic', file);
+//                                                         {row.cosmeticImages && row.cosmeticImages.length > 0 ? (
+//                                                             <div className="space-y-2">
+//                                                                 <div className="grid grid-cols-2 gap-1">
+//                                                                     {row.cosmeticImages.map((img, imgIndex) => (
+//                                                                         <div key={imgIndex} className="relative group">
+//                                                                             <img
+//                                                                                 src={img}
+//                                                                                 alt={`Cosmetic ${imgIndex + 1}`}
+//                                                                                 className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
+//                                                                                 onClick={() => window.open(img, '_blank')}
+//                                                                             />
+//                                                                             <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+//                                                                                 {imgIndex + 1}
+//                                                                             </div>
+//                                                                         </div>
+//                                                                     ))}
+//                                                                 </div>
+//                                                                 <button
+//                                                                     type="button"
+//                                                                     onClick={() => {
+//                                                                         const input = document.createElement('input');
+//                                                                         input.type = 'file';
+//                                                                         input.accept = 'image/*';
+//                                                                         input.multiple = true;
+//                                                                         input.onchange = (e) => {
+//                                                                             const files = (e.target as HTMLInputElement).files;
+//                                                                             if (files) {
+//                                                                                 Array.from(files).forEach(file => {
+//                                                                                     const reader = new FileReader();
+//                                                                                     reader.onload = (event) => {
+//                                                                                         const newImage = event.target?.result as string;
+//                                                                                         const updatedCosmeticImages = [...(row.cosmeticImages || []), newImage];
+//                                                                                         updateRowField(row.id, 'cosmeticImages', JSON.stringify(updatedCosmeticImages));
+//                                                                                         updateRowField(row.id, 'cosmeticImage', updatedCosmeticImages[0] || '');
+//                                                                                     };
+//                                                                                     reader.readAsDataURL(file);
+//                                                                                 });
 //                                                                             }
-//                                                                         }}
-//                                                                         className="hidden"
-//                                                                     />
-//                                                                 )}
-//                                                             </label>
-//                                                         ) : (
-//                                                             <div className="relative">
-//                                                                 <img
-//                                                                     src={row.cosmeticImage}
-//                                                                     alt="Cosmetic"
-//                                                                     className="w-20 h-20 object-cover border rounded-lg"
-//                                                                 />
-//                                                                 {!isTestLocked && (
-//                                                                     <div className="flex gap-1 mt-2">
-//                                                                         <button
-//                                                                             type="button"
-//                                                                             onClick={() => {
-//                                                                                 const input = document.createElement('input');
-//                                                                                 input.type = 'file';
-//                                                                                 input.accept = 'image/*';
-//                                                                                 input.onchange = (e) => {
-//                                                                                     const file = (e.target as HTMLInputElement).files?.[0];
-//                                                                                     if (file) {
-//                                                                                         handleImageUpload(row.id, 'cosmetic', file);
-//                                                                                     }
-//                                                                                 };
-//                                                                                 input.click();
-//                                                                             }}
-//                                                                             className="flex-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
-//                                                                         >
-//                                                                             Replace
-//                                                                         </button>
-//                                                                         <button
-//                                                                             type="button"
-//                                                                             onClick={() => !isTestLocked && updateRowField(row.id, 'cosmeticImage', '')}
-//                                                                             className="flex-1 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
-//                                                                         >
-//                                                                             Remove
-//                                                                         </button>
-//                                                                     </div>
-//                                                                 )}
+//                                                                         };
+//                                                                         input.click();
+//                                                                     }}
+//                                                                     className="w-full px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+//                                                                 >
+//                                                                     + Add More
+//                                                                 </button>
 //                                                             </div>
+//                                                         ) : (
+//                                                             <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors bg-blue-50">
+//                                                                 <Upload size={20} className="text-blue-400 mb-2" />
+//                                                                 <span className="text-sm font-medium text-blue-600">Upload Cosmetic</span>
+//                                                                 <span className="text-xs text-gray-500 mt-1">Click to browse</span>
+//                                                                 <input
+//                                                                     type="file"
+//                                                                     accept="image/*"
+//                                                                     onChange={(e) => {
+//                                                                         const files = e.target.files;
+//                                                                         if (files) {
+//                                                                             Array.from(files).forEach(file => {
+//                                                                                 const reader = new FileReader();
+//                                                                                 reader.onload = (event) => {
+//                                                                                     const imageUrl = event.target?.result as string;
+//                                                                                     const updatedCosmeticImages = [...(row.cosmeticImages || []), imageUrl];
+//                                                                                     updateRowField(row.id, 'cosmeticImages', JSON.stringify(updatedCosmeticImages));
+//                                                                                     updateRowField(row.id, 'cosmeticImage', updatedCosmeticImages[0] || '');
+//                                                                                 };
+//                                                                                 reader.readAsDataURL(file);
+//                                                                             });
+//                                                                         }
+//                                                                     }}
+//                                                                     className="hidden"
+//                                                                     multiple
+//                                                                 />
+//                                                             </label>
 //                                                         )}
 //                                                     </div>
 //                                                 </td>
 //                                                 <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
 //                                                     <div className="space-y-2">
-//                                                         {!row.nonCosmeticImage ? (
-//                                                             <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg transition-colors ${
-//                                                                 isTestLocked 
-//                                                                     ? 'border-gray-300 bg-gray-100 cursor-not-allowed' 
-//                                                                     : 'border-green-300 bg-green-50 cursor-pointer hover:border-green-400'
-//                                                             }`}>
-//                                                                 <Upload size={20} className={`${isTestLocked ? 'text-gray-400' : 'text-green-400'} mb-2`} />
-//                                                                 <span className={`text-sm font-medium ${isTestLocked ? 'text-gray-500' : 'text-green-600'}`}>
-//                                                                     Upload Non-Cosmetic
-//                                                                 </span>
-//                                                                 {!isTestLocked && (
-//                                                                     <input
-//                                                                         type="file"
-//                                                                         accept="image/*"
-//                                                                         onChange={(e) => {
-//                                                                             const file = e.target.files?.[0];
+//                                                         {row.nonCosmeticImages && row.nonCosmeticImages.length > 0 ? (
+//                                                             <div className="space-y-2">
+//                                                                 <div className="grid grid-cols-2 gap-1">
+//                                                                     {row.nonCosmeticImages.map((img, imgIndex) => (
+//                                                                         <div key={imgIndex} className="relative group">
+//                                                                             <img
+//                                                                                 src={img}
+//                                                                                 alt={`Non-Cosmetic ${imgIndex + 1}`}
+//                                                                                 className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
+//                                                                                 onClick={() => window.open(img, '_blank')}
+//                                                                             />
+//                                                                             <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+//                                                                                 {imgIndex + 1}
+//                                                                             </div>
+//                                                                         </div>
+//                                                                     ))}
+//                                                                 </div>
+//                                                                 <button
+//                                                                     type="button"
+//                                                                     onClick={() => {
+//                                                                         const input = document.createElement('input');
+//                                                                         input.type = 'file';
+//                                                                         input.accept = 'image/*';
+//                                                                         input.onchange = (e) => {
+//                                                                             const file = (e.target as HTMLInputElement).files?.[0];
 //                                                                             if (file) {
 //                                                                                 handleImageUpload(row.id, 'nonCosmetic', file);
 //                                                                             }
-//                                                                         }}
-//                                                                         className="hidden"
-//                                                                     />
-//                                                                 )}
-//                                                             </label>
-//                                                         ) : (
-//                                                             <div className="relative">
-//                                                                 <img
-//                                                                     src={row.nonCosmeticImage}
-//                                                                     alt="Non-Cosmetic"
-//                                                                     className="w-20 h-20 object-cover border rounded-lg"
-//                                                                 />
-//                                                                 {!isTestLocked && (
-//                                                                     <div className="flex gap-1 mt-2">
-//                                                                         <button
-//                                                                             type="button"
-//                                                                             onClick={() => {
-//                                                                                 const input = document.createElement('input');
-//                                                                                 input.type = 'file';
-//                                                                                 input.accept = 'image/*';
-//                                                                                 input.onchange = (e) => {
-//                                                                                     const file = (e.target as HTMLInputElement).files?.[0];
-//                                                                                     if (file) {
-//                                                                                         handleImageUpload(row.id, 'nonCosmetic', file);
-//                                                                                     }
-//                                                                                 };
-//                                                                                 input.click();
-//                                                                             }}
-//                                                                             className="flex-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
-//                                                                         >
-//                                                                             Replace
-//                                                                         </button>
-//                                                                         <button
-//                                                                             type="button"
-//                                                                             onClick={() => !isTestLocked && updateRowField(row.id, 'nonCosmeticImage', '')}
-//                                                                             className="flex-1 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
-//                                                                         >
-//                                                                             Remove
-//                                                                         </button>
-//                                                                     </div>
-//                                                                 )}
+//                                                                         };
+//                                                                         input.click();
+//                                                                     }}
+//                                                                     className="w-full px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+//                                                                 >
+//                                                                     + Add More
+//                                                                 </button>
 //                                                             </div>
+//                                                         ) : (
+//                                                             <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-green-300 rounded-lg cursor-pointer hover:border-green-400 transition-colors bg-green-50">
+//                                                                 <Upload size={20} className="text-green-400 mb-2" />
+//                                                                 <span className="text-sm font-medium text-green-600">Upload Non-Cosmetic</span>
+//                                                                 <input
+//                                                                     type="file"
+//                                                                     accept="image/*"
+//                                                                     onChange={(e) => {
+//                                                                         const file = e.target.files?.[0];
+//                                                                         if (file) {
+//                                                                             handleImageUpload(row.id, 'nonCosmetic', file);
+//                                                                         }
+//                                                                     }}
+//                                                                     className="hidden"
+//                                                                 />
+//                                                             </label>
 //                                                         )}
 //                                                     </div>
 //                                                 </td>
 //                                                 <td className="px-4 py-4 border-r border-gray-200 min-w-[150px]">
-//                                                     {row.croppedImage ? (
+//                                                     {row.croppedImages && row.croppedImages.length > 0 ? (
 //                                                         <div className="space-y-2">
-//                                                             <img
-//                                                                 src={row.croppedImage}
-//                                                                 alt="Cropped"
-//                                                                 className="w-20 h-20 object-contain border rounded-lg mx-auto"
-//                                                             />
-//                                                             {row.regionLabel && (
-//                                                                 <div className="text-xs text-center font-semibold text-gray-700">
-//                                                                     {row.regionLabel}
-//                                                                 </div>
-//                                                             )}
+//                                                             <div className="grid grid-cols-2 gap-1">
+//                                                                 {row.croppedImages.map((img, imgIndex) => (
+//                                                                     <div key={imgIndex} className="relative">
+//                                                                         <img
+//                                                                             src={img}
+//                                                                             alt={`Cropped ${imgIndex + 1}`}
+//                                                                             className="w-16 h-16 object-contain border rounded-lg"
+//                                                                         />
+//                                                                         {row.regionLabel && imgIndex === 0 && (
+//                                                                             <div className="text-xs text-center font-semibold text-gray-700 mt-1">
+//                                                                                 {row.regionLabel}
+//                                                                             </div>
+//                                                                         )}
+//                                                                     </div>
+//                                                                 ))}
+//                                                             </div>
 //                                                         </div>
 //                                                     ) : (
-//                                                         <div className="text-xs text-gray-400 text-center">No crop</div>
+//                                                         <div className="text-xs text-gray-400 text-center">No crops</div>
 //                                                     )}
 //                                                 </td>
 //                                                 {isSecondRound && (
@@ -1009,15 +1045,11 @@
 //                                                 <td className="px-4 py-4">
 //                                                     <select
 //                                                         value={row.status}
-//                                                         onChange={(e) => !isTestLocked && updateRowField(row.id, 'status', e.target.value)}
-//                                                         disabled={isTestLocked}
-//                                                         className={`w-full min-w-[110px] px-3 py-2 border rounded-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-//                                                             isTestLocked 
-//                                                                 ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
-//                                                                 : row.status === "Pass" ? "bg-green-50 text-green-700 border-green-200" :
-//                                                                     row.status === "Fail" ? "bg-red-50 text-red-700 border-red-200" :
-//                                                                     "bg-white border-gray-300 text-gray-700"
-//                                                         }`}
+//                                                         onChange={(e) => updateRowField(row.id, 'status', e.target.value)}
+//                                                         className={`w-full min-w-[110px] px-3 py-2 border rounded-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${row.status === "Pass" ? "bg-green-50 text-green-700 border-green-200" :
+//                                                             row.status === "Fail" ? "bg-red-50 text-red-700 border-red-200" :
+//                                                                 "bg-white border-gray-300 text-gray-700"
+//                                                             }`}
 //                                                     >
 //                                                         <option value="">Select</option>
 //                                                         <option value="Pass">Pass</option>
@@ -1031,16 +1063,14 @@
 //                             </div>
 //                         </div>
 
-//                         {!isTestLocked && (
-//                             <div className="flex justify-end mt-3">
-//                                 <button
-//                                     onClick={() => addRow(part.partNumber)}
-//                                     className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors shadow-sm"
-//                                 >
-//                                     + Add Row for {part.partNumber}
-//                                 </button>
-//                             </div>
-//                         )}
+//                         <div className="flex justify-end mt-3">
+//                             <button
+//                                 onClick={() => addRow(part.partNumber)}
+//                                 className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+//                             >
+//                                 + Add Row for {part.partNumber}
+//                             </button>
+//                         </div>
 //                     </div>
 //                 ))}
 //             </div>
@@ -1204,7 +1234,7 @@
 //             const machines = [machineEquipment, machineEquipment2].filter(m => m);
 
 //             testNames.forEach((name, index) => {
-//                 const previousTestId = index > 0 ? `child-${Date.now()}-${index-1}` : undefined;
+//                 const previousTestId = index > 0 ? `child-${Date.now()}-${index - 1}` : undefined;
 
 //                 tests.push({
 //                     id: `child-${Date.now()}-${index}`,
@@ -1237,15 +1267,85 @@
 //     // Load data from navigation state
 //     useEffect(() => {
 //         if (location.state && location.state.record) {
-//             const record = location.state.record as Stage2Record;
-//             console.log("Received record from navigation:", record);
-//             setCurrentRecord(record);
+//             const record = location.state.record as MachineLoadData;
+//             console.log("Received machine load data from navigation:", record);
 
-//             // Initialize forms from the received record
+//             // Create a Stage2Record from the MachineLoadData
+//             const stage2Record: Stage2Record = {
+//                 id: record.loadId,
+//                 submissionId: `sub-${record.loadId}`,
+//                 ticketId: parseInt(record.loadId.toString().slice(-6)),
+//                 ticketCode: record.machineDetails.ticketCode,
+//                 totalQuantity: record.totalParts,
+//                 anoType: "Not Specified",
+//                 source: "Machine Load",
+//                 reason: "Testing",
+//                 project: record.machineDetails.project,
+//                 build: record.machineDetails.build,
+//                 colour: record.machineDetails.colour,
+//                 processStage: "Stage 2 Testing",
+//                 selectedTestNames: record.machineDetails.tests.map(test => test.testName),
+//                 testRecords: [], // We'll populate this below
+//                 formData: {},
+//                 submittedAt: record.loadedAt,
+//                 version: "1.0",
+//                 testingStatus: "In Testing",
+//                 machineLoadData: record
+//             };
+
+//             // Convert LoadedPart[] to AssignedPart[] for each test
+//             record.machineDetails.tests.forEach((machineTest, testIndex) => {
+//                 // Get parts assigned to this test
+//                 const testParts = record.parts.filter(part =>
+//                     part.testId === machineTest.id || part.testName === machineTest.testName
+//                 );
+
+//                 const assignedParts: AssignedPart[] = testParts.map((part, idx) => ({
+//                     id: `${machineTest.id}-${idx}`,
+//                     partNumber: part.partNumber,
+//                     serialNumber: part.serialNumber,
+//                     location: record.chamber,
+//                     scanStatus: part.scanStatus,
+//                     assignedToTest: machineTest.testName
+//                 }));
+
+//                 // Create TestRecord for this test
+//                 const testRecord: TestRecord = {
+//                     testId: machineTest.id,
+//                     testName: machineTest.testName,
+//                     processStage: "Stage 2 Testing",
+//                     testIndex: testIndex + 1,
+//                     testCondition: "Standard Conditions",
+//                     requiredQuantity: machineTest.requiredQty.toString(),
+//                     specification: "Default Specification",
+//                     machineEquipment: record.chamber,
+//                     machineEquipment2: "",
+//                     timing: machineTest.duration,
+//                     startDateTime: record.loadedAt,
+//                     endDateTime: record.estimatedCompletion,
+//                     assignedParts: assignedParts,
+//                     assignedPartsCount: assignedParts.length,
+//                     remark: "",
+//                     status: machineTest.status === 3 ? "Completed" : "In Progress",
+//                     submittedAt: record.loadedAt,
+//                     testResults: [],
+//                     childTests: parseChildTests(
+//                         machineTest.testName,
+//                         record.chamber,
+//                         ""
+//                     )
+//                 };
+
+//                 stage2Record.testRecords.push(testRecord);
+//             });
+
+//             setCurrentRecord(stage2Record);
+
+//             // Initialize forms from the created record
 //             const initialForms: FormsState = {};
 //             const initialSharedImages: SharedImagesByPart = {};
 
-//             record.testRecords.forEach((testRecord, index) => {
+//             stage2Record.testRecords.forEach((testRecord, index) => {
 //                 const formKey = `test_${index}`;
 
 //                 // Parse child tests for combined tests
@@ -1268,69 +1368,44 @@
 //                     }));
 //                 });
 
-//                 // Check if test already has results
-//                 if (testRecord.testResults && testRecord.testResults.length > 0) {
-//                     // Load existing results
-//                     initialForms[formKey] = {
-//                         testName: testRecord.testName,
-//                         processStage: testRecord.processStage,
-//                         testCondition: testRecord.testCondition,
-//                         date: testRecord.submittedAt ? new Date(testRecord.submittedAt).toISOString().split('T')[0] : "",
-//                         specification: testRecord.specification,
-//                         machineEquipment: testRecord.machineEquipment,
-//                         machineEquipment2: testRecord.machineEquipment2,
-//                         timing: testRecord.timing,
-//                         sampleQty: testRecord.requiredQuantity,
-//                         remark: testRecord.remark,
-//                         rows: testRecord.testResults,
-//                         customColumns: [],
-//                         childTests: childTests,
-//                         currentChildTestIndex: testRecord.currentChildTestIndex || 0
-//                     };
-//                 } else {
-//                     // Initialize new rows for the first child test only
-//                     const initialRows: FormRow[] = [];
-//                     if (childTests.length > 0) {
-//                         // Only create rows for the first active child test
-//                         const activeChildTest = childTests.find(test => test.status === 'active');
-//                         if (activeChildTest) {
-//                             testRecord.assignedParts.forEach((part, idx) => {
-//                                 initialRows.push({
-//                                     id: Date.now() + idx,
-//                                     srNo: idx + 1,
-//                                     testDate: new Date().toISOString().split('T')[0],
-//                                     config: "",
-//                                     sampleId: part.serialNumber,
-//                                     status: "Pending",
-//                                     partNumber: part.partNumber,
-//                                     serialNumber: part.serialNumber,
-//                                     childTestId: activeChildTest.id,
-//                                     childTestName: activeChildTest.name,
-//                                     cosmeticImage: "",
-//                                     nonCosmeticImage: "",
-//                                     croppedImage: "",
-//                                     regionLabel: ""
-//                                 });
-//                             });
-//                         }
-//                     }
-
-//                     initialForms[formKey] = {
-//                         testName: testRecord.testName,
-//                         processStage: testRecord.processStage,
-//                         testCondition: testRecord.testCondition,
-//                         date: new Date().toISOString().split('T')[0],
-//                         specification: testRecord.specification,
-//                         machineEquipment: testRecord.machineEquipment,
-//                         machineEquipment2: testRecord.machineEquipment2,
-//                         timing: testRecord.timing,
-//                         sampleQty: testRecord.requiredQuantity,
-//                         rows: initialRows,
-//                         customColumns: [],
-//                         childTests: childTests,
-//                         currentChildTestIndex: 0
-//                     };
+//                 // Initialize rows for each assigned part
+//                 const initialRows: FormRow[] = [];
+//                 if (childTests.length > 0) {
+//                     testRecord.assignedParts.forEach((part, idx) => {
+//                         initialRows.push({
+//                             id: Date.now() + idx,
+//                             srNo: idx + 1,
+//                             testDate: new Date().toISOString().split('T')[0],
+//                             config: "",
+//                             sampleId: part.serialNumber,
+//                             status: "Pending",
+//                             partNumber: part.partNumber,
+//                             serialNumber: part.serialNumber,
+//                             childTestId: childTests[0].id,
+//                             childTestName: childTests[0].name,
+//                             cosmeticImage: "",
+//                             nonCosmeticImage: "",
+//                             croppedImage: "",
+//                             regionLabel: ""
+//                         });
+//                     });
 //                 }
+
+//                 initialForms[formKey] = {
+//                     testName: testRecord.testName,
+//                     processStage: testRecord.processStage,
+//                     testCondition: testRecord.testCondition,
+//                     date: new Date().toISOString().split('T')[0],
+//                     specification: testRecord.specification,
+//                     machineEquipment: testRecord.machineEquipment,
+//                     machineEquipment2: testRecord.machineEquipment2,
+//                     timing: testRecord.timing,
+//                     sampleQty: testRecord.requiredQuantity,
+//                     rows: initialRows,
+//                     customColumns: [],
+//                     childTests: childTests,
+//                     currentChildTestIndex: 0
+//                 };
 
 //                 // Initialize shared images for each part
 //                 testRecord.assignedParts.forEach(part => {
@@ -1356,6 +1431,8 @@
 
 //             setForms(initialForms);
 //             setSharedImagesByPart(initialSharedImages);
+
+//             console.log("Converted to Stage2Record:", stage2Record);
 //         } else {
 //             console.error("No record found in navigation state");
 //             alert("No record selected. Please select a record first.");
@@ -1580,16 +1657,18 @@
 //                         }
 //                     });
 
-//                     // Store cropped regions per child test
+//                     // Replace existing cropped regions for this part and child test
 //                     setCroppedRegions(prev => {
-//                         const filtered = prev.filter(region => 
+//                         const filtered = prev.filter(region =>
 //                             !(region.partNumber === partNumber && region.childTestId === childTestId)
 //                         );
 //                         return [...filtered, ...croppedImages];
 //                     });
 
-//                     // Update shared images with cropped regions
+//                     // Get the image URL for the uploaded file
 //                     const imageUrl = e.target?.result as string;
+
+//                     // Update shared images
 //                     setSharedImagesByPart(prev => ({
 //                         ...prev,
 //                         [partNumber]: {
@@ -1599,28 +1678,40 @@
 //                                 ...prev[partNumber]?.childTestImages,
 //                                 [childTestId || 'default']: {
 //                                     cosmetic: prev[partNumber]?.childTestImages?.[childTestId || 'default']?.cosmetic || [],
-//                                     nonCosmetic: [...(prev[partNumber]?.childTestImages?.[childTestId || 'default']?.nonCosmetic || []), imageUrl],
-//                                     croppedRegions: croppedImages
+//                                     nonCosmetic: [...(prev[partNumber]?.childTestImages?.[childTestId || 'default']?.nonCosmetic || []), imageUrl]
 //                                 }
 //                             }
 //                         }
 //                     }));
 
-//                     // Update form rows for current test
+//                     // Update the form
 //                     const formKey = `test_${currentTestIndex}`;
 //                     const formData = forms[formKey];
 
 //                     if (formData) {
 //                         const currentChildTest = formData.childTests?.[formData.currentChildTestIndex || 0];
+//                         const existingRow = formData.rows.find(row =>
+//                             row.partNumber === partNumber && row.childTestId === childTestId
+//                         );
 
-//                         if (isSecondRound) {
-//                             // Second round: Update existing rows with final images
-//                             const updatedRows = formData.rows.map((row, index) => {
-//                                 if (row.partNumber === partNumber && row.childTestId === childTestId && croppedImages[index]) {
+//                         if (existingRow) {
+//                             // Add to nonCosmeticImages array
+//                             const currentNonCosmeticImages = existingRow.nonCosmeticImages || [];
+//                             const updatedNonCosmeticImages = [...currentNonCosmeticImages, imageUrl];
+
+//                             // Add cropped image to croppedImages array
+//                             const currentCroppedImages = existingRow.croppedImages || [];
+//                             const updatedCroppedImages = [...currentCroppedImages, croppedImages[0]?.data || ""];
+
+//                             const updatedRows = formData.rows.map(row => {
+//                                 if (row.partNumber === partNumber && row.childTestId === childTestId) {
 //                                     return {
 //                                         ...row,
-//                                         finalNonCosmeticImage: imageUrl,
-//                                         finalCroppedNonCosmeticImage: croppedImages[index].data,
+//                                         nonCosmeticImages: updatedNonCosmeticImages,
+//                                         nonCosmeticImage: imageUrl, // Set latest as main
+//                                         croppedImages: updatedCroppedImages,
+//                                         croppedImage: croppedImages[0]?.data || row.croppedImage || "",
+//                                         regionLabel: croppedImages[0]?.label || row.regionLabel || "",
 //                                         testDate: new Date().toISOString().split('T')[0],
 //                                         status: row.status === "Pending" ? "In Progress" : row.status
 //                                     };
@@ -1635,60 +1726,8 @@
 //                                     rows: updatedRows
 //                                 }
 //                             }));
-//                         } else {
-//                             // First round: Update existing rows or create new ones
-//                             const existingRowIndex = formData.rows.findIndex(row => 
-//                                 row.partNumber === partNumber && row.childTestId === childTestId
-//                             );
-
-//                             if (existingRowIndex >= 0) {
-//                                 // Update existing row
-//                                 const updatedRows = [...formData.rows];
-//                                 updatedRows[existingRowIndex] = {
-//                                     ...updatedRows[existingRowIndex],
-//                                     nonCosmeticImage: imageUrl,
-//                                     croppedImage: croppedImages[0]?.data || "",
-//                                     regionLabel: croppedImages[0]?.label || "",
-//                                     testDate: new Date().toISOString().split('T')[0],
-//                                     status: updatedRows[existingRowIndex].status === "Pending" ? "In Progress" : updatedRows[existingRowIndex].status
-//                                 };
-
-//                                 setForms(prev => ({
-//                                     ...prev,
-//                                     [formKey]: {
-//                                         ...prev[formKey],
-//                                         rows: updatedRows
-//                                     }
-//                                 }));
-//                             } else {
-//                                 // Create new row for this child test
-//                                 const newRow: FormRow = {
-//                                     id: Date.now(),
-//                                     srNo: formData.rows.filter(row => row.childTestId === childTestId).length + 1,
-//                                     testDate: new Date().toISOString().split('T')[0],
-//                                     config: "",
-//                                     sampleId: `${partNumber}-${formData.rows.filter(row => row.childTestId === childTestId).length + 1}`,
-//                                     status: "In Progress",
-//                                     partNumber: partNumber,
-//                                     serialNumber: "",
-//                                     childTestId: childTestId,
-//                                     childTestName: currentChildTest?.name,
-//                                     nonCosmeticImage: imageUrl,
-//                                     croppedImage: croppedImages[0]?.data || "",
-//                                     regionLabel: croppedImages[0]?.label || ""
-//                                 };
-
-//                                 setForms(prev => ({
-//                                     ...prev,
-//                                     [formKey]: {
-//                                         ...prev[formKey],
-//                                         rows: [...prev[formKey].rows, newRow]
-//                                     }
-//                                 }));
-//                             }
 //                         }
 //                     }
-
 //                     src.delete();
 //                 } catch (err) {
 //                     console.error("Error processing image:", err);
@@ -1702,52 +1741,42 @@
 //         reader.readAsDataURL(file);
 //     };
 
-//     // Handle image upload
 //     const handleImageUpload = (partNumber: string, testName: string, type: 'cosmetic' | 'nonCosmetic', file: File, childTestId?: string) => {
 //         setProcessing(true);
 //         const reader = new FileReader();
 //         reader.onload = (e) => {
 //             const imageUrl = e.target?.result as string;
+//             const formKey = `test_${currentTestIndex}`;
+//             const formData = forms[formKey];
+//             const currentChildTest = formData?.childTests?.[formData.currentChildTestIndex || 0];
 
 //             if (type === 'nonCosmetic') {
 //                 // Process non-cosmetic image with OpenCV
 //                 processNonCosmeticImage(file, partNumber, testName, childTestId);
 //             } else {
-//                 // Handle cosmetic image normally
-//                 const formKey = `test_${currentTestIndex}`;
-//                 const formData = forms[formKey];
-//                 const currentChildTest = formData?.childTests?.[formData.currentChildTestIndex || 0];
-
-//                 setSharedImagesByPart(prev => ({
-//                     ...prev,
-//                     [partNumber]: {
-//                         ...prev[partNumber],
-//                         [type]: [...(prev[partNumber]?.[type] || []), imageUrl],
-//                         childTestImages: {
-//                             ...prev[partNumber]?.childTestImages,
-//                             [childTestId || 'default']: {
-//                                 cosmetic: [...(prev[partNumber]?.childTestImages?.[childTestId || 'default']?.cosmetic || []), imageUrl],
-//                                 nonCosmetic: prev[partNumber]?.childTestImages?.[childTestId || 'default']?.nonCosmetic || []
-//                             }
-//                         }
-//                     }
-//                 }));
-
-//                 // Update form rows
+//                 // For cosmetic images
 //                 if (formData) {
-//                     const existingRowIndex = formData.rows.findIndex(row => 
+//                     const existingRow = formData.rows.find(row =>
 //                         row.partNumber === partNumber && row.childTestId === childTestId
 //                     );
 
-//                     if (existingRowIndex >= 0) {
-//                         // Update existing row
-//                         const updatedRows = [...formData.rows];
-//                         updatedRows[existingRowIndex] = {
-//                             ...updatedRows[existingRowIndex],
-//                             cosmeticImage: imageUrl,
-//                             testDate: new Date().toISOString().split('T')[0],
-//                             status: updatedRows[existingRowIndex].status === "Pending" ? "In Progress" : updatedRows[existingRowIndex].status
-//                         };
+//                     if (existingRow) {
+//                         // Add to cosmeticImages array
+//                         const currentCosmeticImages = existingRow.cosmeticImages || [];
+//                         const updatedCosmeticImages = [...currentCosmeticImages, imageUrl];
+
+//                         const updatedRows = formData.rows.map(row => {
+//                             if (row.partNumber === partNumber && row.childTestId === childTestId) {
+//                                 return {
+//                                     ...row,
+//                                     cosmeticImages: updatedCosmeticImages,
+//                                     cosmeticImage: imageUrl, // Set latest as main image
+//                                     testDate: new Date().toISOString().split('T')[0],
+//                                     status: row.status === "Pending" ? "In Progress" : row.status
+//                                 };
+//                             }
+//                             return row;
+//                         });
 
 //                         setForms(prev => ({
 //                             ...prev,
@@ -1757,19 +1786,25 @@
 //                             }
 //                         }));
 //                     } else {
-//                         // Create new row for this child test
+//                         // Create new row
 //                         const newRow: FormRow = {
 //                             id: Date.now(),
-//                             srNo: formData.rows.filter(row => row.childTestId === childTestId).length + 1,
+//                             srNo: 1,
 //                             testDate: new Date().toISOString().split('T')[0],
 //                             config: "",
-//                             sampleId: `${partNumber}-${formData.rows.filter(row => row.childTestId === childTestId).length + 1}`,
+//                             sampleId: `${partNumber}-1`,
 //                             status: "In Progress",
 //                             partNumber: partNumber,
 //                             serialNumber: "",
 //                             childTestId: childTestId,
 //                             childTestName: currentChildTest?.name,
-//                             cosmeticImage: imageUrl
+//                             cosmeticImage: imageUrl,
+//                             cosmeticImages: [imageUrl],
+//                             nonCosmeticImage: "",
+//                             nonCosmeticImages: [],
+//                             croppedImage: "",
+//                             croppedImages: [],
+//                             regionLabel: ""
 //                         };
 
 //                         setForms(prev => ({
@@ -1813,8 +1848,8 @@
 //                     if (type === 'cosmetic') {
 //                         return { ...row, cosmeticImage: "" };
 //                     } else {
-//                         return { 
-//                             ...row, 
+//                         return {
+//                             ...row,
 //                             nonCosmeticImage: "",
 //                             croppedImage: "",
 //                             regionLabel: "",
@@ -1863,25 +1898,13 @@
 //             const currentChildTestIndex = currentForm.currentChildTestIndex || 0;
 //             const currentChildTest = currentForm.childTests?.[currentChildTestIndex];
 
-//             // Check if current child test is locked
-//             const isLocked = currentChildTest?.dependsOnPrevious && 
-//                 currentForm.childTests?.some((test, index) => 
-//                     test.id === currentChildTest.previousTestId && 
-//                     test.status !== 'completed'
-//                 );
-
-//             if (isLocked) {
-//                 alert(`Cannot add row. Please complete ${currentForm.childTests?.[currentChildTestIndex-1]?.name} first.`);
-//                 return prev;
-//             }
-
 //             // Find rows for current child test
 //             const childTestRows = currentForm.rows.filter(row => row.childTestId === currentChildTest?.id);
 //             const newId = Math.max(...childTestRows.map(r => r.id), 0) + 1;
 
 //             // Find the part to assign the new row to
 //             const targetPartNumber = partNumber || childTestRows[0]?.partNumber || currentForm.rows[0]?.partNumber;
-//             const targetPart = currentRecord?.testRecords.find(tr => 
+//             const targetPart = currentRecord?.testRecords.find(tr =>
 //                 tr.testName === currentForm.testName
 //             )?.assignedParts.find(p => p.partNumber === targetPartNumber);
 
@@ -1921,22 +1944,6 @@
 
 //     // Handle timer toggle for child test
 //     const handleTimerToggle = (formKey: string, childTestId?: string) => {
-//         const formData = forms[formKey];
-//         const currentChildTestIndex = formData?.currentChildTestIndex || 0;
-//         const currentChildTest = formData?.childTests?.[currentChildTestIndex];
-
-//         // Check if test is locked
-//         const isLocked = currentChildTest?.dependsOnPrevious && 
-//             formData.childTests?.some((test, index) => 
-//                 test.id === currentChildTest.previousTestId && 
-//                 test.status !== 'completed'
-//             );
-
-//         if (isLocked) {
-//             alert(`Cannot start timer. Please complete ${formData.childTests?.[currentChildTestIndex-1]?.name} first.`);
-//             return;
-//         }
-
 //         const timerKey = childTestId ? `${formKey}_${childTestId}` : formKey;
 //         setTimerStates(prev => ({
 //             ...prev,
@@ -1954,18 +1961,6 @@
 //             const currentChildTestIndex = currentForm.currentChildTestIndex || 0;
 //             const childTests = currentForm.childTests || [];
 
-//             // Check if test is locked
-//             const isLocked = childTests[currentChildTestIndex]?.dependsOnPrevious && 
-//                 childTests.some((test, index) => 
-//                     test.id === childTests[currentChildTestIndex].previousTestId && 
-//                     test.status !== 'completed'
-//                 );
-
-//             if (isLocked) {
-//                 alert(`Cannot complete test. Please complete ${childTests[currentChildTestIndex-1]?.name} first.`);
-//                 return prev;
-//             }
-
 //             if (currentChildTestIndex < childTests.length - 1) {
 //                 // Mark current child test as completed and move to next
 //                 const updatedChildTests = [...childTests];
@@ -1975,48 +1970,40 @@
 //                     status: 'completed',
 //                     endTime: new Date().toISOString()
 //                 };
-
-//                 // Activate next child test
-//                 const nextChildTestIndex = currentChildTestIndex + 1;
-//                 updatedChildTests[nextChildTestIndex] = {
-//                     ...updatedChildTests[nextChildTestIndex],
+//                 updatedChildTests[currentChildTestIndex + 1] = {
+//                     ...updatedChildTests[currentChildTestIndex + 1],
 //                     status: 'active',
 //                     startTime: new Date().toISOString()
 //                 };
 
-//                 // Create rows for next child test ONLY when it becomes active
-//                 const nextChildTest = updatedChildTests[nextChildTestIndex];
+//                 // Create rows for next child test
+//                 const nextChildTest = updatedChildTests[currentChildTestIndex + 1];
 //                 const newRows: FormRow[] = [];
 
-//                 // Get rows from previous child test to copy data if needed
-//                 const previousRows = currentForm.rows.filter(row => 
-//                     row.childTestId === childTests[currentChildTestIndex].id
-//                 );
-
-//                 previousRows.forEach((row, idx) => {
-//                     // Create new row for next child test with empty images
-//                     // This ensures each child test has its own separate image uploads
-//                     newRows.push({
-//                         ...row,
-//                         id: Date.now() + idx,
-//                         srNo: idx + 1,
-//                         testDate: new Date().toISOString().split('T')[0],
-//                         childTestId: nextChildTest.id,
-//                         childTestName: nextChildTest.name,
-//                         cosmeticImage: "", // Clear images for new child test
-//                         nonCosmeticImage: "", // Clear images for new child test
-//                         croppedImage: "", // Clear cropped image
-//                         regionLabel: "", // Clear region label
-//                         status: "Pending" // Reset status
+//                 currentForm.rows
+//                     .filter(row => row.childTestId === childTests[currentChildTestIndex].id)
+//                     .forEach((row, idx) => {
+//                         newRows.push({
+//                             ...row,
+//                             id: Date.now() + idx,
+//                             srNo: idx + 1,
+//                             testDate: "",
+//                             childTestId: nextChildTest.id,
+//                             childTestName: nextChildTest.name,
+//                             cosmeticImage: "",
+//                             nonCosmeticImage: "",
+//                             croppedImage: "",
+//                             regionLabel: "",
+//                             status: "Pending"
+//                         });
 //                     });
-//                 });
 
 //                 return {
 //                     ...prev,
 //                     [formKey]: {
 //                         ...currentForm,
 //                         childTests: updatedChildTests,
-//                         currentChildTestIndex: nextChildTestIndex,
+//                         currentChildTestIndex: currentChildTestIndex + 1,
 //                         rows: [...currentForm.rows, ...newRows]
 //                     }
 //                 };
@@ -2043,23 +2030,6 @@
 
 //     // Handle child test change
 //     const handleChildTestChange = (formKey: string, childTestIndex: number) => {
-//         const formData = forms[formKey];
-//         const childTests = formData?.childTests || [];
-//         const targetTest = childTests[childTestIndex];
-
-//         // Check if the test to switch to is locked
-//         const isLocked = targetTest?.dependsOnPrevious && 
-//             childTests.some((test, index) => 
-//                 test.id === targetTest.previousTestId && 
-//                 test.status !== 'completed' &&
-//                 index < childTestIndex
-//             );
-
-//         if (isLocked) {
-//             alert(`Cannot switch to ${targetTest.name}. Please complete ${childTests[childTestIndex-1]?.name} first.`);
-//             return;
-//         }
-
 //         setForms(prev => ({
 //             ...prev,
 //             [formKey]: {
@@ -2088,8 +2058,10 @@
 
 //                 let status = "Pending";
 //                 if (allChildTestsCompleted && rows.length > 0) {
+//                     console.log(allChildTestsCompleted, rows.length)
 //                     status = "Complete";
 //                 } else if (rows.some(row => row.status === "Pass" || row.status === "Fail")) {
+
 //                     status = "In Progress";
 //                 }
 
@@ -2140,13 +2112,6 @@
 //         const currentChildTestIndex = formData?.currentChildTestIndex || 0;
 //         const currentChildTest = formData?.childTests?.[currentChildTestIndex];
 
-//         // Check if current child test is locked
-//         const isTestLocked = currentChildTest?.dependsOnPrevious && 
-//             formData?.childTests?.some((test, index) => 
-//                 test.id === currentChildTest.previousTestId && 
-//                 test.status !== 'completed'
-//             );
-
 //         return (
 //             <div className="p-6">
 //                 <div className="flex justify-between items-center mb-6">
@@ -2165,8 +2130,8 @@
 //                             )}
 //                         </p>
 //                         <div className="text-sm text-gray-500 mt-2">
-//                             Ticket: <span className="font-semibold">{currentRecord.ticketCode}</span> | 
-//                             Project: <span className="font-semibold">{currentRecord.project}</span> | 
+//                             Ticket: <span className="font-semibold">{currentRecord.ticketCode}</span> |
+//                             Project: <span className="font-semibold">{currentRecord.project}</span> |
 //                             Build: <span className="font-semibold">{currentRecord.build}</span>
 //                         </div>
 //                     </div>
@@ -2184,11 +2149,10 @@
 //                                         saveFormData();
 //                                         setCurrentTestIndex(idx);
 //                                     }}
-//                                     className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-//                                         currentTestIndex === idx
-//                                             ? 'bg-blue-600 text-white border-blue-600'
-//                                             : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-//                                     }`}
+//                                     className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${currentTestIndex === idx
+//                                         ? 'bg-blue-600 text-white border-blue-600'
+//                                         : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+//                                         }`}
 //                                 >
 //                                     {test.testName}
 //                                 </button>
@@ -2197,15 +2161,63 @@
 //                     </div>
 //                 </div>
 
+//                 {/* Machine Load Information - New Section */}
+//                 {currentRecord.machineLoadData && (
+//                     <div className="mb-6 bg-white rounded-lg border border-gray-200 p-4">
+//                         <div className="flex items-center justify-between mb-4">
+//                             <h3 className="text-lg font-semibold text-gray-800">Machine Load Information</h3>
+//                             <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+//                                 Load ID: {currentRecord.machineLoadData.loadId}
+//                             </span>
+//                         </div>
+//                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+//                             <div>
+//                                 <span className="text-sm text-gray-600">Machine/Chamber:</span>
+//                                 <div className="font-semibold">{currentRecord.machineLoadData.chamber}</div>
+//                             </div>
+//                             <div>
+//                                 <span className="text-sm text-gray-600">Total Parts Loaded:</span>
+//                                 <div className="font-semibold">{currentRecord.machineLoadData.totalParts}</div>
+//                             </div>
+//                             <div>
+//                                 <span className="text-sm text-gray-600">Loaded At:</span>
+//                                 <div className="font-semibold">
+//                                     {new Date(currentRecord.machineLoadData.loadedAt).toLocaleDateString()}
+//                                 </div>
+//                             </div>
+//                             <div>
+//                                 <span className="text-sm text-gray-600">Estimated Completion:</span>
+//                                 <div className="font-semibold">
+//                                     {new Date(currentRecord.machineLoadData.estimatedCompletion).toLocaleDateString()}
+//                                 </div>
+//                             </div>
+//                         </div>
+//                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+//                             <div>
+//                                 <span className="text-sm text-gray-600">Duration:</span>
+//                                 <div className="font-semibold">{currentRecord.machineLoadData.duration} hours</div>
+//                             </div>
+//                             <div>
+//                                 <span className="text-sm text-gray-600">Ticket:</span>
+//                                 <div className="font-semibold">{currentRecord.machineLoadData.machineDetails.ticketCode}</div>
+//                             </div>
+//                             <div>
+//                                 <span className="text-sm text-gray-600">Project:</span>
+//                                 <div className="font-semibold">{currentRecord.machineLoadData.machineDetails.project}</div>
+//                             </div>
+//                         </div>
+//                     </div>
+//                 )}
+
 //                 {/* Child Test Progress */}
 //                 {formData?.childTests && formData.childTests.length > 1 && (
 //                     <div className="mb-6 bg-white rounded-lg border border-gray-200 p-4">
 //                         <h3 className="text-lg font-semibold text-gray-800 mb-3">Child Tests Progress</h3>
 //                         <div className="flex flex-wrap gap-2">
 //                             {formData.childTests.map((childTest, index) => {
-//                                 const isLocked = childTest.dependsOnPrevious && 
-//                                     formData.childTests?.some((test, idx) => 
-//                                         test.id === childTest.previousTestId && 
+//                                 const isLocked = childTest.dependsOnPrevious &&
+//                                     formData.childTests?.some((test, idx) =>
+//                                         test.id === childTest.previousTestId &&
 //                                         test.status !== 'completed' &&
 //                                         idx < index
 //                                     );
@@ -2213,16 +2225,15 @@
 //                                 return (
 //                                     <div
 //                                         key={childTest.id}
-//                                         className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-//                                             currentChildTestIndex === index
-//                                                 ? 'bg-blue-100 text-blue-700 border-blue-300'
-//                                                 : childTest.status === 'completed'
+//                                         className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${currentChildTestIndex === index
+//                                             ? 'bg-blue-100 text-blue-700 border-blue-300'
+//                                             : childTest.status === 'completed'
 //                                                 ? 'bg-green-100 text-green-700 border-green-300'
 //                                                 : isLocked
-//                                                 ? 'bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed'
-//                                                 : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
-//                                         }`}
-//                                         title={isLocked ? `Complete ${formData.childTests?.[index-1]?.name} first` : ''}
+//                                                     ? 'bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed'
+//                                                     : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+//                                             }`}
+//                                         title={isLocked ? `Complete ${formData.childTests?.[index - 1]?.name} first` : ''}
 //                                         onClick={() => !isLocked && handleChildTestChange(formKey, index)}
 //                                     >
 //                                         <span className="font-medium">{childTest.name}</span>
@@ -2240,7 +2251,7 @@
 //                 )}
 
 //                 {/* Current Test Info Card */}
-//                 <div className={`mb-6 p-4 rounded-lg border ${isTestLocked ? 'bg-yellow-50 border-yellow-200' : 'bg-blue-50 border-blue-200'}`}>
+//                 <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
 //                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 //                         <div>
 //                             <span className="text-sm text-gray-600">Test Name:</span>
@@ -2268,25 +2279,14 @@
 //                         </div>
 //                         <div>
 //                             <span className="text-sm text-gray-600">Status:</span>
-//                             <div className={`font-semibold ${
-//                                 currentChildTest?.status === 'completed' ? "text-green-600" :
-//                                 currentChildTest?.status === 'active' ? (isTestLocked ? "text-yellow-600" : "text-blue-600") :
-//                                 "text-gray-600"
-//                             }`}>
-//                                 {isTestLocked ? "LOCKED" : currentChildTest?.status?.toUpperCase() || "PENDING"}
+//                             <div className={`font-semibold ${currentChildTest?.status === 'completed' ? "text-green-600" :
+//                                 currentChildTest?.status === 'active' ? "text-yellow-600" :
+//                                     "text-gray-600"
+//                                 }`}>
+//                                 {currentChildTest?.status?.toUpperCase() || "PENDING"}
 //                             </div>
 //                         </div>
 //                     </div>
-//                     {isTestLocked && (
-//                         <div className="mt-3 p-2 bg-yellow-100 border border-yellow-300 rounded">
-//                             <div className="flex items-center">
-//                                 <AlertCircle size={16} className="text-yellow-600 mr-2" />
-//                                 <span className="text-sm text-yellow-700">
-//                                     This test requires completion of previous test. Please complete "{formData?.childTests?.[currentChildTestIndex-1]?.name}" first.
-//                                 </span>
-//                             </div>
-//                         </div>
-//                     )}
 //                 </div>
 
 //                 {/* Parts for Current Test */}
@@ -2294,40 +2294,28 @@
 //                     <div className="flex justify-between items-center mb-4">
 //                         <h3 className="text-lg font-semibold text-gray-800">
 //                             Assigned Parts for {currentChildTest?.name || currentTestRecord?.testName}
-//                             {isTestLocked && (
-//                                 <span className="ml-2 text-sm text-yellow-600 font-normal">
-//                                     (Locked - Complete previous test first)
-//                                 </span>
-//                             )}
 //                         </h3>
-//                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-//                             isTestLocked 
-//                                 ? 'bg-yellow-100 text-yellow-800' 
-//                                 : 'bg-blue-100 text-blue-800'
-//                         }`}>
-//                             {currentTestParts.length} Parts {isTestLocked ? '(Locked)' : ''}
+//                         <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+//                             {currentTestParts.length} Parts
 //                         </span>
 //                     </div>
 //                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 //                         {currentTestParts.map((part) => {
-//                             const rowData = formData?.rows?.find(row => 
-//                                 row.partNumber === part.partNumber && 
+//                             const rowData = formData?.rows?.find(row =>
+//                                 row.partNumber === part.partNumber &&
 //                                 row.childTestId === currentChildTest?.id
 //                             );
 
 //                             return (
-//                                 <div key={part.id} className={`bg-white rounded-lg border p-4 shadow-sm hover:shadow-md transition-shadow ${
-//                                     isTestLocked ? 'border-gray-300' : 'border-gray-200'
-//                                 }`}>
+//                                 <div key={part.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
 //                                     <div className="flex items-start justify-between mb-4">
 //                                         <div className="flex-1">
 //                                             <div className="flex items-center gap-2 mb-2">
 //                                                 <h4 className="font-bold text-gray-800 text-lg">{part.partNumber}</h4>
-//                                                 <span className={`px-2 py-1 text-xs rounded-full ${
-//                                                     part.scanStatus === 'OK' 
-//                                                         ? 'bg-green-100 text-green-800'
-//                                                         : 'bg-yellow-100 text-yellow-800'
-//                                                 }`}>
+//                                                 <span className={`px-2 py-1 text-xs rounded-full ${part.scanStatus === 'OK'
+//                                                     ? 'bg-green-100 text-green-800'
+//                                                     : 'bg-yellow-100 text-yellow-800'
+//                                                     }`}>
 //                                                     {part.scanStatus}
 //                                                 </span>
 //                                             </div>
@@ -2345,14 +2333,12 @@
 
 //                                     {/* Status Badge */}
 //                                     <div className="mb-4">
-//                                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-//                                             rowData?.status === "Pass" ? "bg-green-100 text-green-800" :
+//                                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${rowData?.status === "Pass" ? "bg-green-100 text-green-800" :
 //                                             rowData?.status === "Fail" ? "bg-red-100 text-red-800" :
-//                                             rowData?.status === "In Progress" ? "bg-yellow-100 text-yellow-800" :
-//                                             isTestLocked ? "bg-gray-100 text-gray-500" :
-//                                             "bg-gray-100 text-gray-800"
-//                                         }`}>
-//                                             {isTestLocked ? "Locked" : rowData?.status || "Not Started"}
+//                                                 rowData?.status === "In Progress" ? "bg-yellow-100 text-yellow-800" :
+//                                                     "bg-gray-100 text-gray-800"
+//                                             }`}>
+//                                             {rowData?.status || "Not Started"}
 //                                         </span>
 //                                     </div>
 
@@ -2361,160 +2347,252 @@
 //                                         {/* Cosmetic Images */}
 //                                         <div>
 //                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-//                                                 Cosmetic Image
+//                                                 Cosmetic Images
 //                                             </label>
 
-//                                             {/* Display uploaded image */}
-//                                             {rowData?.cosmeticImage ? (
-//                                                 <div className="mb-2">
-//                                                     <div className="relative group">
-//                                                         <img
-//                                                             src={rowData.cosmeticImage}
-//                                                             alt="Cosmetic"
-//                                                             className="w-full h-32 object-cover border rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-//                                                             onClick={() => window.open(rowData.cosmeticImage, '_blank')}
-//                                                         />
-//                                                         {!isTestLocked && (
-//                                                             <button
-//                                                                 onClick={() => removeImage(part.partNumber, 'cosmetic', currentChildTest?.id)}
-//                                                                 className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-//                                                                 title="Remove image"
-//                                                             >
-//                                                                 <X size={16} />
-//                                                             </button>
-//                                                         )}
+//                                             {/* Display ALL uploaded cosmetic images in a grid */}
+//                                             <div className="mb-3">
+//                                                 {rowData?.cosmeticImages && rowData.cosmeticImages.length > 0 ? (
+//                                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+//                                                         {rowData.cosmeticImages.map((img, index) => (
+//                                                             <div key={index} className="relative group">
+//                                                                 <img
+//                                                                     src={img}
+//                                                                     alt={`Cosmetic ${index + 1}`}
+//                                                                     className="w-full h-32 object-cover border rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+//                                                                     onClick={() => window.open(img, '_blank')}
+//                                                                 />
+//                                                                 <button
+//                                                                     onClick={(e) => {
+//                                                                         e.stopPropagation();
+//                                                                         // Remove this specific image
+//                                                                         const formKey = `test_${currentTestIndex}`;
+//                                                                         const formData = forms[formKey];
+
+//                                                                         if (formData) {
+//                                                                             const updatedRows = formData.rows.map(row => {
+//                                                                                 if (row.partNumber === part.partNumber && row.childTestId === currentChildTest?.id) {
+//                                                                                     const updatedCosmeticImages = [...(row.cosmeticImages || [])];
+//                                                                                     updatedCosmeticImages.splice(index, 1);
+
+//                                                                                     return {
+//                                                                                         ...row,
+//                                                                                         cosmeticImages: updatedCosmeticImages,
+//                                                                                         cosmeticImage: updatedCosmeticImages[0] || "" // Update main image
+//                                                                                     };
+//                                                                                 }
+//                                                                                 return row;
+//                                                                             });
+
+//                                                                             setForms(prev => ({
+//                                                                                 ...prev,
+//                                                                                 [formKey]: {
+//                                                                                     ...prev[formKey],
+//                                                                                     rows: updatedRows
+//                                                                                 }
+//                                                                             }));
+//                                                                         }
+//                                                                     }}
+//                                                                     className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+//                                                                     title="Remove this image"
+//                                                                 >
+//                                                                     <X size={14} />
+//                                                                 </button>
+//                                                                 <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+//                                                                     Image {index + 1}
+//                                                                 </div>
+//                                                             </div>
+//                                                         ))}
 //                                                     </div>
-//                                                 </div>
-//                                             ) : null}
-
-//                                             {/* Upload button */}
-//                                             <label className={`flex items-center justify-center h-24 border-2 border-dashed rounded-lg transition-colors ${
-//                                                 isTestLocked 
-//                                                     ? 'border-gray-300 bg-gray-100 cursor-not-allowed' 
-//                                                     : 'border-blue-300 bg-blue-50 cursor-pointer hover:border-blue-400 hover:bg-blue-100'
-//                                             }`}>
-//                                                 <div className="text-center">
-//                                                     <Plus className={`${isTestLocked ? 'text-gray-400' : 'text-blue-400'} mx-auto mb-2`} size={24} />
-//                                                     <span className={`text-sm font-medium ${isTestLocked ? 'text-gray-500' : 'text-blue-600'}`}>
-//                                                         {rowData?.cosmeticImage ? 'Replace Cosmetic Image' : 'Add Cosmetic Image'}
-//                                                     </span>
-//                                                     {isTestLocked && (
-//                                                         <div className="text-xs text-gray-500 mt-1">Locked</div>
-//                                                     )}
-//                                                 </div>
-//                                                 {!isTestLocked && (
-//                                                     <input
-//                                                         type="file"
-//                                                         accept="image/*"
-//                                                         className="hidden"
-//                                                         onChange={(e) => {
-//                                                             if (e.target.files?.[0]) {
-//                                                                 handleImageUpload(
-//                                                                     part.partNumber, 
-//                                                                     currentTestRecord!.testName, 
-//                                                                     'cosmetic', 
-//                                                                     e.target.files[0],
-//                                                                     currentChildTest?.id
-//                                                                 );
-//                                                                 e.target.value = '';
-//                                                             }
-//                                                         }}
-//                                                     />
+//                                                 ) : (
+//                                                     <div className="text-center py-4 text-gray-500">
+//                                                         No cosmetic images uploaded yet
+//                                                     </div>
 //                                                 )}
+//                                             </div>
+
+//                                             {/* Upload button - ALWAYS shows "Upload Cosmetic Image" */}
+//                                             <label className="flex items-center justify-center h-20 border-2 border-dashed border-blue-300 rounded-lg cursor-pointer hover:border-blue-400 bg-blue-50 transition-colors hover:bg-blue-100">
+//                                                 <div className="text-center">
+//                                                     <Upload className="text-blue-400 mx-auto mb-1" size={20} />
+//                                                     <span className="text-sm font-medium text-blue-600">
+//                                                         Upload Cosmetic Image
+//                                                     </span>
+//                                                     <p className="text-xs text-gray-500 mt-1">Click to add image</p>
+//                                                 </div>
+//                                                 <input
+//                                                     type="file"
+//                                                     accept="image/*"
+//                                                     className="hidden"
+//                                                     onChange={(e) => {
+//                                                         if (e.target.files?.[0]) {
+//                                                             handleImageUpload(
+//                                                                 part.partNumber,
+//                                                                 currentTestRecord!.testName,
+//                                                                 'cosmetic',
+//                                                                 e.target.files[0],
+//                                                                 currentChildTest?.id
+//                                                             );
+//                                                             e.target.value = '';
+//                                                         }
+//                                                     }}
+//                                                 />
 //                                             </label>
+
+//                                             {/* Show total count */}
+//                                             {rowData?.cosmeticImages && rowData.cosmeticImages.length > 0 && (
+//                                                 <div className="mt-2 text-xs text-gray-600">
+//                                                     Total: {rowData.cosmeticImages.length} image(s)
+//                                                 </div>
+//                                             )}
 //                                         </div>
 
 //                                         {/* Non-Cosmetic Images */}
 //                                         <div>
 //                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-//                                                 {isSecondRound ? 'Final Non-Cosmetic Image' : 'Non-Cosmetic Image'}
+//                                                 {isSecondRound ? 'Final Non-Cosmetic Images' : 'Non-Cosmetic Images'}
 //                                             </label>
 
-//                                             {processing && !isTestLocked && (
-//                                                 <div className="mb-2 bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-center">
+//                                             {processing && (
+//                                                 <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-center">
 //                                                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
 //                                                     <span className="text-sm text-blue-600">Processing with OpenCV...</span>
 //                                                 </div>
 //                                             )}
 
-//                                             {/* Display uploaded image and cropped results */}
-//                                             {rowData?.nonCosmeticImage && (
-//                                                 <div className="mb-2 space-y-3">
-//                                                     <div className="relative group">
-//                                                         <img
-//                                                             src={rowData.nonCosmeticImage}
-//                                                             alt="Non-Cosmetic"
-//                                                             className="w-full h-32 object-cover border rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-//                                                             onClick={() => window.open(rowData.nonCosmeticImage, '_blank')}
-//                                                         />
-//                                                         {!isTestLocked && (
-//                                                             <button
-//                                                                 onClick={() => removeImage(part.partNumber, 'nonCosmetic', currentChildTest?.id)}
-//                                                                 className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-//                                                                 title="Remove image"
-//                                                             >
-//                                                                 <X size={16} />
-//                                                             </button>
-//                                                         )}
-//                                                     </div>
+//                                             {/* Display ALL uploaded non-cosmetic images with their cropped versions */}
+//                                             <div className="mb-3">
+//                                                 {rowData?.nonCosmeticImages && rowData.nonCosmeticImages.length > 0 ? (
+//                                                     <div className="space-y-4">
+//                                                         {rowData.nonCosmeticImages.map((img, index) => (
+//                                                             <div key={index} className="border rounded-lg p-3 bg-gray-50">
+//                                                                 <div className="flex flex-col md:flex-row gap-4">
+//                                                                     {/* Original non-cosmetic image */}
+//                                                                     <div className="flex-1">
+//                                                                         <div className="relative group">
+//                                                                             <img
+//                                                                                 src={img}
+//                                                                                 alt={`Non-Cosmetic ${index + 1}`}
+//                                                                                 className="w-full h-32 object-cover border rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+//                                                                                 onClick={() => window.open(img, '_blank')}
+//                                                                             />
+//                                                                             <button
+//                                                                                 onClick={(e) => {
+//                                                                                     e.stopPropagation();
+//                                                                                     // Remove this specific image and its cropped version
+//                                                                                     const formKey = `test_${currentTestIndex}`;
+//                                                                                     const formData = forms[formKey];
 
-//                                                     {/* Show cropped image if available */}
-//                                                     {rowData.croppedImage && (
-//                                                         <div className="bg-gray-50 p-3 rounded-lg">
-//                                                             <p className="text-xs text-gray-600 mb-2">
-//                                                                 <span className="font-semibold">Detected Region:</span> {rowData.regionLabel}
-//                                                             </p>
-//                                                             <div className="flex items-center justify-center">
-//                                                                 <img
-//                                                                     src={rowData.croppedImage}
-//                                                                     alt="Cropped Region"
-//                                                                     className="w-20 h-20 object-contain border rounded-lg shadow-sm"
-//                                                                 />
+//                                                                                     if (formData) {
+//                                                                                         const updatedRows = formData.rows.map(row => {
+//                                                                                             if (row.partNumber === part.partNumber && row.childTestId === currentChildTest?.id) {
+//                                                                                                 const updatedNonCosmeticImages = [...(row.nonCosmeticImages || [])];
+//                                                                                                 const updatedCroppedImages = [...(row.croppedImages || [])];
+
+//                                                                                                 // Remove from both arrays at same index
+//                                                                                                 updatedNonCosmeticImages.splice(index, 1);
+//                                                                                                 if (updatedCroppedImages[index]) {
+//                                                                                                     updatedCroppedImages.splice(index, 1);
+//                                                                                                 }
+
+//                                                                                                 return {
+//                                                                                                     ...row,
+//                                                                                                     nonCosmeticImages: updatedNonCosmeticImages,
+//                                                                                                     nonCosmeticImage: updatedNonCosmeticImages[0] || "",
+//                                                                                                     croppedImages: updatedCroppedImages,
+//                                                                                                     croppedImage: updatedCroppedImages[0] || ""
+//                                                                                                 };
+//                                                                                             }
+//                                                                                             return row;
+//                                                                                         });
+
+//                                                                                         setForms(prev => ({
+//                                                                                             ...prev,
+//                                                                                             [formKey]: {
+//                                                                                                 ...prev[formKey],
+//                                                                                                 rows: updatedRows
+//                                                                                             }
+//                                                                                         }));
+//                                                                                     }
+//                                                                                 }}
+//                                                                                 className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+//                                                                                 title="Remove this image"
+//                                                                             >
+//                                                                                 <X size={14} />
+//                                                                             </button>
+//                                                                             <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+//                                                                                 Image {index + 1}
+//                                                                             </div>
+//                                                                         </div>
+//                                                                     </div>
+
+//                                                                     {/* Corresponding cropped image (if exists) */}
+//                                                                     <div className="flex-1">
+//                                                                         {rowData.croppedImages && rowData.croppedImages[index] && (
+//                                                                             <div className="h-full flex flex-col justify-center">
+//                                                                                 <div className="text-xs text-gray-600 mb-1">
+//                                                                                     <span className="font-semibold">Detected Region:</span> {rowData.regionLabel}
+//                                                                                 </div>
+//                                                                                 <div className="flex justify-center">
+//                                                                                     <img
+//                                                                                         src={rowData.croppedImages[index]}
+//                                                                                         alt={`Cropped ${index + 1}`}
+//                                                                                         className="w-24 h-24 object-contain border rounded-lg shadow-sm"
+//                                                                                     />
+//                                                                                 </div>
+//                                                                             </div>
+//                                                                         )}
+//                                                                     </div>
+//                                                                 </div>
 //                                                             </div>
-//                                                         </div>
-//                                                     )}
+//                                                         ))}
+//                                                     </div>
+//                                                 ) : (
+//                                                     <div className="text-center py-4 text-gray-500">
+//                                                         No non-cosmetic images uploaded yet
+//                                                     </div>
+//                                                 )}
+//                                             </div>
+
+//                                             {/* Upload button - ALWAYS shows "Upload Non-Cosmetic Image" */}
+//                                             <label className={`flex items-center justify-center h-20 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${processing ? 'opacity-50 cursor-not-allowed' : 'hover:border-green-400 hover:bg-green-100'}`}
+//                                                 style={{
+//                                                     borderColor: processing ? '#d1d5db' : '#86efac',
+//                                                     backgroundColor: processing ? '#f3f4f6' : '#f0fdf4'
+//                                                 }}>
+//                                                 <div className="text-center">
+//                                                     <Upload className={`mx-auto mb-1 ${processing ? 'text-gray-400' : 'text-green-400'}`} size={20} />
+//                                                     <span className={`text-sm font-medium ${processing ? 'text-gray-500' : 'text-green-600'}`}>
+//                                                         {processing ? 'Processing...' : 'Upload Non-Cosmetic Image'}
+//                                                     </span>
+//                                                     <p className="text-xs text-gray-500 mt-1">Click to add image</p>
+//                                                 </div>
+//                                                 <input
+//                                                     type="file"
+//                                                     accept="image/*"
+//                                                     className="hidden"
+//                                                     onChange={(e) => {
+//                                                         if (e.target.files?.[0] && !processing) {
+//                                                             handleImageUpload(
+//                                                                 part.partNumber,
+//                                                                 currentTestRecord!.testName,
+//                                                                 'nonCosmetic',
+//                                                                 e.target.files[0],
+//                                                                 currentChildTest?.id
+//                                                             );
+//                                                             e.target.value = '';
+//                                                         }
+//                                                     }}
+//                                                     disabled={processing}
+//                                                 />
+//                                             </label>
+
+//                                             {/* Show total count */}
+//                                             {rowData?.nonCosmeticImages && rowData.nonCosmeticImages.length > 0 && (
+//                                                 <div className="mt-2 text-xs text-gray-600">
+//                                                     Total: {rowData.nonCosmeticImages.length} image(s)
 //                                                 </div>
 //                                             )}
-
-//                                             {/* Upload button */}
-//                                             <label className={`flex items-center justify-center h-24 border-2 border-dashed rounded-lg transition-colors ${
-//                                                 isTestLocked 
-//                                                     ? 'border-gray-300 bg-gray-100 cursor-not-allowed' 
-//                                                     : 'border-green-300 bg-green-50 cursor-pointer hover:border-green-400 hover:bg-green-100'
-//                                             }`}>
-//                                                 <div className="text-center">
-//                                                     <Plus className={`${isTestLocked ? 'text-gray-400' : 'text-green-400'} mx-auto mb-2`} size={24} />
-//                                                     <span className={`text-sm font-medium ${isTestLocked ? 'text-gray-500' : 'text-green-600'}`}>
-//                                                         {isSecondRound 
-//                                                             ? (rowData?.finalNonCosmeticImage ? 'Replace Final Non-Cosmetic' : 'Add Final Non-Cosmetic')
-//                                                             : (rowData?.nonCosmeticImage ? 'Replace Non-Cosmetic' : 'Add Non-Cosmetic Image')
-//                                                         }
-//                                                     </span>
-//                                                     {isTestLocked && (
-//                                                         <div className="text-xs text-gray-500 mt-1">Locked</div>
-//                                                     )}
-//                                                 </div>
-//                                                 {!isTestLocked && (
-//                                                     <input
-//                                                         type="file"
-//                                                         accept="image/*"
-//                                                         className="hidden"
-//                                                         onChange={(e) => {
-//                                                             if (e.target.files?.[0] && !processing) {
-//                                                                 handleImageUpload(
-//                                                                     part.partNumber, 
-//                                                                     currentTestRecord!.testName, 
-//                                                                     'nonCosmetic', 
-//                                                                     e.target.files[0],
-//                                                                     currentChildTest?.id
-//                                                                 );
-//                                                                 e.target.value = '';
-//                                                             }
-//                                                         }}
-//                                                         disabled={processing || isTestLocked}
-//                                                     />
-//                                                 )}
-//                                             </label>
 //                                         </div>
 //                                     </div>
 //                                 </div>
@@ -2594,18 +2672,16 @@
 //                                         saveFormData();
 //                                         setCurrentTestIndex(idx);
 //                                     }}
-//                                     className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${
-//                                         currentTestIndex === idx
-//                                             ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-//                                             : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-//                                     }`}
+//                                     className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${currentTestIndex === idx
+//                                         ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+//                                         : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+//                                         }`}
 //                                 >
 //                                     {test.testName}
-//                                     <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
-//                                         currentTestIndex === idx 
-//                                             ? 'bg-blue-500 text-white' 
-//                                             : 'bg-gray-100 text-gray-600'
-//                                     }`}>
+//                                     <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${currentTestIndex === idx
+//                                         ? 'bg-blue-500 text-white'
+//                                         : 'bg-gray-100 text-gray-600'
+//                                         }`}>
 //                                         {test.assignedPartsCount}
 //                                     </span>
 //                                 </button>
@@ -2621,7 +2697,7 @@
 //                             <div>
 //                                 <h2 className="text-2xl font-bold text-gray-800">{currentTestRecord.testName}</h2>
 //                                 <p className="text-gray-600 mt-1">
-//                                     Test {currentTestIndex + 1} of {currentRecord!.testRecords.length} | 
+//                                     Test {currentTestIndex + 1} of {currentRecord!.testRecords.length} |
 //                                     <span className="ml-2 text-sm font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded">
 //                                         {currentTestRecord.processStage}
 //                                     </span>
@@ -2653,56 +2729,145 @@
 //                     onTimerToggle={() => handleTimerToggle(formKey, currentChildTest?.id)}
 //                     croppedRegions={croppedRegions.filter(region => {
 //                         const testParts = getPartsForCurrentTest().map(p => p.partNumber);
-//                         return testParts.includes(region.partNumber || '') && 
-//                                region.childTestId === currentChildTest?.id;
+//                         return testParts.includes(region.partNumber || '') &&
+//                             region.childTestId === currentChildTest?.id;
 //                     })}
 //                     isSecondRound={isSecondRound}
 //                     currentChildTest={currentChildTest}
 //                     onChildTestComplete={() => handleChildTestComplete(formKey)}
 //                     onChildTestChange={(childTestIndex) => handleChildTestChange(formKey, childTestIndex)}
+//                     machineLoadData={currentRecord.machineLoadData}
 //                 />
 //             </div>
 //         );
 //     };
 
-//     const handleSubmit = () => {
+    
+//       const handleSubmit = () => {
 //         const saved = saveFormData();
-
+ 
 //         if (!saved) {
 //             alert("Error saving form data. Please try again.");
 //             return;
 //         }
-
+ 
 //         console.log("Submitting form data:", forms);
 //         console.log("Shared images:", sharedImagesByPart);
-
+ 
 //         if (isSecondRound) {
-//             alert("✅ Final submission complete! All test data and images have been recorded.");
-
-//             // Here you would typically save to backend/localStorage
-//             const records = localStorage.getItem("stage2Records");
-//             if (records) {
-//                 const parsed = JSON.parse(records);
-//                 const updatedRecords = parsed.map((record: Stage2Record) => {
-//                     if (record.id === currentRecord?.id) {
-//                         return currentRecord;
+//             alert("Final submission complete! All test data and images have been recorded.");
+ 
+//             try {
+//                 // Get testingLoadData from localStorage
+//                 const testingLoadDataStr = localStorage.getItem("testingLoadData");
+ 
+//                 if (testingLoadDataStr) {
+//                     const testingLoadData = JSON.parse(testingLoadDataStr);
+ 
+//                     // Update test records with form data and images
+//                     const updatedTestRecords = testingLoadData.testRecords.map((record: any) => {
+//                         // Find matching form data for this part
+//                         const formData = Object.values(forms).find(
+//                             (form: any) =>
+//                                 form.partNumber === record.partNumber &&
+//                                 form.serialNumber === record.serialNumber
+//                         );
+ 
+//                         if (formData) {
+//                             return {
+//                                 ...record,
+//                                 ...formData,
+//                                 cosmeticImage: sharedImagesByPart[record.partNumber] || '',
+//                                 status: "Completed",
+//                                 completedAt: new Date().toISOString(),
+//                                 isCompleted: true
+//                             };
+//                         }
+ 
+//                         return record;
+//                     });
+ 
+//                     // Update the main testingLoadData object
+//                     const updatedTestingLoadData = {
+//                         ...testingLoadData,
+//                         testRecords: updatedTestRecords,
+//                         status: "Completed",
+//                         completedAt: new Date().toISOString()
+//                     };
+ 
+//                     // Save updated testingLoadData back to localStorage
+//                     localStorage.setItem("testingLoadData", JSON.stringify(updatedTestingLoadData));
+ 
+//                     // Also save to stage2Records for historical tracking
+//                     const stage2RecordsStr = localStorage.getItem("stage2Records");
+//                     let stage2Records = stage2RecordsStr ? JSON.parse(stage2RecordsStr) : [];
+ 
+//                     // Check if this load already exists in stage2Records
+//                     const existingIndex = stage2Records.findIndex(
+//                         (record: any) => record.loadId === testingLoadData.loadId
+//                     );
+ 
+//                     if (existingIndex !== -1) {
+//                         // Update existing record
+//                         stage2Records[existingIndex] = updatedTestingLoadData;
+//                     } else {
+//                         // Add new record
+//                         stage2Records.push(updatedTestingLoadData);
 //                     }
-//                     return record;
-//                 });
-//                 localStorage.setItem("stage2Records", JSON.stringify(updatedRecords));
+ 
+//                     localStorage.setItem("stage2Records", JSON.stringify(stage2Records));
+ 
+//                     console.log("Updated testingLoadData:", updatedTestingLoadData);
+//                     console.log("Saved to stage2Records");
+//                 }
+ 
+//                 // Navigate back or to success page
+//                 navigate(-1);
+//             } catch (error) {
+//                 console.error("Error saving data:", error);
+//                 alert("Error saving final data. Please try again.");
 //             }
-
-//             // Navigate back or to success page
-//             navigate(-1);
 //         } else {
-//             alert("✅ Tests completed! You can now upload final non-cosmetic images for the second round.");
+//             alert("Tests completed! You can now upload final non-cosmetic images for the second round.");
+ 
+//             // Save current progress to testingLoadData
+//             try {
+//                 const testingLoadDataStr = localStorage.getItem("testingLoadData");
+ 
+//                 if (testingLoadDataStr) {
+//                     const testingLoadData = JSON.parse(testingLoadDataStr);
+ 
+//                     const updatedTestRecords = testingLoadData.testRecords.map((record: any) => {
+//                         const formData = Object.values(forms).find(
+//                             (form: any) =>
+//                                 form.partNumber === record.partNumber &&
+//                                 form.serialNumber === record.serialNumber
+//                         );
+ 
+//                         if (formData) {
+//                             return {
+//                                 ...record,
+//                                 ...formData,
+//                                 status: "First Round Completed"
+//                             };
+//                         }
+ 
+//                         return record;
+//                     });
+ 
+//                     testingLoadData.testRecords = updatedTestRecords;
+//                     localStorage.setItem("testingLoadData", JSON.stringify(testingLoadData));
+//                 }
+//             } catch (error) {
+//                 console.error("Error saving first round data:", error);
+//             }
+ 
 //             setIsSecondRound(true);
 //             setCurrentStage(0);
 //             setCurrentTestIndex(0);
 //         }
 //     };
-
-//     // Create stages array
+    
 //     const stages = [
 //         { id: 0, name: "Image Upload" },
 //         { id: 1, name: "Test Forms" }
@@ -2720,29 +2885,26 @@
 //                                     className="flex items-center cursor-pointer"
 //                                     onClick={() => setCurrentStage(index)}
 //                                 >
-//                                     <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors ${
-//                                         currentStage === index
-//                                             ? "bg-blue-600 text-white"
-//                                             : currentStage > index
+//                                     <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors ${currentStage === index
+//                                         ? "bg-blue-600 text-white"
+//                                         : currentStage > index
 //                                             ? "bg-green-500 text-white"
 //                                             : "bg-gray-200 text-gray-600"
-//                                     }`}>
+//                                         }`}>
 //                                         {currentStage > index ? (
 //                                             <CheckCircle size={18} />
 //                                         ) : (
 //                                             <span className="text-sm font-semibold">{index + 1}</span>
 //                                         )}
 //                                     </div>
-//                                     <span className={`ml-2 text-sm font-medium ${
-//                                         currentStage === index ? "text-blue-600" : "text-gray-600"
-//                                     }`}>
+//                                     <span className={`ml-2 text-sm font-medium ${currentStage === index ? "text-blue-600" : "text-gray-600"
+//                                         }`}>
 //                                         {stage.name}
 //                                     </span>
 //                                 </div>
 //                                 {index < stages.length - 1 && (
-//                                     <div className={`h-1 w-16 mx-4 transition-colors ${
-//                                         currentStage > index ? "bg-green-500" : "bg-gray-200"
-//                                     }`} />
+//                                     <div className={`h-1 w-16 mx-4 transition-colors ${currentStage > index ? "bg-green-500" : "bg-gray-200"
+//                                         }`} />
 //                                 )}
 //                             </React.Fragment>
 //                         ))}
@@ -2795,6 +2957,7 @@
 //         </div>
 //     );
 // }
+
 
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -2884,6 +3047,55 @@ interface AssignedPart {
     assignedToTest: string;
 }
 
+interface LoadedPart {
+    partNumber: string;
+    serialNumber: string;
+    ticketCode: string;
+    testId: string;
+    testName: string;
+    loadedAt: string;
+    scanStatus: string;
+    duration: string;
+    cosmeticImages?: string[];
+    nonCosmeticImages?: string[];
+    hasImages?: boolean;
+}
+
+interface MachineTest {
+    id: string;
+    testName: string;
+    duration: string;
+    status: number;
+    statusText: string;
+    requiredQty: number;
+    allocatedParts: number;
+    remainingQty: number;
+    alreadyAllocated: number;
+}
+
+interface MachineDetails {
+    machine: string;
+    ticketCode: string;
+    project: string;
+    build: string;
+    colour: string;
+    totalTests: number;
+    tests: MachineTest[];
+    estimatedDuration: number;
+}
+
+interface MachineLoadData {
+    loadId: number;
+    chamber: string;
+    parts: LoadedPart[];
+    totalParts: number;
+    machineDetails: MachineDetails;
+    loadedAt: string;
+    estimatedCompletion: string;
+    duration: number;
+    testRecords?: LoadedPart[]; // For backward compatibility
+}
+
 interface ChildTest {
     id: string;
     name: string;
@@ -2940,6 +3152,7 @@ interface Stage2Record {
     submittedAt: string;
     version: string;
     testingStatus?: string;
+    machineLoadData?: MachineLoadData; // New field for machine load data
 }
 
 // Enhanced FormRow interface
@@ -2962,6 +3175,7 @@ interface FormRow {
     finalCroppedNonCosmeticImage?: string;
     cosmeticImages?: string[];
     nonCosmeticImages?: string[];
+    croppedImages?: string[];
     [key: string]: any;
 }
 
@@ -3038,6 +3252,8 @@ interface DefaultFormProps {
     currentChildTest?: ChildTest;
     onChildTestComplete: () => void;
     onChildTestChange: (childTestIndex: number) => void;
+    machineLoadData?: MachineLoadData;
+    loadImagesFromStorage: (partNumber: string) => { cosmeticImages: string[], nonCosmeticImages: string[] };
 }
 
 function DefaultForm({
@@ -3054,7 +3270,9 @@ function DefaultForm({
     isSecondRound = false,
     currentChildTest,
     onChildTestComplete,
-    onChildTestChange
+    onChildTestChange,
+    machineLoadData,
+    loadImagesFromStorage
 }: DefaultFormProps) {
     const [showAddColumnModal, setShowAddColumnModal] = useState(false);
     const [newColumn, setNewColumn] = useState({
@@ -3274,9 +3492,85 @@ function DefaultForm({
         }
     };
 
+    // Function to check if images are already uploaded for a part
+    const checkExistingImages = (partNumber: string) => {
+        const existingImages = loadImagesFromStorage(partNumber);
+        return {
+            hasCosmeticImages: existingImages.cosmeticImages.length > 0,
+            hasNonCosmeticImages: existingImages.nonCosmeticImages.length > 0,
+            cosmeticCount: existingImages.cosmeticImages.length,
+            nonCosmeticCount: existingImages.nonCosmeticImages.length
+        };
+    };
+
     return (
         <div className="p-8 bg-gray-50 min-h-screen">
             <div className="max-w-full mx-auto">
+                {/* Machine Load Information - New Section */}
+                {machineLoadData && (
+                    <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-gray-800">Machine Load Information</h3>
+                            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                                Load ID: {machineLoadData.loadId}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div>
+                                <span className="text-sm text-gray-600">Machine/Chamber:</span>
+                                <div className="font-semibold">{machineLoadData.chamber}</div>
+                            </div>
+                            <div>
+                                <span className="text-sm text-gray-600">Total Parts:</span>
+                                <div className="font-semibold">{machineLoadData.totalParts}</div>
+                            </div>
+                            <div>
+                                <span className="text-sm text-gray-600">Loaded At:</span>
+                                <div className="font-semibold">
+                                    {new Date(machineLoadData.loadedAt).toLocaleDateString()}
+                                </div>
+                            </div>
+                            <div>
+                                <span className="text-sm text-gray-600">Estimated Completion:</span>
+                                <div className="font-semibold">
+                                    {new Date(machineLoadData.estimatedCompletion).toLocaleDateString()}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <span className="text-sm text-gray-600">Duration:</span>
+                                <div className="font-semibold">{machineLoadData.duration} hours</div>
+                            </div>
+                            <div>
+                                <span className="text-sm text-gray-600">Ticket:</span>
+                                <div className="font-semibold">{machineLoadData.machineDetails.ticketCode}</div>
+                            </div>
+                        </div>
+                        
+                        {/* Image Upload Status */}
+                        <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                            <h4 className="text-sm font-medium text-purple-800 mb-2">Image Upload Status</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                <div>
+                                    <span className="text-sm text-gray-600">Parts with pre-uploaded images:</span>
+                                    <span className="font-semibold ml-2">
+                                        {machineLoadData.parts.filter(p => p.hasImages).length} / {machineLoadData.totalParts}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-sm text-gray-600">Total pre-uploaded images:</span>
+                                    <span className="font-semibold ml-2">
+                                        {machineLoadData.parts.reduce((sum, part) => 
+                                            sum + (part.cosmeticImages?.length || 0) + (part.nonCosmeticImages?.length || 0), 0
+                                        )}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Child Test Navigation */}
                 {formData.childTests && formData.childTests.length > 1 && (
                     <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -3389,22 +3683,44 @@ function DefaultForm({
                 <div className="mb-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">Parts ({selectedParts.length})</h3>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {selectedParts.map((part, index) => (
-                            <div key={part.id} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
-                                <div className="flex items-center justify-between">
-                                    <span className="font-medium text-gray-700">{part.partNumber}</span>
-                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                        Part {index + 1}
-                                    </span>
+                        {selectedParts.map((part, index) => {
+                            const existingImages = checkExistingImages(part.partNumber);
+                            
+                            return (
+                                <div key={part.id} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-medium text-gray-700">{part.partNumber}</span>
+                                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                            Part {index + 1}
+                                        </span>
+                                    </div>
+                                    <div className="mt-2 text-xs text-gray-500">
+                                        Serial: {part.serialNumber}
+                                    </div>
+                                    <div className="mt-2 text-xs text-gray-500">
+                                        Current Rows: {rowsByPart[part.partNumber]?.length || 0}
+                                    </div>
+                                    
+                                    {/* Show existing images status */}
+                                    {(existingImages.hasCosmeticImages || existingImages.hasNonCosmeticImages) && (
+                                        <div className="mt-2 flex flex-wrap gap-1">
+                                            {existingImages.hasCosmeticImages && (
+                                                <span className="px-1.5 py-0.5 text-xs bg-blue-50 text-blue-700 rounded flex items-center gap-1">
+                                                    <ImageIcon size={10} />
+                                                    {existingImages.cosmeticCount} cosmetic
+                                                </span>
+                                            )}
+                                            {existingImages.hasNonCosmeticImages && (
+                                                <span className="px-1.5 py-0.5 text-xs bg-green-50 text-green-700 rounded flex items-center gap-1">
+                                                    <ImageIcon size={10} />
+                                                    {existingImages.nonCosmeticCount} non-cosmetic
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="mt-2 text-xs text-gray-500">
-                                    Serial: {part.serialNumber}
-                                </div>
-                                <div className="mt-2 text-xs text-gray-500">
-                                    Current Rows: {rowsByPart[part.partNumber]?.length || 0}
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -3423,233 +3739,282 @@ function DefaultForm({
                 </div>
 
                 {/* Render table for each part */}
-                {selectedParts.map((part) => (
-                    <div key={part.id} className="mb-8">
-                        <div className="bg-gray-100 border border-gray-300 rounded-t-lg p-3">
-                            <h4 className="font-semibold text-gray-800 flex items-center">
-                                <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-2">
-                                    {selectedParts.indexOf(part) + 1}
-                                </span>
-                                Part: {part.partNumber} (Serial: {part.serialNumber})
-                                {currentChildTest && (
-                                    <span className="ml-2 text-sm text-blue-600 font-normal">
-                                        - {currentChildTest.name}
+                {selectedParts.map((part) => {
+                    const existingImages = loadImagesFromStorage(part.partNumber);
+                    
+                    return (
+                        <div key={part.id} className="mb-8">
+                            <div className="bg-gray-100 border border-gray-300 rounded-t-lg p-3">
+                                <h4 className="font-semibold text-gray-800 flex items-center">
+                                    <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-2">
+                                        {selectedParts.indexOf(part) + 1}
                                     </span>
-                                )}
-                            </h4>
-                        </div>
-                        <div className="bg-white rounded-b-xl shadow-sm border border-gray-200 border-t-0 overflow-hidden">
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-300">
-                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-                                                SR.No
-                                            </th>
-                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-                                                Checkpoint Status
-                                            </th>
-                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-                                                Test Date
-                                            </th>
-                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-                                                Config
-                                            </th>
-                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-                                                Sample ID
-                                            </th>
-                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-                                                Cosmetic Image
-                                            </th>
-                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-                                                Non-Cosmetic Image
-                                            </th>
-                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-                                                Cropped Image
-                                            </th>
-                                            {isSecondRound && (
-                                                <>
-                                                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-                                                        Final Non-Cosmetic Image
-                                                    </th>
-                                                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
-                                                        Final Cropped Non-Cosmetic Image
-                                                    </th>
-                                                </>
-                                            )}
-                                            {formData.customColumns?.map((column) => (
-                                                <th key={column.id} className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200 relative group">
-                                                    <div className="flex items-center justify-between">
-                                                        <span>{column.label}</span>
-                                                        <button
-                                                            onClick={() => removeCustomColumn(column.id)}
-                                                            className="opacity-0 group-hover:opacity-100 ml-2 text-red-500 hover:text-red-700 transition-opacity"
-                                                            title="Remove column"
-                                                        >
-                                                            <X size={14} />
-                                                        </button>
-                                                    </div>
+                                    Part: {part.partNumber} (Serial: {part.serialNumber})
+                                    {currentChildTest && (
+                                        <span className="ml-2 text-sm text-blue-600 font-normal">
+                                            - {currentChildTest.name}
+                                        </span>
+                                    )}
+                                    
+                                    {/* Show image status badge */}
+                                    {(existingImages.cosmeticImages.length > 0 || existingImages.nonCosmeticImages.length > 0) && (
+                                        <span className="ml-2 px-2 py-0.5 text-xs bg-purple-100 text-purple-800 rounded-full flex items-center gap-1">
+                                            <ImageIcon size={10} />
+                                            Images loaded from storage
+                                        </span>
+                                    )}
+                                </h4>
+                            </div>
+                            <div className="bg-white rounded-b-xl shadow-sm border border-gray-200 border-t-0 overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-300">
+                                                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                    SR.No
                                                 </th>
-                                            ))}
-                                            <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                                                Status
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-200">
-                                        {rowsByPart[part.partNumber]?.map((row, index) => (
-                                            <tr key={row.id} className={index % 2 === 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50 hover:bg-gray-100"}>
-                                                <td className="px-4 py-4 text-center font-semibold text-gray-900 border-r border-gray-200">
-                                                    {row.srNo}
-                                                </td>
-                                                <td className="px-4 py-4 text-center border-r border-gray-200">
-                                                    {row.testDate && (() => {
-                                                        const testStartDate = new Date(row.testDate);
-                                                        const checkpointTime = new Date(testStartDate.getTime() + (checkpointHours * 60 * 60 * 1000));
-                                                        const now = new Date();
-                                                        const hoursElapsed = (now.getTime() - testStartDate.getTime()) / (1000 * 60 * 60);
-                                                        const checkpointReached = now >= checkpointTime;
+                                                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                    Checkpoint Status
+                                                </th>
+                                                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                    Test Date
+                                                </th>
+                                                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                    Config
+                                                </th>
+                                                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                    Sample ID
+                                                </th>
+                                                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                    Cosmetic Images
+                                                </th>
+                                                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                    Non-Cosmetic Images
+                                                </th>
+                                                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                    Cropped Images
+                                                </th>
+                                                {isSecondRound && (
+                                                    <>
+                                                        <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                            Final Non-Cosmetic Image
+                                                        </th>
+                                                        <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">
+                                                            Final Cropped Non-Cosmetic Image
+                                                        </th>
+                                                    </>
+                                                )}
+                                                {formData.customColumns?.map((column) => (
+                                                    <th key={column.id} className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200 relative group">
+                                                        <div className="flex items-center justify-between">
+                                                            <span>{column.label}</span>
+                                                            <button
+                                                                onClick={() => removeCustomColumn(column.id)}
+                                                                className="opacity-0 group-hover:opacity-100 ml-2 text-red-500 hover:text-red-700 transition-opacity"
+                                                                title="Remove column"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
+                                                        </div>
+                                                    </th>
+                                                ))}
+                                                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                                                    Status
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-200">
+                                            {rowsByPart[part.partNumber]?.map((row, index) => (
+                                                <tr key={row.id} className={index % 2 === 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50 hover:bg-gray-100"}>
+                                                    <td className="px-4 py-4 text-center font-semibold text-gray-900 border-r border-gray-200">
+                                                        {row.srNo}
+                                                    </td>
+                                                    <td className="px-4 py-4 text-center border-r border-gray-200">
+                                                        {row.testDate && (() => {
+                                                            const testStartDate = new Date(row.testDate);
+                                                            const checkpointTime = new Date(testStartDate.getTime() + (checkpointHours * 60 * 60 * 1000));
+                                                            const now = new Date();
+                                                            const hoursElapsed = (now.getTime() - testStartDate.getTime()) / (1000 * 60 * 60);
+                                                            const checkpointReached = now >= checkpointTime;
 
-                                                        return (
-                                                            <div className="flex flex-col items-center gap-1">
-                                                                <div className={`text-xs font-semibold px-2 py-1 rounded ${checkpointReached
-                                                                    ? 'bg-red-100 text-red-700'
-                                                                    : 'bg-green-100 text-green-700'
-                                                                    }`}>
-                                                                    {checkpointReached ? '⚠️ Checkpoint' : '✓ Active'}
+                                                            return (
+                                                                <div className="flex flex-col items-center gap-1">
+                                                                    <div className={`text-xs font-semibold px-2 py-1 rounded ${checkpointReached
+                                                                        ? 'bg-red-100 text-red-700'
+                                                                        : 'bg-green-100 text-green-700'
+                                                                        }`}>
+                                                                        {checkpointReached ? '⚠️ Checkpoint' : '✓ Active'}
+                                                                    </div>
+                                                                    <div className="text-[10px] text-gray-500">
+                                                                        {hoursElapsed.toFixed(1)}h / {checkpointHours}h
+                                                                    </div>
                                                                 </div>
-                                                                <div className="text-[10px] text-gray-500">
-                                                                    {hoursElapsed.toFixed(1)}h / {checkpointHours}h
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })()}
-                                                </td>
-                                                <td className="px-4 py-4 border-r border-gray-200">
-                                                    <input
-                                                        type="date"
-                                                        value={row.testDate}
-                                                        onChange={(e) => updateRowField(row.id, 'testDate', e.target.value)}
-                                                        className="w-full min-w-[140px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                    />
-                                                </td>
-                                                <td className="px-4 py-4 border-r border-gray-200">
-                                                    <input
-                                                        value={row.config}
-                                                        onChange={(e) => updateRowField(row.id, 'config', e.target.value)}
-                                                        className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                    />
-                                                </td>
-                                                <td className="px-4 py-4 border-r border-gray-200">
-                                                    <input
-                                                        value={row.sampleId}
-                                                        onChange={(e) => updateRowField(row.id, 'sampleId', e.target.value)}
-                                                        className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                    />
-                                                </td>
-                                                <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
-                                                    <div className="space-y-2">
-                                                        {row.cosmeticImages && row.cosmeticImages.length > 0 ? (
-                                                            <div className="space-y-2">
-                                                                <div className="grid grid-cols-2 gap-1">
-                                                                    {row.cosmeticImages.map((img, index) => (
-                                                                        <div key={index} className="relative group">
-                                                                            <img
-                                                                                src={img}
-                                                                                alt={`Cosmetic ${index + 1}`}
-                                                                                className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
-                                                                                onClick={() => window.open(img, '_blank')}
-                                                                            />
-                                                                            <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
-                                                                                {index + 1}
+                                                            );
+                                                        })()}
+                                                    </td>
+                                                    <td className="px-4 py-4 border-r border-gray-200">
+                                                        <input
+                                                            type="date"
+                                                            value={row.testDate}
+                                                            onChange={(e) => updateRowField(row.id, 'testDate', e.target.value)}
+                                                            className="w-full min-w-[140px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                        />
+                                                    </td>
+                                                    <td className="px-4 py-4 border-r border-gray-200">
+                                                        <input
+                                                            value={row.config}
+                                                            onChange={(e) => updateRowField(row.id, 'config', e.target.value)}
+                                                            className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                        />
+                                                    </td>
+                                                    <td className="px-4 py-4 border-r border-gray-200">
+                                                        <input
+                                                            value={row.sampleId}
+                                                            onChange={(e) => updateRowField(row.id, 'sampleId', e.target.value)}
+                                                            className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                        />
+                                                    </td>
+                                                    <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
+                                                        <div className="space-y-2">
+                                                            {/* Show existing cosmetic images from storage first */}
+                                                            {existingImages.cosmeticImages.length > 0 ? (
+                                                                <div className="space-y-2">
+                                                                    <div className="text-xs text-gray-500 mb-1">
+                                                                        Pre-uploaded images ({existingImages.cosmeticImages.length}):
+                                                                    </div>
+                                                                    <div className="grid grid-cols-2 gap-1">
+                                                                        {existingImages.cosmeticImages.map((img, imgIndex) => (
+                                                                            <div key={imgIndex} className="relative group">
+                                                                                <img
+                                                                                    src={img}
+                                                                                    alt={`Cosmetic ${imgIndex + 1}`}
+                                                                                    className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
+                                                                                    onClick={() => window.open(img, '_blank')}
+                                                                                />
+                                                                                <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                                                                                    {imgIndex + 1}
+                                                                                </div>
                                                                             </div>
-                                                                        </div>
-                                                                    ))}
+                                                                        ))}
+                                                                    </div>
                                                                 </div>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        const input = document.createElement('input');
-                                                                        input.type = 'file';
-                                                                        input.accept = 'image/*';
-                                                                        input.multiple = true;
-                                                                        input.onchange = (e) => {
-                                                                            const files = (e.target as HTMLInputElement).files;
+                                                            ) : row.cosmeticImages && row.cosmeticImages.length > 0 ? (
+                                                                <div className="space-y-2">
+                                                                    <div className="grid grid-cols-2 gap-1">
+                                                                        {row.cosmeticImages.map((img, imgIndex) => (
+                                                                            <div key={imgIndex} className="relative group">
+                                                                                <img
+                                                                                    src={img}
+                                                                                    alt={`Cosmetic ${imgIndex + 1}`}
+                                                                                    className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
+                                                                                    onClick={() => window.open(img, '_blank')}
+                                                                                />
+                                                                                <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                                                                                    {imgIndex + 1}
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const input = document.createElement('input');
+                                                                            input.type = 'file';
+                                                                            input.accept = 'image/*';
+                                                                            input.multiple = true;
+                                                                            input.onchange = (e) => {
+                                                                                const files = (e.target as HTMLInputElement).files;
+                                                                                if (files) {
+                                                                                    Array.from(files).forEach(file => {
+                                                                                        const reader = new FileReader();
+                                                                                        reader.onload = (event) => {
+                                                                                            const newImage = event.target?.result as string;
+                                                                                            const updatedCosmeticImages = [...(row.cosmeticImages || []), newImage];
+                                                                                            updateRowField(row.id, 'cosmeticImages', JSON.stringify(updatedCosmeticImages));
+                                                                                            updateRowField(row.id, 'cosmeticImage', updatedCosmeticImages[0] || '');
+                                                                                        };
+                                                                                        reader.readAsDataURL(file);
+                                                                                    });
+                                                                                }
+                                                                            };
+                                                                            input.click();
+                                                                        }}
+                                                                        className="w-full px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                                                                    >
+                                                                        + Add More
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors bg-blue-50">
+                                                                    <Upload size={20} className="text-blue-400 mb-2" />
+                                                                    <span className="text-sm font-medium text-blue-600">Upload Cosmetic</span>
+                                                                    <span className="text-xs text-gray-500 mt-1">Click to browse</span>
+                                                                    <input
+                                                                        type="file"
+                                                                        accept="image/*"
+                                                                        onChange={(e) => {
+                                                                            const files = e.target.files;
                                                                             if (files) {
                                                                                 Array.from(files).forEach(file => {
                                                                                     const reader = new FileReader();
                                                                                     reader.onload = (event) => {
-                                                                                        const newImage = event.target?.result as string;
-                                                                                        const updatedCosmeticImages = [...(row.cosmeticImages || []), newImage];
+                                                                                        const imageUrl = event.target?.result as string;
+                                                                                        const updatedCosmeticImages = [...(row.cosmeticImages || []), imageUrl];
                                                                                         updateRowField(row.id, 'cosmeticImages', JSON.stringify(updatedCosmeticImages));
                                                                                         updateRowField(row.id, 'cosmeticImage', updatedCosmeticImages[0] || '');
                                                                                     };
                                                                                     reader.readAsDataURL(file);
                                                                                 });
                                                                             }
-                                                                        };
-                                                                        input.click();
-                                                                    }}
-                                                                    className="w-full px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
-                                                                >
-                                                                    + Add More
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors bg-blue-50">
-                                                                <Upload size={20} className="text-blue-400 mb-2" />
-                                                                <span className="text-sm font-medium text-blue-600">Upload Cosmetic</span>
-                                                                <input
-                                                                    type="file"
-                                                                    accept="image/*"
-                                                                    onChange={(e) => {
-                                                                        const files = e.target.files;
-                                                                        if (files) {
-                                                                            Array.from(files).forEach(file => {
-                                                                                const reader = new FileReader();
-                                                                                reader.onload = (event) => {
-                                                                                    const imageUrl = event.target?.result as string;
-                                                                                    const updatedCosmeticImages = [...(row.cosmeticImages || []), imageUrl];
-                                                                                    updateRowField(row.id, 'cosmeticImages', JSON.stringify(updatedCosmeticImages));
-                                                                                    updateRowField(row.id, 'cosmeticImage', updatedCosmeticImages[0] || '');
-                                                                                };
-                                                                                reader.readAsDataURL(file);
-                                                                            });
-                                                                        }
-                                                                    }}
-                                                                    className="hidden"
-                                                                    multiple
-                                                                />
-                                                            </label>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
-                                                    <div className="space-y-2">
-                                                        {!row.nonCosmeticImage ? (
-                                                            <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-green-300 rounded-lg cursor-pointer hover:border-green-400 transition-colors bg-green-50">
-                                                                <Upload size={20} className="text-green-400 mb-2" />
-                                                                <span className="text-sm font-medium text-green-600">Upload Non-Cosmetic</span>
-                                                                <input
-                                                                    type="file"
-                                                                    accept="image/*"
-                                                                    onChange={(e) => {
-                                                                        const file = e.target.files?.[0];
-                                                                        if (file) {
-                                                                            handleImageUpload(row.id, 'nonCosmetic', file);
-                                                                        }
-                                                                    }}
-                                                                    className="hidden"
-                                                                />
-                                                            </label>
-                                                        ) : (
-                                                            <div className="relative">
-                                                                <img
-                                                                    src={row.nonCosmeticImage}
-                                                                    alt="Non-Cosmetic"
-                                                                    className="w-20 h-20 object-cover border rounded-lg"
-                                                                />
-                                                                <div className="flex gap-1 mt-2">
+                                                                        }}
+                                                                        className="hidden"
+                                                                        multiple
+                                                                    />
+                                                                </label>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
+                                                        <div className="space-y-2">
+                                                            {/* Show existing non-cosmetic images from storage first */}
+                                                            {existingImages.nonCosmeticImages.length > 0 ? (
+                                                                <div className="space-y-2">
+                                                                    <div className="text-xs text-gray-500 mb-1">
+                                                                        Pre-uploaded images ({existingImages.nonCosmeticImages.length}):
+                                                                    </div>
+                                                                    <div className="grid grid-cols-2 gap-1">
+                                                                        {existingImages.nonCosmeticImages.map((img, imgIndex) => (
+                                                                            <div key={imgIndex} className="relative group">
+                                                                                <img
+                                                                                    src={img}
+                                                                                    alt={`Non-Cosmetic ${imgIndex + 1}`}
+                                                                                    className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
+                                                                                    onClick={() => window.open(img, '_blank')}
+                                                                                />
+                                                                                <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                                                                                    {imgIndex + 1}
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            ) : row.nonCosmeticImages && row.nonCosmeticImages.length > 0 ? (
+                                                                <div className="space-y-2">
+                                                                    <div className="grid grid-cols-2 gap-1">
+                                                                        {row.nonCosmeticImages.map((img, imgIndex) => (
+                                                                            <div key={imgIndex} className="relative group">
+                                                                                <img
+                                                                                    src={img}
+                                                                                    alt={`Non-Cosmetic ${imgIndex + 1}`}
+                                                                                    className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
+                                                                                    onClick={() => window.open(img, '_blank')}
+                                                                                />
+                                                                                <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                                                                                    {imgIndex + 1}
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => {
@@ -3664,111 +4029,122 @@ function DefaultForm({
                                                                             };
                                                                             input.click();
                                                                         }}
-                                                                        className="flex-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                                                                        className="w-full px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
                                                                     >
-                                                                        Replace
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => updateRowField(row.id, 'nonCosmeticImage', '')}
-                                                                        className="flex-1 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
-                                                                    >
-                                                                        Remove
+                                                                        + Add More
                                                                     </button>
                                                                 </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-4 border-r border-gray-200 min-w-[150px]">
-                                                    {row.croppedImage ? (
-                                                        <div className="space-y-2">
-                                                            <img
-                                                                src={row.croppedImage}
-                                                                alt="Cropped"
-                                                                className="w-20 h-20 object-contain border rounded-lg mx-auto"
-                                                            />
-                                                            {row.regionLabel && (
-                                                                <div className="text-xs text-center font-semibold text-gray-700">
-                                                                    {row.regionLabel}
-                                                                </div>
+                                                            ) : (
+                                                                <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-green-300 rounded-lg cursor-pointer hover:border-green-400 transition-colors bg-green-50">
+                                                                    <Upload size={20} className="text-green-400 mb-2" />
+                                                                    <span className="text-sm font-medium text-green-600">Upload Non-Cosmetic</span>
+                                                                    <input
+                                                                        type="file"
+                                                                        accept="image/*"
+                                                                        onChange={(e) => {
+                                                                            const file = e.target.files?.[0];
+                                                                            if (file) {
+                                                                                handleImageUpload(row.id, 'nonCosmetic', file);
+                                                                            }
+                                                                        }}
+                                                                        className="hidden"
+                                                                    />
+                                                                </label>
                                                             )}
                                                         </div>
-                                                    ) : (
-                                                        <div className="text-xs text-gray-400 text-center">No crop</div>
-                                                    )}
-                                                </td>
-                                                {isSecondRound && (
-                                                    <>
-                                                        <td className="px-4 py-4 border-r border-gray-200 min-w-[150px]">
-                                                            {row.finalNonCosmeticImage ? (
-                                                                <div className="space-y-2">
-                                                                    <img
-                                                                        src={row.finalNonCosmeticImage}
-                                                                        alt="Final Non-Cosmetic"
-                                                                        className="w-20 h-20 object-contain border rounded-lg mx-auto"
-                                                                    />
-                                                                </div>
-                                                            ) : (
-                                                                <div className="text-xs text-gray-400 text-center">No image</div>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-4 py-4 border-r border-gray-200 min-w-[150px]">
-                                                            {row.finalCroppedNonCosmeticImage ? (
-                                                                <div className="space-y-2">
-                                                                    <img
-                                                                        src={row.finalCroppedNonCosmeticImage}
-                                                                        alt="Final Cropped"
-                                                                        className="w-20 h-20 object-contain border rounded-lg mx-auto"
-                                                                    />
-                                                                    {row.regionLabel && (
-                                                                        <div className="text-xs text-center font-semibold text-gray-700">
-                                                                            {row.regionLabel}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            ) : (
-                                                                <div className="text-xs text-gray-400 text-center">No crop</div>
-                                                            )}
-                                                        </td>
-                                                    </>
-                                                )}
-                                                {formData.customColumns?.map((column) => (
-                                                    <td key={column.id} className={`px-4 py-4 border-r border-gray-200 ${column.type === 'image' ? 'min-w-[200px]' : ''}`}>
-                                                        {renderField(row, column)}
                                                     </td>
-                                                ))}
-                                                <td className="px-4 py-4">
-                                                    <select
-                                                        value={row.status}
-                                                        onChange={(e) => updateRowField(row.id, 'status', e.target.value)}
-                                                        className={`w-full min-w-[110px] px-3 py-2 border rounded-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${row.status === "Pass" ? "bg-green-50 text-green-700 border-green-200" :
-                                                            row.status === "Fail" ? "bg-red-50 text-red-700 border-red-200" :
-                                                                "bg-white border-gray-300 text-gray-700"
-                                                            }`}
-                                                    >
-                                                        <option value="">Select</option>
-                                                        <option value="Pass">Pass</option>
-                                                        <option value="Fail">Fail</option>
-                                                    </select>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                                    <td className="px-4 py-4 border-r border-gray-200 min-w-[150px]">
+                                                        {row.croppedImages && row.croppedImages.length > 0 ? (
+                                                            <div className="space-y-2">
+                                                                <div className="grid grid-cols-2 gap-1">
+                                                                    {row.croppedImages.map((img, imgIndex) => (
+                                                                        <div key={imgIndex} className="relative">
+                                                                            <img
+                                                                                src={img}
+                                                                                alt={`Cropped ${imgIndex + 1}`}
+                                                                                className="w-16 h-16 object-contain border rounded-lg"
+                                                                            />
+                                                                            {row.regionLabel && imgIndex === 0 && (
+                                                                                <div className="text-xs text-center font-semibold text-gray-700 mt-1">
+                                                                                    {row.regionLabel}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        ) : existingImages.nonCosmeticImages.length > 0 ? (
+                                                            <div className="text-center py-4">
+                                                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                                                                <span className="text-xs text-gray-500">Processing cropped images...</span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-xs text-gray-400 text-center">No images uploaded</div>
+                                                        )}
+                                                    </td>
+                                                    {isSecondRound && (
+                                                        <>
+                                                            <td className="px-4 py-4 border-r border-gray-200 min-w-[150px]">
+                                                                {row.finalNonCosmeticImage ? (
+                                                                    <div className="space-y-2">
+                                                                        <img
+                                                                            src={row.finalNonCosmeticImage}
+                                                                            alt="Final Non-Cosmetic"
+                                                                            className="w-20 h-20 object-contain border rounded-lg mx-auto"
+                                                                        />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="text-xs text-gray-400 text-center">No image</div>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-4 py-4 border-r border-gray-200 min-w-[150px]">
+                                                                {row.finalCroppedNonCosmeticImage ? (
+                                                                    <div className="space-y-2">
+                                                                        <img
+                                                                            src={row.finalCroppedNonCosmeticImage}
+                                                                            alt="Final Cropped"
+                                                                            className="w-20 h-20 object-contain border rounded-lg mx-auto"
+                                                                        />
+                                                                        {row.regionLabel && (
+                                                                            <div className="text-xs text-center font-semibold text-gray-700">
+                                                                                {row.regionLabel}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="text-xs text-gray-400 text-center">No crop</div>
+                                                                )}
+                                                            </td>
+                                                        </>
+                                                    )}
+                                                    {formData.customColumns?.map((column) => (
+                                                        <td key={column.id} className={`px-4 py-4 border-r border-gray-200 ${column.type === 'image' ? 'min-w-[200px]' : ''}`}>
+                                                            {renderField(row, column)}
+                                                        </td>
+                                                    ))}
+                                                    <td className="px-4 py-4">
+                                                        <select
+                                                            value={row.status}
+                                                            onChange={(e) => updateRowField(row.id, 'status', e.target.value)}
+                                                            className={`w-full min-w-[110px] px-3 py-2 border rounded-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${row.status === "Pass" ? "bg-green-50 text-green-700 border-green-200" :
+                                                                row.status === "Fail" ? "bg-red-50 text-red-700 border-red-200" :
+                                                                    "bg-white border-gray-300 text-gray-700"
+                                                                }`}
+                                                        >
+                                                            <option value="">Select</option>
+                                                            <option value="Pass">Pass</option>
+                                                            <option value="Fail">Fail</option>
+                                                        </select>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
-
-                        <div className="flex justify-end mt-3">
-                            <button
-                                onClick={() => addRow(part.partNumber)}
-                                className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors shadow-sm"
-                            >
-                                + Add Row for {part.partNumber}
-                            </button>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Add Column Modal */}
@@ -3884,9 +4260,80 @@ export default function MultiStageTestFormEnhanced() {
     const [croppedRegions, setCroppedRegions] = useState<CroppedRegion[]>([]);
     const [cvLoaded, setCvLoaded] = useState(false);
     const [hasYellowMarks, setHasYellowMarks] = useState<boolean | null>(null);
+    const [processingImages, setProcessingImages] = useState<Record<string, boolean>>({});
 
     const location = useLocation();
     const navigate = useNavigate();
+
+    // Function to load images from localStorage
+    const loadImagesFromStorage = (partNumber: string): { cosmeticImages: string[], nonCosmeticImages: string[] } => {
+        try {
+            const partImagesData = JSON.parse(localStorage.getItem('partImagesData') || '{}');
+            const images = partImagesData[partNumber];
+            
+            if (images) {
+                return {
+                    cosmeticImages: images.cosmeticImages || [],
+                    nonCosmeticImages: images.nonCosmeticImages || []
+                };
+            }
+        } catch (error) {
+            console.error('Error loading images from storage:', error);
+        }
+        
+        return {
+            cosmeticImages: [],
+            nonCosmeticImages: []
+        };
+    };
+
+    // Function to automatically process images from localStorage
+    const processImagesFromStorage = () => {
+        if (!cvLoaded) {
+            console.log("OpenCV not loaded yet, waiting...");
+            return;
+        }
+
+        console.log("Processing images from storage...");
+        
+        Object.keys(forms).forEach(formKey => {
+            const formData = forms[formKey];
+            const currentChildTest = formData.childTests?.[formData.currentChildTestIndex || 0];
+            
+            formData.rows.forEach(row => {
+                const existingImages = loadImagesFromStorage(row.partNumber);
+                
+                // Process non-cosmetic images from storage
+                existingImages.nonCosmeticImages.forEach((imageData, index) => {
+                    // Only process if not already processed
+                    const hasBeenProcessed = row.croppedImages && row.croppedImages.length > index;
+                    if (!hasBeenProcessed && imageData) {
+                        console.log(`Processing stored image for part ${row.partNumber}, index ${index}`);
+                        
+                        // Set processing state for this image
+                        setProcessingImages(prev => ({
+                            ...prev,
+                            [`${row.partNumber}-${index}`]: true
+                        }));
+                        
+                        // Convert base64 to File object
+                        const byteString = atob(imageData.split(',')[1]);
+                        const mimeString = imageData.split(',')[0].split(':')[1].split(';')[0];
+                        const ab = new ArrayBuffer(byteString.length);
+                        const ia = new Uint8Array(ab);
+                        for (let i = 0; i < byteString.length; i++) {
+                            ia[i] = byteString.charCodeAt(i);
+                        }
+                        const blob = new Blob([ab], { type: mimeString });
+                        const file = new File([blob], `pre-uploaded-${row.partNumber}-${index}.jpg`, { type: mimeString });
+                        
+                        // Process the image
+                        processStoredImage(file, row.partNumber, formData.testName, row.childTestId || currentChildTest?.id, index);
+                    }
+                });
+            });
+        });
+    };
 
     // Load OpenCV
     useEffect(() => {
@@ -3919,42 +4366,6 @@ export default function MultiStageTestFormEnhanced() {
         };
         document.body.appendChild(script);
     }, []);
-
-    // Parse combined test names into child tests
-    // const parseChildTests = (testName: string, machineEquipment: string, machineEquipment2: string): ChildTest[] => {
-    //     const tests: ChildTest[] = [];
-
-    //     if (testName.includes('+')) {
-    //         // Split by '+' and trim
-    //         const testNames = testName.split('+').map(name => name.trim()).filter(name => name);
-    //         const machines = [machineEquipment, machineEquipment2].filter(m => m);
-
-    //         testNames.forEach((name, index) => {
-    //             tests.push({
-    //                 id: `child-${Date.now()}-${index}`,
-    //                 name: name,
-    //                 machineEquipment: machines[index] || machines[0] || name,
-    //                 timing: "24", // Default timing
-    //                 isCompleted: false,
-    //                 status: index === 0 ? 'active' : 'pending'
-    //             });
-    //         });
-    //     } else {
-    //         // Single test
-    //         tests.push({
-    //             id: `child-${Date.now()}-0`,
-    //             name: testName,
-    //             machineEquipment: machineEquipment,
-    //             timing: "24",
-    //             isCompleted: false,
-    //             status: 'active'
-    //         });
-    //     }
-
-    //     return tests;
-    // };
-
-    // Load data from navigation state
 
     // Parse combined test names into child tests with sequential dependency
     const parseChildTests = (testName: string, machineEquipment: string, machineEquipment2: string): ChildTest[] => {
@@ -3996,17 +4407,88 @@ export default function MultiStageTestFormEnhanced() {
         return tests;
     };
 
+    // Load data from navigation state
     useEffect(() => {
         if (location.state && location.state.record) {
-            const record = location.state.record as Stage2Record;
-            console.log("Received record from navigation:", record);
-            setCurrentRecord(record);
+            const record = location.state.record as MachineLoadData;
+            console.log("Received machine load data from navigation:", record);
 
-            // Initialize forms from the received record
+            // Create a Stage2Record from the MachineLoadData
+            const stage2Record: Stage2Record = {
+                id: record.loadId,
+                submissionId: `sub-${record.loadId}`,
+                ticketId: parseInt(record.loadId.toString().slice(-6)),
+                ticketCode: record.machineDetails.ticketCode,
+                totalQuantity: record.totalParts,
+                anoType: "Not Specified",
+                source: "Machine Load",
+                reason: "Testing",
+                project: record.machineDetails.project,
+                build: record.machineDetails.build,
+                colour: record.machineDetails.colour,
+                processStage: "Stage 2 Testing",
+                selectedTestNames: record.machineDetails.tests.map(test => test.testName),
+                testRecords: [], // We'll populate this below
+                formData: {},
+                submittedAt: record.loadedAt,
+                version: "1.0",
+                testingStatus: "In Testing",
+                machineLoadData: record
+            };
+
+            // Convert LoadedPart[] to AssignedPart[] for each test
+            record.machineDetails.tests.forEach((machineTest, testIndex) => {
+                // Get parts assigned to this test
+                const testParts = record.parts.filter(part =>
+                    part.testId === machineTest.id || part.testName === machineTest.testName
+                );
+
+                const assignedParts: AssignedPart[] = testParts.map((part, idx) => ({
+                    id: `${machineTest.id}-${idx}`,
+                    partNumber: part.partNumber,
+                    serialNumber: part.serialNumber,
+                    location: record.chamber,
+                    scanStatus: part.scanStatus,
+                    assignedToTest: machineTest.testName
+                }));
+
+                // Create TestRecord for this test
+                const testRecord: TestRecord = {
+                    testId: machineTest.id,
+                    testName: machineTest.testName,
+                    processStage: "Stage 2 Testing",
+                    testIndex: testIndex + 1,
+                    testCondition: "Standard Conditions",
+                    requiredQuantity: machineTest.requiredQty.toString(),
+                    specification: "Default Specification",
+                    machineEquipment: record.chamber,
+                    machineEquipment2: "",
+                    timing: machineTest.duration,
+                    startDateTime: record.loadedAt,
+                    endDateTime: record.estimatedCompletion,
+                    assignedParts: assignedParts,
+                    assignedPartsCount: assignedParts.length,
+                    remark: "",
+                    status: machineTest.status === 3 ? "Completed" : "In Progress",
+                    submittedAt: record.loadedAt,
+                    testResults: [],
+                    childTests: parseChildTests(
+                        machineTest.testName,
+                        record.chamber,
+                        ""
+                    )
+                };
+
+                stage2Record.testRecords.push(testRecord);
+            });
+
+            setCurrentRecord(stage2Record);
+
+            // Initialize forms from the created record
             const initialForms: FormsState = {};
             const initialSharedImages: SharedImagesByPart = {};
 
-            record.testRecords.forEach((testRecord, index) => {
+            stage2Record.testRecords.forEach((testRecord, index) => {
                 const formKey = `test_${index}`;
 
                 // Parse child tests for combined tests
@@ -4029,65 +4511,50 @@ export default function MultiStageTestFormEnhanced() {
                     }));
                 });
 
-                // Check if test already has results
-                if (testRecord.testResults && testRecord.testResults.length > 0) {
-                    // Load existing results
-                    initialForms[formKey] = {
-                        testName: testRecord.testName,
-                        processStage: testRecord.processStage,
-                        testCondition: testRecord.testCondition,
-                        date: testRecord.submittedAt ? new Date(testRecord.submittedAt).toISOString().split('T')[0] : "",
-                        specification: testRecord.specification,
-                        machineEquipment: testRecord.machineEquipment,
-                        machineEquipment2: testRecord.machineEquipment2,
-                        timing: testRecord.timing,
-                        sampleQty: testRecord.requiredQuantity,
-                        remark: testRecord.remark,
-                        rows: testRecord.testResults,
-                        customColumns: [],
-                        childTests: childTests,
-                        currentChildTestIndex: testRecord.currentChildTestIndex || 0
-                    };
-                } else {
-                    // Initialize new rows for the first child test
-                    const initialRows: FormRow[] = [];
-                    if (childTests.length > 0) {
-                        testRecord.assignedParts.forEach((part, idx) => {
-                            initialRows.push({
-                                id: Date.now() + idx,
-                                srNo: idx + 1,
-                                testDate: new Date().toISOString().split('T')[0],
-                                config: "",
-                                sampleId: part.serialNumber,
-                                status: "Pending",
-                                partNumber: part.partNumber,
-                                serialNumber: part.serialNumber,
-                                childTestId: childTests[0].id,
-                                childTestName: childTests[0].name,
-                                cosmeticImage: "",
-                                nonCosmeticImage: "",
-                                croppedImage: "",
-                                regionLabel: ""
-                            });
+                // Initialize rows for each assigned part
+                const initialRows: FormRow[] = [];
+                if (childTests.length > 0) {
+                    testRecord.assignedParts.forEach((part, idx) => {
+                        // Load existing images from storage
+                        const existingImages = loadImagesFromStorage(part.partNumber);
+                        
+                        initialRows.push({
+                            id: Date.now() + idx,
+                            srNo: idx + 1,
+                            testDate: new Date().toISOString().split('T')[0],
+                            config: "",
+                            sampleId: part.serialNumber,
+                            status: "Pending",
+                            partNumber: part.partNumber,
+                            serialNumber: part.serialNumber,
+                            childTestId: childTests[0].id,
+                            childTestName: childTests[0].name,
+                            cosmeticImage: existingImages.cosmeticImages[0] || "",
+                            nonCosmeticImage: existingImages.nonCosmeticImages[0] || "",
+                            cosmeticImages: existingImages.cosmeticImages,
+                            nonCosmeticImages: existingImages.nonCosmeticImages,
+                            croppedImage: "",
+                            croppedImages: [],
+                            regionLabel: ""
                         });
-                    }
-
-                    initialForms[formKey] = {
-                        testName: testRecord.testName,
-                        processStage: testRecord.processStage,
-                        testCondition: testRecord.testCondition,
-                        date: new Date().toISOString().split('T')[0],
-                        specification: testRecord.specification,
-                        machineEquipment: testRecord.machineEquipment,
-                        machineEquipment2: testRecord.machineEquipment2,
-                        timing: testRecord.timing,
-                        sampleQty: testRecord.requiredQuantity,
-                        rows: initialRows,
-                        customColumns: [],
-                        childTests: childTests,
-                        currentChildTestIndex: 0
-                    };
+                    });
                 }
+
+                initialForms[formKey] = {
+                    testName: testRecord.testName,
+                    processStage: testRecord.processStage,
+                    testCondition: testRecord.testCondition,
+                    date: new Date().toISOString().split('T')[0],
+                    specification: testRecord.specification,
+                    machineEquipment: testRecord.machineEquipment,
+                    machineEquipment2: testRecord.machineEquipment2,
+                    timing: testRecord.timing,
+                    sampleQty: testRecord.requiredQuantity,
+                    rows: initialRows,
+                    customColumns: [],
+                    childTests: childTests,
+                    currentChildTestIndex: 0
+                };
 
                 // Initialize shared images for each part
                 testRecord.assignedParts.forEach(part => {
@@ -4113,6 +4580,15 @@ export default function MultiStageTestFormEnhanced() {
 
             setForms(initialForms);
             setSharedImagesByPart(initialSharedImages);
+
+            console.log("Converted to Stage2Record:", stage2Record);
+            
+            // Process images from storage after forms are set
+            setTimeout(() => {
+                if (cvLoaded) {
+                    processImagesFromStorage();
+                }
+            }, 1000);
         } else {
             console.error("No record found in navigation state");
             alert("No record selected. Please select a record first.");
@@ -4120,133 +4596,12 @@ export default function MultiStageTestFormEnhanced() {
         }
     }, [location.state, navigate]);
 
-    // useEffect(() => {
-    //     if (location.state && location.state.record) {
-    //         const record = location.state.record as Stage2Record;
-    //         console.log("Received record from navigation:", record);
-    //         setCurrentRecord(record);
-
-    //         // Initialize forms from the received record
-    //         const initialForms: FormsState = {};
-    //         const initialSharedImages: SharedImagesByPart = {};
-
-    //         record.testRecords.forEach((testRecord, index) => {
-    //             const formKey = `test_${index}`;
-
-    //             // Parse child tests for combined tests
-    //             const childTests = parseChildTests(
-    //                 testRecord.testName,
-    //                 testRecord.machineEquipment,
-    //                 testRecord.machineEquipment2
-    //             );
-
-    //             // Initialize timer for each child test
-    //             childTests.forEach((childTest, childIndex) => {
-    //                 const childTimerKey = `${formKey}_${childTest.id}`;
-    //                 const timingHours = parseInt(childTest.timing || "24");
-    //                 setTimerStates(prev => ({
-    //                     ...prev,
-    //                     [childTimerKey]: {
-    //                         remainingSeconds: timingHours * 3600,
-    //                         isRunning: false
-    //                     }
-    //                 }));
-    //             });
-
-    //             // Check if test already has results
-    //             if (testRecord.testResults && testRecord.testResults.length > 0) {
-    //                 // Load existing results
-    //                 initialForms[formKey] = {
-    //                     testName: testRecord.testName,
-    //                     processStage: testRecord.processStage,
-    //                     testCondition: testRecord.testCondition,
-    //                     date: testRecord.submittedAt ? new Date(testRecord.submittedAt).toISOString().split('T')[0] : "",
-    //                     specification: testRecord.specification,
-    //                     machineEquipment: testRecord.machineEquipment,
-    //                     machineEquipment2: testRecord.machineEquipment2,
-    //                     timing: testRecord.timing,
-    //                     sampleQty: testRecord.requiredQuantity,
-    //                     remark: testRecord.remark,
-    //                     rows: testRecord.testResults,
-    //                     customColumns: [],
-    //                     childTests: childTests,
-    //                     currentChildTestIndex: testRecord.currentChildTestIndex || 0
-    //                 };
-    //             } else {
-    //                 // Initialize new rows for the first child test only
-    //                 const initialRows: FormRow[] = [];
-    //                 if (childTests.length > 0) {
-    //                     // Only create rows for the first active child test
-    //                     const activeChildTest = childTests.find(test => test.status === 'active');
-    //                     if (activeChildTest) {
-    //                         testRecord.assignedParts.forEach((part, idx) => {
-    //                             initialRows.push({
-    //                                 id: Date.now() + idx,
-    //                                 srNo: idx + 1,
-    //                                 testDate: new Date().toISOString().split('T')[0],
-    //                                 config: "",
-    //                                 sampleId: part.serialNumber,
-    //                                 status: "Pending",
-    //                                 partNumber: part.partNumber,
-    //                                 serialNumber: part.serialNumber,
-    //                                 childTestId: activeChildTest.id,
-    //                                 childTestName: activeChildTest.name,
-    //                                 cosmeticImage: "",
-    //                                 nonCosmeticImage: "",
-    //                                 croppedImage: "",
-    //                                 regionLabel: ""
-    //                             });
-    //                         });
-    //                     }
-    //                 }
-
-    //                 initialForms[formKey] = {
-    //                     testName: testRecord.testName,
-    //                     processStage: testRecord.processStage,
-    //                     testCondition: testRecord.testCondition,
-    //                     date: new Date().toISOString().split('T')[0],
-    //                     specification: testRecord.specification,
-    //                     machineEquipment: testRecord.machineEquipment,
-    //                     machineEquipment2: testRecord.machineEquipment2,
-    //                     timing: testRecord.timing,
-    //                     sampleQty: testRecord.requiredQuantity,
-    //                     rows: initialRows,
-    //                     customColumns: [],
-    //                     childTests: childTests,
-    //                     currentChildTestIndex: 0
-    //                 };
-    //             }
-
-    //             // Initialize shared images for each part
-    //             testRecord.assignedParts.forEach(part => {
-    //                 if (!initialSharedImages[part.partNumber]) {
-    //                     initialSharedImages[part.partNumber] = {
-    //                         cosmetic: [],
-    //                         nonCosmetic: [],
-    //                         childTestImages: {}
-    //                     };
-    //                 }
-
-    //                 // Initialize child test images
-    //                 childTests.forEach(childTest => {
-    //                     if (!initialSharedImages[part.partNumber].childTestImages[childTest.id]) {
-    //                         initialSharedImages[part.partNumber].childTestImages[childTest.id] = {
-    //                             cosmetic: [],
-    //                             nonCosmetic: []
-    //                         };
-    //                     }
-    //                 });
-    //             });
-    //         });
-
-    //         setForms(initialForms);
-    //         setSharedImagesByPart(initialSharedImages);
-    //     } else {
-    //         console.error("No record found in navigation state");
-    //         alert("No record selected. Please select a record first.");
-    //         navigate(-1);
-    //     }
-    // }, [location.state, navigate]);
+    // Process images from storage when OpenCV loads
+    useEffect(() => {
+        if (cvLoaded && Object.keys(forms).length > 0) {
+            processImagesFromStorage();
+        }
+    }, [cvLoaded, forms]);
 
     // Timer countdown effect
     useEffect(() => {
@@ -4492,7 +4847,7 @@ export default function MultiStageTestFormEnhanced() {
                         }
                     }));
 
-                    // In the processNonCosmeticImage function, update the form update logic:
+                    // Update the form
                     const formKey = `test_${currentTestIndex}`;
                     const formData = forms[formKey];
 
@@ -4549,194 +4904,188 @@ export default function MultiStageTestFormEnhanced() {
         reader.readAsDataURL(file);
     };
 
-    // Handle image upload
-    // const handleImageUpload = (partNumber: string, testName: string, type: 'cosmetic' | 'nonCosmetic', file: File, childTestId?: string) => {
-    //     setProcessing(true);
-    //     const reader = new FileReader();
-    //     reader.onload = (e) => {
-    //         const imageUrl = e.target?.result as string;
+    // New function to process stored images
+    const processStoredImage = (file: File, partNumber: string, testName: string, childTestId?: string, index: number) => {
+        if (!cvLoaded) {
+            console.log("OpenCV not loaded yet");
+            return;
+        }
 
-    //         if (type === 'nonCosmetic') {
-    //             // Process non-cosmetic image with OpenCV
-    //             processNonCosmeticImage(file, partNumber, testName, childTestId);
-    //         } else {
-    //             // Handle cosmetic image normally
-    //             const formKey = `test_${currentTestIndex}`;
-    //             const formData = forms[formKey];
-    //             const currentChildTest = formData?.childTests?.[formData.currentChildTestIndex || 0];
-
-    //             setSharedImagesByPart(prev => ({
-    //                 ...prev,
-    //                 [partNumber]: {
-    //                     ...prev[partNumber],
-    //                     [type]: [...(prev[partNumber]?.[type] || []), imageUrl],
-    //                     childTestImages: {
-    //                         ...prev[partNumber]?.childTestImages,
-    //                         [childTestId || 'default']: {
-    //                             cosmetic: [...(prev[partNumber]?.childTestImages?.[childTestId || 'default']?.cosmetic || []), imageUrl],
-    //                             nonCosmetic: prev[partNumber]?.childTestImages?.[childTestId || 'default']?.nonCosmetic || []
-    //                         }
-    //                     }
-    //                 }
-    //             }));
-
-    //             // Update form rows
-    //             if (formData) {
-    //                 const existingRowIndex = formData.rows.findIndex(row =>
-    //                     row.partNumber === partNumber && row.childTestId === childTestId
-    //                 );
-
-    //                 if (existingRowIndex >= 0) {
-    //                     // Update existing row
-    //                     const updatedRows = [...formData.rows];
-    //                     updatedRows[existingRowIndex] = {
-    //                         ...updatedRows[existingRowIndex],
-    //                         cosmeticImage: imageUrl,
-    //                         testDate: new Date().toISOString().split('T')[0],
-    //                         status: updatedRows[existingRowIndex].status === "Pending" ? "In Progress" : updatedRows[existingRowIndex].status
-    //                     };
-
-    //                     setForms(prev => ({
-    //                         ...prev,
-    //                         [formKey]: {
-    //                             ...prev[formKey],
-    //                             rows: updatedRows
-    //                         }
-    //                     }));
-    //                 } else {
-    //                     // Create new row for this child test
-    //                     const newRow: FormRow = {
-    //                         id: Date.now(),
-    //                         srNo: formData.rows.filter(row => row.childTestId === childTestId).length + 1,
-    //                         testDate: new Date().toISOString().split('T')[0],
-    //                         config: "",
-    //                         sampleId: `${partNumber}-${formData.rows.filter(row => row.childTestId === childTestId).length + 1}`,
-    //                         status: "In Progress",
-    //                         partNumber: partNumber,
-    //                         serialNumber: "",
-    //                         childTestId: childTestId,
-    //                         childTestName: currentChildTest?.name,
-    //                         cosmeticImage: imageUrl
-    //                     };
-
-    //                     setForms(prev => ({
-    //                         ...prev,
-    //                         [formKey]: {
-    //                             ...prev[formKey],
-    //                             rows: [...prev[formKey].rows, newRow]
-    //                         }
-    //                     }));
-    //                 }
-    //             }
-    //             setProcessing(false);
-    //         }
-    //     };
-    //     reader.readAsDataURL(file);
-    // };
-
-    // Update the handleImageUpload function
-    // const handleImageUpload = (partNumber: string, testName: string, type: 'cosmetic' | 'nonCosmetic', file: File, childTestId?: string) => {
-    //     setProcessing(true);
-    //     const reader = new FileReader();
-    //     reader.onload = (e) => {
-    //         const imageUrl = e.target?.result as string;
-    //         const formKey = `test_${currentTestIndex}`;
-    //         const formData = forms[formKey];
-    //         const currentChildTest = formData?.childTests?.[formData.currentChildTestIndex || 0];
-
-    //         if (type === 'nonCosmetic') {
-    //             // Process non-cosmetic image with OpenCV
-    //             processNonCosmeticImage(file, partNumber, testName, childTestId);
-    //         } else {
-    //             // For cosmetic images
-    //             if (formData) {
-    //                 const existingRow = formData.rows.find(row =>
-    //                     row.partNumber === partNumber && row.childTestId === childTestId
-    //                 );
-
-    //                 if (existingRow) {
-    //                     // Add to cosmeticImages array
-    //                     const currentCosmeticImages = existingRow.cosmeticImages || [];
-    //                     const updatedCosmeticImages = [...currentCosmeticImages, imageUrl];
-
-    //                     const updatedRows = formData.rows.map(row => {
-    //                         if (row.partNumber === partNumber && row.childTestId === childTestId) {
-    //                             return {
-    //                                 ...row,
-    //                                 cosmeticImages: updatedCosmeticImages,
-    //                                 cosmeticImage: imageUrl, // Set latest as main image
-    //                                 testDate: new Date().toISOString().split('T')[0],
-    //                                 status: row.status === "Pending" ? "In Progress" : row.status
-    //                             };
-    //                         }
-    //                         return row;
-    //                     });
-
-    //                     setForms(prev => ({
-    //                         ...prev,
-    //                         [formKey]: {
-    //                             ...prev[formKey],
-    //                             rows: updatedRows
-    //                         }
-    //                     }));
-    //                 } else {
-    //                     // Create new row
-    //                     const newRow: FormRow = {
-    //                         id: Date.now(),
-    //                         srNo: 1,
-    //                         testDate: new Date().toISOString().split('T')[0],
-    //                         config: "",
-    //                         sampleId: `${partNumber}-1`,
-    //                         status: "In Progress",
-    //                         partNumber: partNumber,
-    //                         serialNumber: "",
-    //                         childTestId: childTestId,
-    //                         childTestName: currentChildTest?.name,
-    //                         cosmeticImage: imageUrl,
-    //                         cosmeticImages: [imageUrl],
-    //                         nonCosmeticImage: "",
-    //                         nonCosmeticImages: [],
-    //                         croppedImage: "",
-    //                         croppedImages: [],
-    //                         regionLabel: ""
-    //                     };
-
-    //                     setForms(prev => ({
-    //                         ...prev,
-    //                         [formKey]: {
-    //                             ...prev[formKey],
-    //                             rows: [...prev[formKey].rows, newRow]
-    //                         }
-    //                     }));
-    //                 }
-    //             }
-    //             setProcessing(false);
-    //         }
-    //     };
-    //     reader.readAsDataURL(file);
-    // };
-
-    const handleImageUpload = (partNumber: string, testName: string, type: 'cosmetic' | 'nonCosmetic', file: File, childTestId?: string) => {
-        setProcessing(true);
         const reader = new FileReader();
         reader.onload = (e) => {
-            const imageUrl = e.target?.result as string;
-            const formKey = `test_${currentTestIndex}`;
-            const formData = forms[formKey];
-            const currentChildTest = formData?.childTests?.[formData.currentChildTestIndex || 0];
+            const img = new Image();
+            img.onload = async () => {
+                try {
+                    const cv = window.cv;
+                    const canvas = document.createElement("canvas");
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext("2d");
+                    if (!ctx) {
+                        console.error("Could not get canvas context");
+                        setProcessingImages(prev => ({
+                            ...prev,
+                            [`${partNumber}-${index}`]: false
+                        }));
+                        return;
+                    }
 
-            if (type === 'nonCosmetic') {
-                // Process non-cosmetic image with OpenCV
-                processNonCosmeticImage(file, partNumber, testName, childTestId);
-            } else {
-                // For cosmetic images
+                    ctx.drawImage(img, 0, 0);
+                    const src = cv.imread(canvas);
+
+                    const srcForDetection = cv.imread(canvas);
+                    const hasMarks = detectYellowMarks(srcForDetection);
+                    srcForDetection.delete();
+
+                    console.log(`Processing stored image for part ${partNumber} has yellow marks: ${hasMarks}`);
+
+                    let detectedRegions: any[] = [];
+
+                    if (hasMarks) {
+                        detectedRegions = processImageWithYellowMarks(src, img);
+                    } else {
+                        detectedRegions = processImageWithoutYellowMarks(src, img);
+                    }
+
+                    console.log(`Detected regions for stored image ${partNumber}:`, detectedRegions);
+
+                    const croppedImages: string[] = [];
+                    let regionLabel = "";
+                    
+                    detectedRegions.forEach((rect, i) => {
+                        try {
+                            const x = Math.max(0, Math.min(rect.x, src.cols - 1));
+                            const y = Math.max(0, Math.min(rect.y, src.rows - 1));
+                            const width = Math.min(rect.width, src.cols - x);
+                            const height = Math.min(rect.height, src.rows - y);
+
+                            if (width <= 0 || height <= 0) {
+                                console.warn(`Invalid dimensions for region ${i}: ${width}x${height}`);
+                                return;
+                            }
+
+                            const validRect = new cv.Rect(x, y, width, height);
+                            const roi = src.roi(validRect);
+
+                            const cropCanvas = document.createElement("canvas");
+                            cropCanvas.width = width;
+                            cropCanvas.height = height;
+                            cv.imshow(cropCanvas, roi);
+
+                            const croppedData = cropCanvas.toDataURL("image/png", 1.0);
+
+                            const detectedLabel = hasMarks
+                                ? detectLabelText(croppedData, i, detectedRegions, true)
+                                : rect.label;
+
+                            const category = getLabelCategory(detectedLabel);
+
+                            croppedImages.push(croppedData);
+                            if (i === 0) {
+                                regionLabel = detectedLabel;
+                            }
+
+                            console.log(`Part ${partNumber} - Stored Region ${i}: ${detectedLabel} → ${category?.form}`);
+
+                            roi.delete();
+                        } catch (err) {
+                            console.error(`Error cropping region ${i}:`, err);
+                        }
+                    });
+
+                    // Update cropped regions
+                    setCroppedRegions(prev => {
+                        const filtered = prev.filter(region =>
+                            !(region.partNumber === partNumber && region.childTestId === childTestId && region.id === index)
+                        );
+                        
+                        // Add new cropped regions
+                        const newRegions = croppedImages.map((data, i) => ({
+                            id: i,
+                            data: data,
+                            label: regionLabel,
+                            category: getLabelCategory(regionLabel),
+                            rect: detectedRegions[i] || { x: 0, y: 0, width: 0, height: 0 },
+                            partNumber: partNumber,
+                            childTestId: childTestId
+                        }));
+                        
+                        return [...filtered, ...newRegions];
+                    });
+
+                    // Find and update the correct form and row
+                    const formEntries = Object.entries(forms);
+                    for (const [formKey, formData] of formEntries) {
+                        const updatedRows = formData.rows.map(row => {
+                            if (row.partNumber === partNumber && row.childTestId === childTestId) {
+                                const currentCroppedImages = row.croppedImages || [];
+                                const updatedCroppedImages = [...currentCroppedImages];
+                                
+                                // Update at the specific index
+                                if (croppedImages.length > 0) {
+                                    updatedCroppedImages[index] = croppedImages[0]; // Take first cropped region
+                                }
+
+                                return {
+                                    ...row,
+                                    croppedImages: updatedCroppedImages,
+                                    croppedImage: updatedCroppedImages[0] || row.croppedImage || "",
+                                    regionLabel: regionLabel || row.regionLabel || "",
+                                    testDate: row.testDate || new Date().toISOString().split('T')[0],
+                                    status: row.status === "Pending" ? "In Progress" : row.status
+                                };
+                            }
+                            return row;
+                        });
+
+                        if (JSON.stringify(formData.rows) !== JSON.stringify(updatedRows)) {
+                            setForms(prev => ({
+                                ...prev,
+                                [formKey]: {
+                                    ...prev[formKey],
+                                    rows: updatedRows
+                                }
+                            }));
+                            break;
+                        }
+                    }
+                    
+                    src.delete();
+                } catch (err) {
+                    console.error("Error processing stored image:", err);
+                } finally {
+                    // Clear processing state
+                    setProcessingImages(prev => ({
+                        ...prev,
+                        [`${partNumber}-${index}`]: false
+                    }));
+                }
+            };
+            img.src = e.target?.result as string;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleImageUpload = (partNumber: string, testName: string, type: 'cosmetic' | 'nonCosmetic', file: File, childTestId?: string) => {
+        if (type === 'nonCosmetic') {
+            // For non-cosmetic images, process the uploaded file
+            processNonCosmeticImage(file, partNumber, testName, childTestId);
+        } else {
+            // For cosmetic images
+            setProcessing(true);
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const imageUrl = e.target?.result as string;
+                const formKey = `test_${currentTestIndex}`;
+                const formData = forms[formKey];
+                const currentChildTest = formData?.childTests?.[formData.currentChildTestIndex || 0];
+
                 if (formData) {
                     const existingRow = formData.rows.find(row =>
                         row.partNumber === partNumber && row.childTestId === childTestId
                     );
 
                     if (existingRow) {
-                        // Add to cosmeticImages array
                         const currentCosmeticImages = existingRow.cosmeticImages || [];
                         const updatedCosmeticImages = [...currentCosmeticImages, imageUrl];
 
@@ -4745,7 +5094,7 @@ export default function MultiStageTestFormEnhanced() {
                                 return {
                                     ...row,
                                     cosmeticImages: updatedCosmeticImages,
-                                    cosmeticImage: imageUrl, // Set latest as main image
+                                    cosmeticImage: imageUrl,
                                     testDate: new Date().toISOString().split('T')[0],
                                     status: row.status === "Pending" ? "In Progress" : row.status
                                 };
@@ -4760,41 +5109,12 @@ export default function MultiStageTestFormEnhanced() {
                                 rows: updatedRows
                             }
                         }));
-                    } else {
-                        // Create new row
-                        const newRow: FormRow = {
-                            id: Date.now(),
-                            srNo: 1,
-                            testDate: new Date().toISOString().split('T')[0],
-                            config: "",
-                            sampleId: `${partNumber}-1`,
-                            status: "In Progress",
-                            partNumber: partNumber,
-                            serialNumber: "",
-                            childTestId: childTestId,
-                            childTestName: currentChildTest?.name,
-                            cosmeticImage: imageUrl,
-                            cosmeticImages: [imageUrl],
-                            nonCosmeticImage: "",
-                            nonCosmeticImages: [],
-                            croppedImage: "",
-                            croppedImages: [],
-                            regionLabel: ""
-                        };
-
-                        setForms(prev => ({
-                            ...prev,
-                            [formKey]: {
-                                ...prev[formKey],
-                                rows: [...prev[formKey].rows, newRow]
-                            }
-                        }));
                     }
                 }
                 setProcessing(false);
-            }
-        };
-        reader.readAsDataURL(file);
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     const removeImage = (partNumber: string, type: 'cosmetic' | 'nonCosmetic', childTestId?: string) => {
@@ -4883,6 +5203,9 @@ export default function MultiStageTestFormEnhanced() {
                 tr.testName === currentForm.testName
             )?.assignedParts.find(p => p.partNumber === targetPartNumber);
 
+            // Load existing images for the part
+            const existingImages = loadImagesFromStorage(targetPartNumber);
+
             const newRow: FormRow = {
                 id: newId,
                 srNo: childTestRows.length + 1,
@@ -4894,9 +5217,12 @@ export default function MultiStageTestFormEnhanced() {
                 serialNumber: targetPart?.serialNumber || "",
                 childTestId: currentChildTest?.id,
                 childTestName: currentChildTest?.name,
-                cosmeticImage: "",
-                nonCosmeticImage: "",
+                cosmeticImage: existingImages.cosmeticImages[0] || "",
+                nonCosmeticImage: existingImages.nonCosmeticImages[0] || "",
+                cosmeticImages: existingImages.cosmeticImages,
+                nonCosmeticImages: existingImages.nonCosmeticImages,
                 croppedImage: "",
+                croppedImages: [],
                 regionLabel: ""
             };
 
@@ -4958,6 +5284,9 @@ export default function MultiStageTestFormEnhanced() {
                 currentForm.rows
                     .filter(row => row.childTestId === childTests[currentChildTestIndex].id)
                     .forEach((row, idx) => {
+                        // Load existing images for the part
+                        const existingImages = loadImagesFromStorage(row.partNumber);
+                        
                         newRows.push({
                             ...row,
                             id: Date.now() + idx,
@@ -4965,9 +5294,12 @@ export default function MultiStageTestFormEnhanced() {
                             testDate: "",
                             childTestId: nextChildTest.id,
                             childTestName: nextChildTest.name,
-                            cosmeticImage: "",
-                            nonCosmeticImage: "",
+                            cosmeticImage: existingImages.cosmeticImages[0] || "",
+                            nonCosmeticImage: existingImages.nonCosmeticImages[0] || "",
+                            cosmeticImages: existingImages.cosmeticImages,
+                            nonCosmeticImages: existingImages.nonCosmeticImages,
                             croppedImage: "",
+                            croppedImages: [],
                             regionLabel: "",
                             status: "Pending"
                         });
@@ -5033,8 +5365,10 @@ export default function MultiStageTestFormEnhanced() {
 
                 let status = "Pending";
                 if (allChildTestsCompleted && rows.length > 0) {
+                    console.log(allChildTestsCompleted, rows.length)
                     status = "Complete";
                 } else if (rows.some(row => row.status === "Pass" || row.status === "Fail")) {
+
                     status = "In Progress";
                 }
 
@@ -5134,31 +5468,79 @@ export default function MultiStageTestFormEnhanced() {
                     </div>
                 </div>
 
-                {/* Child Test Progress */}
-                {/* {formData?.childTests && formData.childTests.length > 1 && (
+                {/* Machine Load Information - New Section */}
+                {currentRecord.machineLoadData && (
                     <div className="mb-6 bg-white rounded-lg border border-gray-200 p-4">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-3">Child Tests Progress</h3>
-                        <div className="flex flex-wrap gap-2">
-                            {formData.childTests.map((childTest, index) => (
-                                <div
-                                    key={childTest.id}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors cursor-pointer ${currentChildTestIndex === index
-                                        ? 'bg-blue-100 text-blue-700 border-blue-300'
-                                        : childTest.status === 'completed'
-                                            ? 'bg-green-100 text-green-700 border-green-300'
-                                            : 'bg-gray-100 text-gray-700 border-gray-300'
-                                        }`}
-                                    onClick={() => handleChildTestChange(formKey, index)}
-                                >
-                                    <span className="font-medium">{childTest.name}</span>
-                                    {childTest.status === 'completed' && (
-                                        <CheckCircle size={16} />
-                                    )}
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-gray-800">Machine Load Information</h3>
+                            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                                Load ID: {currentRecord.machineLoadData.loadId}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                            <div>
+                                <span className="text-sm text-gray-600">Machine/Chamber:</span>
+                                <div className="font-semibold">{currentRecord.machineLoadData.chamber}</div>
+                            </div>
+                            <div>
+                                <span className="text-sm text-gray-600">Total Parts Loaded:</span>
+                                <div className="font-semibold">{currentRecord.machineLoadData.totalParts}</div>
+                            </div>
+                            <div>
+                                <span className="text-sm text-gray-600">Loaded At:</span>
+                                <div className="font-semibold">
+                                    {new Date(currentRecord.machineLoadData.loadedAt).toLocaleDateString()}
                                 </div>
-                            ))}
+                            </div>
+                            <div>
+                                <span className="text-sm text-gray-600">Estimated Completion:</span>
+                                <div className="font-semibold">
+                                    {new Date(currentRecord.machineLoadData.estimatedCompletion).toLocaleDateString()}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <span className="text-sm text-gray-600">Duration:</span>
+                                <div className="font-semibold">{currentRecord.machineLoadData.duration} hours</div>
+                            </div>
+                            <div>
+                                <span className="text-sm text-gray-600">Ticket:</span>
+                                <div className="font-semibold">{currentRecord.machineLoadData.machineDetails.ticketCode}</div>
+                            </div>
+                            <div>
+                                <span className="text-sm text-gray-600">Project:</span>
+                                <div className="font-semibold">{currentRecord.machineLoadData.machineDetails.project}</div>
+                            </div>
+                        </div>
+                        
+                        {/* Pre-uploaded Images Status */}
+                        <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                            <h4 className="text-sm font-medium text-purple-800 mb-2">Pre-uploaded Images Status</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                <div>
+                                    <span className="text-sm text-gray-600">Parts with images:</span>
+                                    <span className="font-semibold ml-2">
+                                        {currentRecord.machineLoadData.parts.filter(p => p.hasImages).length} / {currentRecord.machineLoadData.totalParts}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-sm text-gray-600">Cosmetic images:</span>
+                                    <span className="font-semibold ml-2">
+                                        {currentRecord.machineLoadData.parts.reduce((sum, part) => sum + (part.cosmeticImages?.length || 0), 0)}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-sm text-gray-600">Non-cosmetic images:</span>
+                                    <span className="font-semibold ml-2">
+                                        {currentRecord.machineLoadData.parts.reduce((sum, part) => sum + (part.nonCosmeticImages?.length || 0), 0)}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                )} */}
+                )}
+
                 {/* Child Test Progress */}
                 {formData?.childTests && formData.childTests.length > 1 && (
                     <div className="mb-6 bg-white rounded-lg border border-gray-200 p-4">
@@ -5199,7 +5581,6 @@ export default function MultiStageTestFormEnhanced() {
                         </div>
                     </div>
                 )}
-
 
                 {/* Current Test Info Card */}
                 <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -5256,6 +5637,7 @@ export default function MultiStageTestFormEnhanced() {
                                 row.partNumber === part.partNumber &&
                                 row.childTestId === currentChildTest?.id
                             );
+                            const existingImages = loadImagesFromStorage(part.partNumber);
 
                             return (
                                 <div key={part.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
@@ -5269,6 +5651,14 @@ export default function MultiStageTestFormEnhanced() {
                                                     }`}>
                                                     {part.scanStatus}
                                                 </span>
+                                                
+                                                {/* Show pre-uploaded images badge */}
+                                                {(existingImages.cosmeticImages.length > 0 || existingImages.nonCosmeticImages.length > 0) && (
+                                                    <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full flex items-center gap-1">
+                                                        <ImageIcon size={10} />
+                                                        Pre-uploaded
+                                                    </span>
+                                                )}
                                             </div>
                                             <p className="text-sm text-gray-600 mb-1">
                                                 <span className="font-medium">Serial:</span> {part.serialNumber}
@@ -5301,9 +5691,33 @@ export default function MultiStageTestFormEnhanced() {
                                                 Cosmetic Images
                                             </label>
 
-                                            {/* Display ALL uploaded cosmetic images in a grid */}
-                                            <div className="mb-3">
-                                                {rowData?.cosmeticImages && rowData.cosmeticImages.length > 0 ? (
+                                            {/* Display pre-uploaded cosmetic images */}
+                                            {existingImages.cosmeticImages.length > 0 ? (
+                                                <div className="mb-3">
+                                                    <div className="text-xs text-gray-500 mb-1">
+                                                        Pre-uploaded images ({existingImages.cosmeticImages.length}):
+                                                    </div>
+                                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                                        {existingImages.cosmeticImages.map((img, index) => (
+                                                            <div key={index} className="relative group">
+                                                                <img
+                                                                    src={img}
+                                                                    alt={`Cosmetic ${index + 1}`}
+                                                                    className="w-full h-32 object-cover border rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                                    onClick={() => window.open(img, '_blank')}
+                                                                />
+                                                                <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                                                    Pre-uploaded {index + 1}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500 mt-2">
+                                                        Images loaded from storage. To add more, upload below:
+                                                    </div>
+                                                </div>
+                                            ) : rowData?.cosmeticImages && rowData.cosmeticImages.length > 0 ? (
+                                                <div className="mb-3">
                                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                                         {rowData.cosmeticImages.map((img, index) => (
                                                             <div key={index} className="relative group">
@@ -5355,12 +5769,12 @@ export default function MultiStageTestFormEnhanced() {
                                                             </div>
                                                         ))}
                                                     </div>
-                                                ) : (
-                                                    <div className="text-center py-4 text-gray-500">
-                                                        No cosmetic images uploaded yet
-                                                    </div>
-                                                )}
-                                            </div>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-4 text-gray-500">
+                                                    No cosmetic images uploaded yet
+                                                </div>
+                                            )}
 
                                             {/* Upload button - ALWAYS shows "Upload Cosmetic Image" */}
                                             <label className="flex items-center justify-center h-20 border-2 border-dashed border-blue-300 rounded-lg cursor-pointer hover:border-blue-400 bg-blue-50 transition-colors hover:bg-blue-100">
@@ -5391,9 +5805,9 @@ export default function MultiStageTestFormEnhanced() {
                                             </label>
 
                                             {/* Show total count */}
-                                            {rowData?.cosmeticImages && rowData.cosmeticImages.length > 0 && (
+                                            {(existingImages.cosmeticImages.length > 0 || rowData?.cosmeticImages?.length > 0) && (
                                                 <div className="mt-2 text-xs text-gray-600">
-                                                    Total: {rowData.cosmeticImages.length} image(s)
+                                                    Total: {existingImages.cosmeticImages.length + (rowData?.cosmeticImages?.length || 0)} image(s)
                                                 </div>
                                             )}
                                         </div>
@@ -5411,99 +5825,172 @@ export default function MultiStageTestFormEnhanced() {
                                                 </div>
                                             )}
 
-                                            {/* Display ALL uploaded non-cosmetic images with their cropped versions */}
-                                            <div className="mb-3">
-                                                {rowData?.nonCosmeticImages && rowData.nonCosmeticImages.length > 0 ? (
+                                            {/* Display pre-uploaded non-cosmetic images */}
+                                            {existingImages.nonCosmeticImages.length > 0 ? (
+                                                <div className="mb-3">
+                                                    <div className="text-xs text-gray-500 mb-1">
+                                                        Pre-uploaded images ({existingImages.nonCosmeticImages.length}):
+                                                    </div>
                                                     <div className="space-y-4">
-                                                        {rowData.nonCosmeticImages.map((img, index) => (
-                                                            <div key={index} className="border rounded-lg p-3 bg-gray-50">
-                                                                <div className="flex flex-col md:flex-row gap-4">
-                                                                    {/* Original non-cosmetic image */}
-                                                                    <div className="flex-1">
-                                                                        <div className="relative group">
-                                                                            <img
-                                                                                src={img}
-                                                                                alt={`Non-Cosmetic ${index + 1}`}
-                                                                                className="w-full h-32 object-cover border rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                                                                onClick={() => window.open(img, '_blank')}
-                                                                            />
-                                                                            <button
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    // Remove this specific image and its cropped version
-                                                                                    const formKey = `test_${currentTestIndex}`;
-                                                                                    const formData = forms[formKey];
-
-                                                                                    if (formData) {
-                                                                                        const updatedRows = formData.rows.map(row => {
-                                                                                            if (row.partNumber === part.partNumber && row.childTestId === currentChildTest?.id) {
-                                                                                                const updatedNonCosmeticImages = [...(row.nonCosmeticImages || [])];
-                                                                                                const updatedCroppedImages = [...(row.croppedImages || [])];
-
-                                                                                                // Remove from both arrays at same index
-                                                                                                updatedNonCosmeticImages.splice(index, 1);
-                                                                                                if (updatedCroppedImages[index]) {
-                                                                                                    updatedCroppedImages.splice(index, 1);
-                                                                                                }
-
-                                                                                                return {
-                                                                                                    ...row,
-                                                                                                    nonCosmeticImages: updatedNonCosmeticImages,
-                                                                                                    nonCosmeticImage: updatedNonCosmeticImages[0] || "",
-                                                                                                    croppedImages: updatedCroppedImages,
-                                                                                                    croppedImage: updatedCroppedImages[0] || ""
-                                                                                                };
-                                                                                            }
-                                                                                            return row;
-                                                                                        });
-
-                                                                                        setForms(prev => ({
-                                                                                            ...prev,
-                                                                                            [formKey]: {
-                                                                                                ...prev[formKey],
-                                                                                                rows: updatedRows
-                                                                                            }
-                                                                                        }));
-                                                                                    }
-                                                                                }}
-                                                                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                                                                                title="Remove this image"
-                                                                            >
-                                                                                <X size={14} />
-                                                                            </button>
-                                                                            <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-                                                                                Image {index + 1}
+                                                        {existingImages.nonCosmeticImages.map((img, index) => {
+                                                            const isProcessing = processingImages[`${part.partNumber}-${index}`];
+                                                            const rowData = formData?.rows?.find(row =>
+                                                                row.partNumber === part.partNumber &&
+                                                                row.childTestId === currentChildTest?.id
+                                                            );
+                                                            const croppedImage = rowData?.croppedImages?.[index];
+                                                            
+                                                            return (
+                                                                <div key={index} className="border rounded-lg p-3 bg-gray-50">
+                                                                    <div className="flex flex-col md:flex-row gap-4">
+                                                                        {/* Original non-cosmetic image */}
+                                                                        <div className="flex-1">
+                                                                            <div className="relative group">
+                                                                                <img
+                                                                                    src={img}
+                                                                                    alt={`Non-Cosmetic ${index + 1}`}
+                                                                                    className="w-full h-32 object-cover border rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                                                    onClick={() => window.open(img, '_blank')}
+                                                                                />
+                                                                                <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                                                                    Pre-uploaded {index + 1}
+                                                                                </div>
                                                                             </div>
                                                                         </div>
-                                                                    </div>
 
-                                                                    {/* Corresponding cropped image (if exists) */}
-                                                                    <div className="flex-1">
-                                                                        {rowData.croppedImages && rowData.croppedImages[index] && (
-                                                                            <div className="h-full flex flex-col justify-center">
-                                                                                <div className="text-xs text-gray-600 mb-1">
-                                                                                    <span className="font-semibold">Detected Region:</span> {rowData.regionLabel}
+                                                                        {/* Corresponding cropped image */}
+                                                                        <div className="flex-1">
+                                                                            {croppedImage ? (
+                                                                                <div className="h-full flex flex-col justify-center">
+                                                                                    <div className="text-xs text-gray-600 mb-1">
+                                                                                        <span className="font-semibold">Detected Region:</span> {rowData?.regionLabel || "Processing..."}
+                                                                                    </div>
+                                                                                    <div className="flex justify-center">
+                                                                                        <img
+                                                                                            src={croppedImage}
+                                                                                            alt={`Cropped ${index + 1}`}
+                                                                                            className="w-24 h-24 object-contain border rounded-lg shadow-sm"
+                                                                                        />
+                                                                                    </div>
                                                                                 </div>
-                                                                                <div className="flex justify-center">
-                                                                                    <img
-                                                                                        src={rowData.croppedImages[index]}
-                                                                                        alt={`Cropped ${index + 1}`}
-                                                                                        className="w-24 h-24 object-contain border rounded-lg shadow-sm"
-                                                                                    />
+                                                                            ) : isProcessing ? (
+                                                                                <div className="h-full flex flex-col items-center justify-center">
+                                                                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mb-2"></div>
+                                                                                    <span className="text-xs text-gray-500">Processing cropped image...</span>
                                                                                 </div>
-                                                                            </div>
-                                                                        )}
+                                                                            ) : (
+                                                                                <div className="h-full flex flex-col items-center justify-center">
+                                                                                    <div className="text-xs text-gray-500 text-center">
+                                                                                        Cropped image will appear here
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                        ))}
+                                                            );
+                                                        })}
                                                     </div>
-                                                ) : (
-                                                    <div className="text-center py-4 text-gray-500">
-                                                        No non-cosmetic images uploaded yet
+                                                    <div className="text-xs text-gray-500 mt-2">
+                                                        Images loaded from storage. To add more, upload below:
                                                     </div>
-                                                )}
-                                            </div>
+                                                </div>
+                                            ) : rowData?.nonCosmeticImages && rowData.nonCosmeticImages.length > 0 ? (
+                                                <div className="mb-3">
+                                                    <div className="space-y-4">
+                                                        {rowData.nonCosmeticImages.map((img, index) => {
+                                                            const croppedImage = rowData.croppedImages?.[index];
+                                                            
+                                                            return (
+                                                                <div key={index} className="border rounded-lg p-3 bg-gray-50">
+                                                                    <div className="flex flex-col md:flex-row gap-4">
+                                                                        {/* Original non-cosmetic image */}
+                                                                        <div className="flex-1">
+                                                                            <div className="relative group">
+                                                                                <img
+                                                                                    src={img}
+                                                                                    alt={`Non-Cosmetic ${index + 1}`}
+                                                                                    className="w-full h-32 object-cover border rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                                                    onClick={() => window.open(img, '_blank')}
+                                                                                />
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        // Remove this specific image and its cropped version
+                                                                                        const formKey = `test_${currentTestIndex}`;
+                                                                                        const formData = forms[formKey];
+
+                                                                                        if (formData) {
+                                                                                            const updatedRows = formData.rows.map(row => {
+                                                                                                if (row.partNumber === part.partNumber && row.childTestId === currentChildTest?.id) {
+                                                                                                    const updatedNonCosmeticImages = [...(row.nonCosmeticImages || [])];
+                                                                                                    const updatedCroppedImages = [...(row.croppedImages || [])];
+
+                                                                                                    // Remove from both arrays at same index
+                                                                                                    updatedNonCosmeticImages.splice(index, 1);
+                                                                                                    if (updatedCroppedImages[index]) {
+                                                                                                        updatedCroppedImages.splice(index, 1);
+                                                                                                    }
+
+                                                                                                    return {
+                                                                                                        ...row,
+                                                                                                        nonCosmeticImages: updatedNonCosmeticImages,
+                                                                                                        nonCosmeticImage: updatedNonCosmeticImages[0] || "",
+                                                                                                        croppedImages: updatedCroppedImages,
+                                                                                                        croppedImage: updatedCroppedImages[0] || ""
+                                                                                                    };
+                                                                                                }
+                                                                                                return row;
+                                                                                            });
+
+                                                                                            setForms(prev => ({
+                                                                                                ...prev,
+                                                                                                [formKey]: {
+                                                                                                    ...prev[formKey],
+                                                                                                    rows: updatedRows
+                                                                                                }
+                                                                                            }));
+                                                                                        }
+                                                                                    }}
+                                                                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                                                                    title="Remove this image"
+                                                                                >
+                                                                                    <X size={14} />
+                                                                                </button>
+                                                                                <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                                                                    Image {index + 1}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {/* Corresponding cropped image (if exists) */}
+                                                                        <div className="flex-1">
+                                                                            {croppedImage && (
+                                                                                <div className="h-full flex flex-col justify-center">
+                                                                                    <div className="text-xs text-gray-600 mb-1">
+                                                                                        <span className="font-semibold">Detected Region:</span> {rowData.regionLabel}
+                                                                                    </div>
+                                                                                    <div className="flex justify-center">
+                                                                                        <img
+                                                                                            src={croppedImage}
+                                                                                            alt={`Cropped ${index + 1}`}
+                                                                                            className="w-24 h-24 object-contain border rounded-lg shadow-sm"
+                                                                                        />
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-4 text-gray-500">
+                                                    No non-cosmetic images uploaded yet
+                                                </div>
+                                            )}
 
                                             {/* Upload button - ALWAYS shows "Upload Non-Cosmetic Image" */}
                                             <label className={`flex items-center justify-center h-20 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${processing ? 'opacity-50 cursor-not-allowed' : 'hover:border-green-400 hover:bg-green-100'}`}
@@ -5539,9 +6026,9 @@ export default function MultiStageTestFormEnhanced() {
                                             </label>
 
                                             {/* Show total count */}
-                                            {rowData?.nonCosmeticImages && rowData.nonCosmeticImages.length > 0 && (
+                                            {(existingImages.nonCosmeticImages.length > 0 || rowData?.nonCosmeticImages?.length > 0) && (
                                                 <div className="mt-2 text-xs text-gray-600">
-                                                    Total: {rowData.nonCosmeticImages.length} image(s)
+                                                    Total: {existingImages.nonCosmeticImages.length + (rowData?.nonCosmeticImages?.length || 0)} image(s)
                                                 </div>
                                             )}
                                         </div>
@@ -5687,49 +6174,139 @@ export default function MultiStageTestFormEnhanced() {
                     currentChildTest={currentChildTest}
                     onChildTestComplete={() => handleChildTestComplete(formKey)}
                     onChildTestChange={(childTestIndex) => handleChildTestChange(formKey, childTestIndex)}
+                    machineLoadData={currentRecord.machineLoadData}
+                    loadImagesFromStorage={loadImagesFromStorage}
                 />
             </div>
         );
     };
 
-    const handleSubmit = () => {
+    
+      const handleSubmit = () => {
         const saved = saveFormData();
-
+ 
         if (!saved) {
             alert("Error saving form data. Please try again.");
             return;
         }
-
+ 
         console.log("Submitting form data:", forms);
         console.log("Shared images:", sharedImagesByPart);
-
+ 
         if (isSecondRound) {
-            alert("✅ Final submission complete! All test data and images have been recorded.");
-
-            // Here you would typically save to backend/localStorage
-            const records = localStorage.getItem("stage2Records");
-            if (records) {
-                const parsed = JSON.parse(records);
-                const updatedRecords = parsed.map((record: Stage2Record) => {
-                    if (record.id === currentRecord?.id) {
-                        return currentRecord;
+            alert("Final submission complete! All test data and images have been recorded.");
+ 
+            try {
+                // Get testingLoadData from localStorage
+                const testingLoadDataStr = localStorage.getItem("testingLoadData");
+ 
+                if (testingLoadDataStr) {
+                    const testingLoadData = JSON.parse(testingLoadDataStr);
+ 
+                    // Update test records with form data and images
+                    const updatedTestRecords = testingLoadData.testRecords.map((record: any) => {
+                        // Find matching form data for this part
+                        const formData = Object.values(forms).find(
+                            (form: any) =>
+                                form.partNumber === record.partNumber &&
+                                form.serialNumber === record.serialNumber
+                        );
+ 
+                        if (formData) {
+                            return {
+                                ...record,
+                                ...formData,
+                                cosmeticImage: sharedImagesByPart[record.partNumber] || '',
+                                status: "Completed",
+                                completedAt: new Date().toISOString(),
+                                isCompleted: true
+                            };
+                        }
+ 
+                        return record;
+                    });
+ 
+                    // Update the main testingLoadData object
+                    const updatedTestingLoadData = {
+                        ...testingLoadData,
+                        testRecords: updatedTestRecords,
+                        status: "Completed",
+                        completedAt: new Date().toISOString()
+                    };
+ 
+                    // Save updated testingLoadData back to localStorage
+                    localStorage.setItem("testingLoadData", JSON.stringify(updatedTestingLoadData));
+ 
+                    // Also save to stage2Records for historical tracking
+                    const stage2RecordsStr = localStorage.getItem("stage2Records");
+                    let stage2Records = stage2RecordsStr ? JSON.parse(stage2RecordsStr) : [];
+ 
+                    // Check if this load already exists in stage2Records
+                    const existingIndex = stage2Records.findIndex(
+                        (record: any) => record.loadId === testingLoadData.loadId
+                    );
+ 
+                    if (existingIndex !== -1) {
+                        // Update existing record
+                        stage2Records[existingIndex] = updatedTestingLoadData;
+                    } else {
+                        // Add new record
+                        stage2Records.push(updatedTestingLoadData);
                     }
-                    return record;
-                });
-                localStorage.setItem("stage2Records", JSON.stringify(updatedRecords));
+ 
+                    localStorage.setItem("stage2Records", JSON.stringify(stage2Records));
+ 
+                    console.log("Updated testingLoadData:", updatedTestingLoadData);
+                    console.log("Saved to stage2Records");
+                }
+ 
+                // Navigate back or to success page
+                navigate(-1);
+            } catch (error) {
+                console.error("Error saving data:", error);
+                alert("Error saving final data. Please try again.");
             }
-
-            // Navigate back or to success page
-            navigate(-1);
         } else {
-            alert("✅ Tests completed! You can now upload final non-cosmetic images for the second round.");
+            alert("Tests completed! You can now upload final non-cosmetic images for the second round.");
+ 
+            // Save current progress to testingLoadData
+            try {
+                const testingLoadDataStr = localStorage.getItem("testingLoadData");
+ 
+                if (testingLoadDataStr) {
+                    const testingLoadData = JSON.parse(testingLoadDataStr);
+ 
+                    const updatedTestRecords = testingLoadData.testRecords.map((record: any) => {
+                        const formData = Object.values(forms).find(
+                            (form: any) =>
+                                form.partNumber === record.partNumber &&
+                                form.serialNumber === record.serialNumber
+                        );
+ 
+                        if (formData) {
+                            return {
+                                ...record,
+                                ...formData,
+                                status: "First Round Completed"
+                            };
+                        }
+ 
+                        return record;
+                    });
+ 
+                    testingLoadData.testRecords = updatedTestRecords;
+                    localStorage.setItem("testingLoadData", JSON.stringify(testingLoadData));
+                }
+            } catch (error) {
+                console.error("Error saving first round data:", error);
+            }
+ 
             setIsSecondRound(true);
             setCurrentStage(0);
             setCurrentTestIndex(0);
         }
     };
-
-    // Create stages array
+    
     const stages = [
         { id: 0, name: "Image Upload" },
         { id: 1, name: "Test Forms" }

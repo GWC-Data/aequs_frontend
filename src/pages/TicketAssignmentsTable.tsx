@@ -32,6 +32,7 @@ interface StoredBarcodeData {
   serialNumber: string;
   partNumbers: string[];
   totalParts: number;
+  scannedParts?: string[];
   rawBarcodeData?: string;
   submitted?: boolean;
   submittedAt?: string;
@@ -147,7 +148,8 @@ const TicketAssignmentsTable: React.FC = () => {
       // Ensure each assignment has a location field with default "home"
       assignments = assignments.map(assignment => ({
         ...assignment,
-        location: assignment.location || "home"
+        location: assignment.location || "home",
+        scannedParts: assignment.scannedParts || []
       }));
 
       setAllAssignments(assignments);
@@ -170,6 +172,30 @@ const TicketAssignmentsTable: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  const markPartCompleted = (assignmentId: string, partNumber: string) => {
+  const stored = localStorage.getItem(storageKey);
+  if (!stored) return;
+
+  const assignments: StoredBarcodeData[] = JSON.parse(stored);
+
+  const updated = assignments.map(a => {
+    if (a.id === assignmentId) {
+      if (a.scannedParts?.includes(partNumber)) return a;
+
+      return {
+        ...a,
+        scannedParts: [...(a.scannedParts || []), partNumber]
+      };
+    }
+    return a;
+  });
+
+  localStorage.setItem(storageKey, JSON.stringify(updated));
+  setAllAssignments(updated);
+  processTicketSummaries(updated);
+};
+
 
   const processTicketSummaries = (assignments: StoredBarcodeData[]) => {
     // Group assignments by ticket
