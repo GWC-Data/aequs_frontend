@@ -370,7 +370,46 @@ const OQCSystem = () => {
 
     const parts = data.split(':');
     const serialNumber = parts[0].trim();
-    const partNumber = parts.length > 1 ? parts[1].trim() : `${selectedTicket.project}-P${String(totalScanned + 1).padStart(3, '0')}`;
+
+    // If part number is not provided in barcode, generate it
+    let partNumber;
+    if (parts.length > 1) {
+      partNumber = parts[1].trim();
+    } else {
+      // Find the highest existing PART-XXX number across all tickets
+      let highestPartNumber = 0;
+
+      // Check all tickets and sessions to find the highest part number
+      testRecords.forEach(record => {
+        record.sessions.forEach(session => {
+          session.parts.forEach(part => {
+            // Extract number from PART-001 format
+            const match = part.partNumber.match(/PART-(\d+)$/);
+            if (match) {
+              const num = parseInt(match[1], 10);
+              if (num > highestPartNumber) {
+                highestPartNumber = num;
+              }
+            }
+          });
+        });
+      });
+
+      // Also check current tempScannedParts
+      tempScannedParts.forEach(part => {
+        const match = part.partNumber.match(/PART-(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > highestPartNumber) {
+            highestPartNumber = num;
+          }
+        }
+      });
+
+      // Generate next unique part number
+      const nextPartNumber = highestPartNumber + 1;
+      partNumber = `PART-${String(nextPartNumber).padStart(3, '0')}`;
+    }
 
     // Check for duplicate serial number in current session
     const duplicateInSession = tempScannedParts.find(p => p.serialNumber === serialNumber);
@@ -385,6 +424,18 @@ const OQCSystem = () => {
     );
     if (duplicateInAllSessions) {
       showNotification('error', `Duplicate serial number in ticket: ${serialNumber}`);
+      return;
+    }
+
+    // Check for duplicate part number across all tickets
+    const duplicatePartNumber = testRecords.some(record =>
+      record.sessions.some(session =>
+        session.parts.some(part => part.partNumber === partNumber)
+      )
+    ) || tempScannedParts.some(p => p.partNumber === partNumber);
+
+    if (duplicatePartNumber) {
+      showNotification('error', `Duplicate part number detected: ${partNumber}. Please rescan.`);
       return;
     }
 
@@ -777,20 +828,20 @@ const OQCSystem = () => {
     const recordDate = new Date(record.dateTime);
     let matchesDate = true;
 
-     if (startDateFilter) {
-    const startDate = new Date(startDateFilter);
-    if (recordDate < startDate) {
-      matchesDate = false;
+    if (startDateFilter) {
+      const startDate = new Date(startDateFilter);
+      if (recordDate < startDate) {
+        matchesDate = false;
+      }
     }
-  }
-  
-  if (endDateFilter) {
-    const endDate = new Date(endDateFilter);
-    endDate.setHours(23, 59, 59, 999); // Include entire end day
-    if (recordDate > endDate) {
-      matchesDate = false;
+
+    if (endDateFilter) {
+      const endDate = new Date(endDateFilter);
+      endDate.setHours(23, 59, 59, 999); // Include entire end day
+      if (recordDate > endDate) {
+        matchesDate = false;
+      }
     }
-  }
 
     // New filter conditions
     const matchesProject = projectFilter === 'All' || record.project === projectFilter;
@@ -1157,27 +1208,6 @@ const OQCSystem = () => {
                 </p>
               </div>
 
-              {/* <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-700">Test Barcodes:</Label>
-                <div className="flex flex-wrap gap-2">
-                  {['SN001:PART-001', 'SN002:PART-002', 'SN003:PART-003'].map((barcode, idx) => (
-                    <Button
-                      key={idx}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setBarcodeInput(barcode);
-                        setTimeout(() => processBarcode(barcode), 100);
-                      }}
-                      className="text-xs font-mono"
-                      disabled={remainingCount <= 0}
-                    >
-                      {barcode}
-                    </Button>
-                  ))}
-                </div>
-              </div> */}
-
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-gray-700">Scan: </Label>
                 <Button
@@ -1186,8 +1216,40 @@ const OQCSystem = () => {
                   onClick={() => {
                     const totalScannedInSession = tempScannedParts.length;
                     const totalScannedOverall = selectedTicket.sessions.reduce((sum, session) => sum + session.parts.length, 0);
-                    const nextNumber = totalScannedInSession + totalScannedOverall + 1;
-                    const barcode = `SN${String(nextNumber).padStart(3, '0')}:PART-${String(nextNumber).padStart(3, '0')}`;
+
+                    // Find the highest existing part number across all tickets
+                    let highestPartNumber = 0;
+                    testRecords.forEach(record => {
+                      record.sessions.forEach(session => {
+                        session.parts.forEach(part => {
+                          // Extract number from PART-001 format
+                          const match = part.partNumber.match(/PART-(\d+)$/);
+                          if (match) {
+                            const num = parseInt(match[1], 10);
+                            if (num > highestPartNumber) {
+                              highestPartNumber = num;
+                            }
+                          }
+                        });
+                      });
+                    });
+
+                    // Also check current tempScannedParts
+                    tempScannedParts.forEach(part => {
+                      const match = part.partNumber.match(/PART-(\d+)$/);
+                      if (match) {
+                        const num = parseInt(match[1], 10);
+                        if (num > highestPartNumber) {
+                          highestPartNumber = num;
+                        }
+                      }
+                    });
+
+                    const nextPartNumber = highestPartNumber + 1;
+                    const partNumber = `PART-${String(nextPartNumber).padStart(3, '0')}`;
+                    const serialNumber = `SN${String(nextPartNumber).padStart(3, '0')}`;
+                    const barcode = `${serialNumber}:${partNumber}`;
+
                     setBarcodeInput(barcode);
                     setTimeout(() => processBarcode(barcode), 100);
                   }}
@@ -1196,9 +1258,6 @@ const OQCSystem = () => {
                 >
                   Scan & Generate
                 </Button>
-                {/* <p className="text-xs text-gray-500">
-                  Click to automatically generate and scan the next sequential barcode
-                </p> */}
               </div>
             </div>
           </CardContent>
@@ -1417,7 +1476,7 @@ const OQCSystem = () => {
                       <option key={colour} value={colour}>{colour}</option>
                     ))}
                   </select>
-                  
+
                 </div>
               </div>
 
@@ -1506,24 +1565,24 @@ const OQCSystem = () => {
                 />
               </div>
               <div className="flex items-end gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setSearchTerm('');
-                        setStartDateFilter('');
-                        setEndDateFilter('');
-                        setProjectFilter('All');
-                        setBuildFilter('All');
-                        setColourFilter('All');
-                        setReasonFilter('All');
-                        setExpandedTickets({});
-                        setExpandedSessions({});
-                      }}
-                      title="Clear all filters"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setStartDateFilter('');
+                    setEndDateFilter('');
+                    setProjectFilter('All');
+                    setBuildFilter('All');
+                    setColourFilter('All');
+                    setReasonFilter('All');
+                    setExpandedTickets({});
+                    setExpandedSessions({});
+                  }}
+                  title="Clear all filters"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
 
               {/* Filter Summary */}
               <div className="md:col-span-2 lg:col-span-5">
