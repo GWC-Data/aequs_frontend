@@ -154,67 +154,202 @@ const ORTLabPage = () => {
     }
   };
 
-  const loadORTSubmissions = (existingStage1Data: TableRow[]) => {
-    try {
-      const ortSubmissionsStr = localStorage.getItem("ort_lab_submissions");
-      let ortSubmissions: ORTSubmissionData[] = ortSubmissionsStr
-        ? JSON.parse(ortSubmissionsStr)
-        : [];
+  // const loadORTSubmissions = (existingStage1Data: TableRow[]) => {
+  //   try {
+  //     const ortSubmissionsStr = localStorage.getItem("ort_lab_submissions");
+  //     let ortSubmissions: ORTSubmissionData[] = ortSubmissionsStr
+  //       ? JSON.parse(ortSubmissionsStr)
+  //       : [];
 
-      if (ortSubmissions.length === 0) {
-        const singleSubmissionStr = localStorage.getItem("ort_lab_submission");
-        if (singleSubmissionStr) {
-          ortSubmissions = [JSON.parse(singleSubmissionStr)];
+  //     if (ortSubmissions.length === 0) {
+  //       const singleSubmissionStr = localStorage.getItem("ort_lab_submission");
+  //       if (singleSubmissionStr) {
+  //         ortSubmissions = [JSON.parse(singleSubmissionStr)];
+  //       }
+  //     }
+
+  //     // Only get submissions that are submitted
+  //     ortSubmissions = ortSubmissions.filter(item => item.submitted === true);
+
+  //     if (ortSubmissions.length === 0) {
+  //       setTableData([]);
+  //       setLoading(false);
+  //       return;
+  //     }
+
+  //     // Get OQC data for details
+  //     const oqcDataStr = localStorage.getItem("testRecords");
+  //     const oqcRecords: OqcRecord[] = oqcDataStr ? JSON.parse(oqcDataStr) : [];
+  //     const oqcMap = new Map<string, OqcRecord>();
+  //     oqcRecords.forEach(record => {
+  //       oqcMap.set(record.ticketCode, record);
+  //     });
+
+  //     // Get processed sessions
+  //     const processedSessionsStr = localStorage.getItem("processedORTSubmissions");
+  //     const processedSessionIds = new Set<string>(
+  //       processedSessionsStr ? JSON.parse(processedSessionsStr) : []
+  //     );
+
+  //     // Get sessions already in Stage 1 data
+  //     const existingSessionIds = new Set<string>(
+  //       existingStage1Data.map(row => row.sessionId)
+  //     );
+
+  //     // Filter to show only:
+  //     // 1. New submissions not processed yet AND
+  //     // 2. Not already in Stage 1 data (to avoid duplicates) AND
+  //     // 3. Not moved to Stage 2
+  //     const newSubmissions = ortSubmissions.filter(submission => 
+  //       !processedSessionIds.has(submission.id) && 
+  //       !existingSessionIds.has(submission.id)
+  //     );
+
+  //     if (newSubmissions.length === 0) {
+  //       // Show existing Stage 1 data that hasn't been moved to Stage 2
+  //       const pendingRows = existingStage1Data.filter(row => !row.movedToStage2);
+  //       setTableData(pendingRows);
+  //       setLoading(false);
+  //       return;
+  //     }
+
+  //     // Create new rows for new submissions
+  //     const newRows: TableRow[] = newSubmissions.map((submission, index) => {
+  //       const oqcRecord = oqcMap.get(submission.ticketCode);
+        
+  //       const detailsBox = oqcRecord
+  //         ? {
+  //             totalQuantity: oqcRecord.totalQuantity || submission.totalParts,
+  //             ticketCodeRaised: oqcRecord.ticketCode,
+  //             dateShiftTime: oqcRecord.dateTime || new Date(submission.timestamp).toLocaleDateString(),
+  //             project: oqcRecord.project || "N/A",
+  //             batch: oqcRecord.build || "N/A",
+  //             color: oqcRecord.colour || "N/A",
+  //             assemblyOQCAno: oqcRecord.anoType || "N/A",
+  //             reason: oqcRecord.reason || "N/A",
+  //             oqcApprovedBy: oqcRecord.oqcApprovedBy,
+  //             oqcApprovedAt: oqcRecord.oqcApprovedAt
+  //           }
+  //         : {
+  //             totalQuantity: submission.totalParts,
+  //             ticketCodeRaised: submission.ticketCode,
+  //             dateShiftTime: new Date(submission.timestamp).toLocaleString(),
+  //             project: submission.project || "N/A",
+  //             batch: submission.build || "N/A",
+  //             color: submission.colour || "N/A",
+  //             assemblyOQCAno: submission.anoType || "N/A",
+  //             reason: submission.reason || "N/A",
+  //             oqcApprovedBy: submission.oqcApprovedBy,
+  //             oqcApprovedAt: submission.oqcApprovedAt
+  //           };
+
+  //       return {
+  //         id: existingStage1Data.length + index + 1,
+  //         ticketCode: submission.ticketCode,
+  //         sessionId: submission.id,
+  //         sessionNumber: submission.sessionNumber,
+  //         partsBeingSent: submission.totalParts,
+  //         received: "",
+  //         inventoryRemarks: "",
+  //         stage2Enabled: false,
+  //         status: "Pending",
+  //         detailsBox,
+  //         movedToStage2: false,
+  //         partNumbers: submission.partNumbers || [],
+  //         totalQuantity: submission.totalQuantity
+  //       };
+  //     });
+
+  //     // Combine existing pending rows with new rows
+  //     const pendingExistingRows = existingStage1Data.filter(row => !row.movedToStage2);
+  //     const combinedRows = [...pendingExistingRows, ...newRows];
+      
+  //     setTableData(combinedRows);
+  //     setLoading(false);
+
+  //   } catch (error) {
+  //     console.error("Error loading ORT submissions:", error);
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Load Error",
+  //       description: "Failed to load ORT Lab submissions.",
+  //       duration: 3000,
+  //     });
+  //     setTableData([]);
+  //     setLoading(false);
+  //   }
+  // };
+
+  const loadORTSubmissions = (existingStage1Data: TableRow[]) => {
+  try {
+    const ortSubmissionsStr = localStorage.getItem("ort_lab_submissions");
+    let ortSubmissions: ORTSubmissionData[] = ortSubmissionsStr
+      ? JSON.parse(ortSubmissionsStr)
+      : [];
+
+    if (ortSubmissions.length === 0) {
+      const singleSubmissionStr = localStorage.getItem("ort_lab_submission");
+      if (singleSubmissionStr) {
+        ortSubmissions = [JSON.parse(singleSubmissionStr)];
+      }
+    }
+
+    // Only get submissions that are submitted
+    ortSubmissions = ortSubmissions.filter(item => item.submitted === true);
+
+    if (ortSubmissions.length === 0) {
+      // Show all existing Stage 1 data that hasn't been moved to Stage 2
+      const pendingRows = existingStage1Data.filter(row => !row.movedToStage2);
+      setTableData(pendingRows);
+      setLoading(false);
+      return;
+    }
+
+    // Get OQC data for details
+    const oqcDataStr = localStorage.getItem("testRecords");
+    const oqcRecords: OqcRecord[] = oqcDataStr ? JSON.parse(oqcDataStr) : [];
+    const oqcMap = new Map<string, OqcRecord>();
+    oqcRecords.forEach(record => {
+      oqcMap.set(record.ticketCode, record);
+    });
+
+    // Get processed sessions
+    const processedSessionsStr = localStorage.getItem("processedORTSubmissions");
+    const processedSessionIds = new Set<string>(
+      processedSessionsStr ? JSON.parse(processedSessionsStr) : []
+    );
+
+    // Create a map of existing Stage 1 data by sessionId
+    const existingDataMap = new Map<string, TableRow>();
+    existingStage1Data.forEach(row => {
+      existingDataMap.set(row.sessionId, row);
+    });
+
+    // Create new rows array
+    const newRows: TableRow[] = [];
+    
+    // Process each submission
+    ortSubmissions.forEach((submission) => {
+      // Check if this is a new submission (not processed yet)
+      const isNewSubmission = !processedSessionIds.has(submission.id);
+      
+      // Check if this session already exists in Stage 1 data
+      const existingRow = existingDataMap.get(submission.id);
+      
+      if (existingRow) {
+        // If this row exists but was marked as "No" previously, remove it
+        if (existingRow.received === "No" || existingRow.status === "Not Received") {
+          // Don't add it back - it will be replaced with fresh data
+          // Continue to create new row
+        } else if (!existingRow.movedToStage2) {
+          // Keep existing row if not moved to Stage 2
+          newRows.push(existingRow);
+          return;
         }
       }
-
-      // Only get submissions that are submitted
-      ortSubmissions = ortSubmissions.filter(item => item.submitted === true);
-
-      if (ortSubmissions.length === 0) {
-        setTableData([]);
-        setLoading(false);
-        return;
-      }
-
-      // Get OQC data for details
-      const oqcDataStr = localStorage.getItem("testRecords");
-      const oqcRecords: OqcRecord[] = oqcDataStr ? JSON.parse(oqcDataStr) : [];
-      const oqcMap = new Map<string, OqcRecord>();
-      oqcRecords.forEach(record => {
-        oqcMap.set(record.ticketCode, record);
-      });
-
-      // Get processed sessions
-      const processedSessionsStr = localStorage.getItem("processedORTSubmissions");
-      const processedSessionIds = new Set<string>(
-        processedSessionsStr ? JSON.parse(processedSessionsStr) : []
-      );
-
-      // Get sessions already in Stage 1 data
-      const existingSessionIds = new Set<string>(
-        existingStage1Data.map(row => row.sessionId)
-      );
-
-      // Filter to show only:
-      // 1. New submissions not processed yet AND
-      // 2. Not already in Stage 1 data (to avoid duplicates) AND
-      // 3. Not moved to Stage 2
-      const newSubmissions = ortSubmissions.filter(submission => 
-        !processedSessionIds.has(submission.id) && 
-        !existingSessionIds.has(submission.id)
-      );
-
-      if (newSubmissions.length === 0) {
-        // Show existing Stage 1 data that hasn't been moved to Stage 2
-        const pendingRows = existingStage1Data.filter(row => !row.movedToStage2);
-        setTableData(pendingRows);
-        setLoading(false);
-        return;
-      }
-
-      // Create new rows for new submissions
-      const newRows: TableRow[] = newSubmissions.map((submission, index) => {
+      
+      // Only process if it's a new submission or a re-uploaded session
+      if (isNewSubmission || (existingRow && existingRow.received === "No")) {
         const oqcRecord = oqcMap.get(submission.ticketCode);
         
         const detailsBox = oqcRecord
@@ -243,8 +378,8 @@ const ORTLabPage = () => {
               oqcApprovedAt: submission.oqcApprovedAt
             };
 
-        return {
-          id: existingStage1Data.length + index + 1,
+        const newRow: TableRow = {
+          id: existingStage1Data.length + newRows.length + 1,
           ticketCode: submission.ticketCode,
           sessionId: submission.id,
           sessionNumber: submission.sessionNumber,
@@ -258,27 +393,36 @@ const ORTLabPage = () => {
           partNumbers: submission.partNumbers || [],
           totalQuantity: submission.totalQuantity
         };
-      });
+        
+        newRows.push(newRow);
+      }
+    });
 
-      // Combine existing pending rows with new rows
-      const pendingExistingRows = existingStage1Data.filter(row => !row.movedToStage2);
-      const combinedRows = [...pendingExistingRows, ...newRows];
-      
-      setTableData(combinedRows);
-      setLoading(false);
+    // Also include existing pending rows from Stage 1 data (excluding "Not Received" ones)
+    const pendingExistingRows = existingStage1Data.filter(row => 
+      !row.movedToStage2 && 
+      row.received !== "No" &&
+      row.status !== "Not Received" &&
+      !newRows.some(newRow => newRow.sessionId === row.sessionId)
+    );
+    
+    const combinedRows = [...pendingExistingRows, ...newRows];
+    
+    setTableData(combinedRows);
+    setLoading(false);
 
-    } catch (error) {
-      console.error("Error loading ORT submissions:", error);
-      toast({
-        variant: "destructive",
-        title: "Load Error",
-        description: "Failed to load ORT Lab submissions.",
-        duration: 3000,
-      });
-      setTableData([]);
-      setLoading(false);
-    }
-  };
+  } catch (error) {
+    console.error("Error loading ORT submissions:", error);
+    toast({
+      variant: "destructive",
+      title: "Load Error",
+      description: "Failed to load ORT Lab submissions.",
+      duration: 3000,
+    });
+    setTableData([]);
+    setLoading(false);
+  }
+};
 
   const handleNoButtonClick = (id: number) => {
     setNoReasonModal({
@@ -696,7 +840,7 @@ const ORTLabPage = () => {
                       <TableHead className="font-bold text-gray-700 border min-w-[300px]">Details Box</TableHead>
                       <TableHead className="font-bold text-gray-700 border min-w-[200px]">Inventory Remarks</TableHead>
                       <TableHead className="font-bold text-gray-700 border">Status</TableHead>
-                      <TableHead className="font-bold text-gray-700 border">Stage 2</TableHead>
+                      <TableHead className="font-bold text-gray-700 border">Ticket Assignment</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
