@@ -35,17 +35,17 @@ const ChamberLoadsDashboard = () => {
     setLoading(true);
     try {
       const loads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
-      
+
       // Sort by loadedAt date (newest first)
-      const sortedLoads = loads.sort((a, b) => 
+      const sortedLoads = loads.sort((a, b) =>
         new Date(b.loadedAt) - new Date(a.loadedAt)
       );
-      
+
       setChamberLoads(sortedLoads);
-      
+
       // Calculate statistics
       calculateStats(sortedLoads);
-      
+
       setLoading(false);
     } catch (error) {
       console.error('Error loading chamber loads:', error);
@@ -67,10 +67,10 @@ const ChamberLoadsDashboard = () => {
     loads.forEach(load => {
       statsData.totalParts += load.parts?.length || 0;
       statsData.totalDuration += parseFloat(load.duration) || 0;
-      
+
       if (load.chamber) statsData.chambers.add(load.chamber);
       if (load.machineDetails?.project) statsData.projects.add(load.machineDetails.project);
-      
+
       // Determine status
       if (load.status === 'loaded') {
         const estimatedCompletion = new Date(load.estimatedCompletion);
@@ -102,7 +102,7 @@ const ChamberLoadsDashboard = () => {
         load.chamber?.toLowerCase().includes(term) ||
         load.machineDetails?.ticketCode?.toLowerCase().includes(term) ||
         load.machineDetails?.project?.toLowerCase().includes(term) ||
-        load.parts?.some(part => 
+        load.parts?.some(part =>
           part.partNumber?.toLowerCase().includes(term) ||
           part.serialNumber?.toLowerCase().includes(term)
         )
@@ -141,7 +141,7 @@ const ChamberLoadsDashboard = () => {
       const now = new Date();
       let startDate = new Date();
 
-      switch(dateRange) {
+      switch (dateRange) {
         case 'today':
           startDate.setHours(0, 0, 0, 0);
           break;
@@ -155,7 +155,7 @@ const ChamberLoadsDashboard = () => {
           break;
       }
 
-      filtered = filtered.filter(load => 
+      filtered = filtered.filter(load =>
         new Date(load.loadedAt) >= startDate
       );
     }
@@ -249,8 +249,8 @@ const ChamberLoadsDashboard = () => {
     const headers = Object.keys(data[0]);
     const csvRows = [
       headers.join(','),
-      ...data.map(row => 
-        headers.map(header => 
+      ...data.map(row =>
+        headers.map(header =>
           `"${String(row[header] || '').replace(/"/g, '""')}"`
         ).join(',')
       )
@@ -297,38 +297,38 @@ const ChamberLoadsDashboard = () => {
       }
       return load;
     });
-    
+
     localStorage.setItem('chamberLoads', JSON.stringify(updatedLoads));
     loadChamberLoads();
   };
 
   // NEW FUNCTION: Navigate to testing page with parts data
- const handleNavigateToTesting = (load) => {
-  // Prepare the data to pass to testing page
-  const record = {
-    loadId: load.id,
-    chamber: load.chamber,
-    parts: load.parts || [],
-    totalParts: load.parts?.length || 0,
-    machineDetails: load.machineDetails || {},
-    loadedAt: load.loadedAt,
-    estimatedCompletion: load.estimatedCompletion,
-    duration: load.duration,
-    testRecords: load.parts || [] // Add this line
+  const handleNavigateToTesting = (load) => {
+    // Prepare the data to pass to testing page
+    const record = {
+      loadId: load.id,
+      chamber: load.chamber,
+      parts: load.parts || [],
+      totalParts: load.parts?.length || 0,
+      machineDetails: load.machineDetails || {},
+      loadedAt: load.loadedAt,
+      estimatedCompletion: load.estimatedCompletion,
+      duration: load.duration,
+      testRecords: load.parts || [] // Add this line
+    };
+
+    console.log(record);
+
+    // Store in localStorage for the testing page to access
+    localStorage.setItem('testingLoadData', JSON.stringify(record));
+
+    // Navigate to testing page
+    navigate('/form-default', {
+      state: {
+        record
+      }
+    });
   };
-
-  console.log(record);
-
-  // Store in localStorage for the testing page to access
-  localStorage.setItem('testingLoadData', JSON.stringify(record));
-  
-  // Navigate to testing page
-  navigate('/form-default', {
-    state: {
-      record
-    }
-  });
-};
   const toggleSelectLoad = (loadId) => {
     setSelectedLoads(prev => {
       if (prev.includes(loadId)) {
@@ -366,7 +366,7 @@ const ChamberLoadsDashboard = () => {
         }
         return load;
       });
-      
+
       localStorage.setItem('chamberLoads', JSON.stringify(updatedLoads));
       setSelectedLoads([]);
       loadChamberLoads();
@@ -623,7 +623,7 @@ const ChamberLoadsDashboard = () => {
                         <Calendar className="text-gray-400 mb-4" size={48} />
                         <p className="text-gray-500 text-lg">No chamber loads found</p>
                         <p className="text-gray-400 mt-2">
-                          {chamberLoads.length === 0 
+                          {chamberLoads.length === 0
                             ? 'No loads have been created yet. Load parts in the Gantt Chart view.'
                             : 'Try adjusting your filters to see more results.'
                           }
@@ -675,12 +675,11 @@ const ChamberLoadsDashboard = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className={`text-sm font-medium ${
-                            statusInfo.label === 'Active' ? 'text-blue-600' :
+                          <div className={`text-sm font-medium ${statusInfo.label === 'Active' ? 'text-blue-600' :
                             statusInfo.label === 'Finishing Soon' ? 'text-yellow-600' :
-                            statusInfo.label === 'Completed' ? 'text-green-600' :
-                            'text-red-600'
-                          }`}>
+                              statusInfo.label === 'Completed' ? 'text-green-600' :
+                                'text-red-600'
+                            }`}>
                             {calculateTimeRemaining(load.estimatedCompletion)}
                           </div>
                         </td>
@@ -702,7 +701,7 @@ const ChamberLoadsDashboard = () => {
                             >
                               <TestTube size={18} />
                             </button>
-                            
+
                             {statusInfo.label !== 'Completed' && (
                               <button
                                 onClick={() => handleMarkComplete(load.id)}
@@ -757,7 +756,7 @@ const ChamberLoadsDashboard = () => {
                     ✕
                   </button>
                 </div>
-                
+
                 <p className="text-gray-600 mb-6">
                   Export {filteredLoads.length} load(s) in your preferred format
                 </p>
@@ -773,7 +772,7 @@ const ChamberLoadsDashboard = () => {
                     <Download size={20} />
                     Export as CSV
                   </button>
-                  
+
                   <button
                     onClick={() => {
                       handleExportData('json');
@@ -784,7 +783,7 @@ const ChamberLoadsDashboard = () => {
                     <Download size={20} />
                     Export as JSON
                   </button>
-                  
+
                   <button
                     onClick={() => setShowExportModal(false)}
                     className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"

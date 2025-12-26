@@ -38,7 +38,7 @@ const App = () => (
               <Navbar />
               <main className="flex-1 overflow-hidden bg-gray-50">
                 <Routes>
-                  <Route path="/" element={<Index />} />
+                  {/* <Route path="/" element={<Index />} /> */}
                   <Route path="/oqcpage" element={<OqcformPage />} />
                   <Route path="/barcode-scanner" element={<BarcodeScannerPage />} />
                   <Route path="/tickets" element={<TicketAssignmentsTable />} />
@@ -52,7 +52,7 @@ const App = () => (
                   <Route path="/ort-lab-details" element={<ORTLabDetailsPage />} />
                   <Route path="/ort-lab-form" element={<ORTLabPage />} />
                   <Route path="/report-dashboard" element={<ReportDashboard />} />
-                  <Route path="/home-page" element={<Home/>}/>
+                  <Route path="/home-page" element={<Home />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>

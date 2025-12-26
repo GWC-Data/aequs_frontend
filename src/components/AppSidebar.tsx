@@ -1,4 +1,4 @@
-import { Home, List, LogOut, Check, PenTool, Settings, Gauge, Flag, Calendar, Backpack, ReceiptText, ScanBarcode, Ticket, TicketCheckIcon } from "lucide-react";
+import { Home, List, LogOut, Check, PenTool, Settings, Gauge, Flag, Calendar, Backpack, ReceiptText, ScanBarcode, Ticket, TicketCheckIcon, ClipboardMinus } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import Logo from '../assets/logo.png';
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const navigationItems = [
-  {title:"Home", url:"/home-page", icon:Home},
+  { title: "Home", url: "/home-page", icon: Home },
   { title: "OQC Form", url: "/oqcpage", icon: List },
   // { title: "Barcode Scanner", url: "/barcode-scanner", icon: ScanBarcode },
   // { title: "Ticket Assignment", url: "/tickets", icon: Ticket },
@@ -29,9 +29,9 @@ const navigationItems = [
   // { title: "Testing Dynamic", url: "/author", icon: Calendar },
   { title: "Ticket Assignemnt", url: "/settings", icon: TicketCheckIcon },
   { title: "Planning Dashboard", url: "/planning-detail", icon: Calendar },
-  { title: "Chamber Load Dashboard", url: "/", icon: Home },
+  // { title: "Chamber Load Dashboard", url: "/", icon: Home },
   { title: "Testing", url: "/form-default", icon: Settings },
-  { title: "Report Dashboard", url: "/report-dashboard", icon: Settings },
+  { title: "Report Dashboard", url: "/report-dashboard", icon: ClipboardMinus },
 
 ];
 
