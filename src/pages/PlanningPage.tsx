@@ -1741,7 +1741,9 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, FileSpreadsheet, X, Scan, Search, Info, Clock, Calendar, Grid, Upload, Image as ImageIcon } from 'lucide-react';
+import { RefreshCw, FileSpreadsheet, X, Scan, Search, Info, Clock, Calendar, Grid, Upload, Image as ImageIcon, TestTube, User, AlertCircle, CheckCircle, Trash2, Filter, Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
 
 const GanttChart = () => {
   const [data, setData] = useState([]);
@@ -1761,6 +1763,17 @@ const GanttChart = () => {
   const [viewMode, setViewMode] = useState('table'); // 'calendar' or 'table'
   const [machineAvailability, setMachineAvailability] = useState({});
   const [uploadingImages, setUploadingImages] = useState({}); // Track image upload state per part
+  // const [showTestingModal, setShowTestingModal] = useState(false);
+  // const [selectedChamberForTesting, setSelectedChamberForTesting] = useState(null);
+  // const [chamberLoadDetails, setChamberLoadDetails] = useState([]);
+
+  const [showTestingModal, setShowTestingModal] = useState(false);
+  const [selectedChamberForTesting, setSelectedChamberForTesting] = useState(null);
+  const [chamberLoadDetails, setChamberLoadDetails] = useState([]);
+  const [selectedLoadsForAction, setSelectedLoadsForAction] = useState([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [loadToDelete, setLoadToDelete] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     initializeData();
@@ -1920,6 +1933,101 @@ const GanttChart = () => {
     });
   };
 
+
+  const handleOpenTestingModal = (chamber) => {
+    // Get chamber loads for this specific chamber
+    const chamberLoads = getChamberLoadsFromStorage();
+    const activeChamberLoads = chamberLoads.filter(load =>
+      load.chamber === chamber
+    );
+
+    if (activeChamberLoads.length === 0) {
+      alert('No loads found for this chamber');
+      return;
+    }
+
+    // Sort by loaded date (most recent first)
+    const sortedLoads = activeChamberLoads.sort((a, b) =>
+      new Date(b.loadedAt) - new Date(a.loadedAt)
+    );
+
+    setSelectedChamberForTesting(chamber);
+    setChamberLoadDetails(sortedLoads);
+    setShowTestingModal(true);
+  };
+
+  // Add this function to handle navigation to testing for a specific part
+  const handleNavigateToTestingForPart = (load, part) => {
+    // Prepare the data to pass to testing page with specific part
+    const record = {
+      loadId: load.id,
+      chamber: load.chamber,
+      parts: [part], // Only send the selected part
+      totalParts: 1,
+      machineDetails: load.machineDetails || {},
+      loadedAt: load.loadedAt,
+      estimatedCompletion: load.estimatedCompletion,
+      duration: load.duration,
+      testRecords: [part],
+      timerStatus: load.timerStatus,
+      timerStartTime: load.timerStartTime,
+      selectedPart: part // Mark which part was selected
+    };
+
+    console.log('Navigating to testing with specific part:', record);
+
+    // Store in localStorage for the testing page to access
+    localStorage.setItem('testingLoadData', JSON.stringify(record));
+
+    // Navigate to testing page
+    navigate('/form-default', {
+      state: {
+        record
+      }
+    });
+  };
+
+  // Function to handle marking a load as complete
+  const handleMarkLoadComplete = (loadId) => {
+    const chamberLoads = getChamberLoadsFromStorage();
+    const updatedLoads = chamberLoads.map(load => {
+      if (load.id === loadId) {
+        return {
+          ...load,
+          status: 'completed',
+          testStatus: 'completed',
+          timerStatus: 'stop',
+          completedAt: new Date().toISOString()
+        };
+      }
+      return load;
+    });
+
+    localStorage.setItem('chamberLoads', JSON.stringify(updatedLoads));
+
+    // Refresh the view
+    setTimeout(() => {
+      loadRunningTests().then(tests => {
+        loadSampleData(tests);
+        calculateMachineAvailability();
+
+        // Update the testing modal if it's open
+        if (selectedChamberForTesting) {
+          const updatedChamberLoads = getChamberLoadsFromStorage();
+          const activeChamberLoads = updatedChamberLoads.filter(load =>
+            load.chamber === selectedChamberForTesting
+          );
+          const sortedLoads = activeChamberLoads.sort((a, b) =>
+            new Date(b.loadedAt) - new Date(a.loadedAt)
+          );
+          setChamberLoadDetails(sortedLoads);
+        }
+      });
+    }, 100);
+
+    alert('Load marked as complete successfully!');
+  };
+
   const getSampleData = () => {
     return [
       { chamber: 'Hardness machine', tests: [] },
@@ -1968,6 +2076,57 @@ const GanttChart = () => {
     setData(result);
     setFileName('Equipment Schedule Data');
   };
+
+  const formatDateTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Add this function to format duration
+  const formatDuration = (hours) => {
+    if (hours >= 24) {
+      const days = Math.floor(hours / 24);
+      const remainingHours = hours % 24;
+      return `${days}d ${remainingHours}h`;
+    }
+    return `${hours}h`;
+  };
+
+  // Add this function to calculate time remaining
+  const calculateTimeRemaining = (estimatedCompletion) => {
+    const end = new Date(estimatedCompletion);
+    const now = new Date();
+    const diffMs = end - now;
+
+    if (diffMs <= 0) return 'Completed';
+
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    const remainingHours = diffHours % 24;
+
+    if (diffDays > 0) {
+      return `${diffDays}d ${remainingHours}h`;
+    }
+    return `${diffHours}h`;
+  };
+
+  // Add this function to get status information
+  const getStatusInfo = (load) => {
+    const estimatedCompletion = new Date(load.estimatedCompletion);
+    const now = new Date();
+    const timeRemaining = estimatedCompletion - now;
+
+    if (load.status === 'completed') {
+      return { label: 'Completed', color: 'bg-green-100 text-green-800', icon: 'CheckCircle' };
+    } else if (timeRemaining <= 0) {
+      return { label: 'Expired', color: 'bg-red-100 text-red-800', icon: 'XCircle' };
+    } else if (timeRemaining < 24 * 60 * 60 * 1000) {
+      return { label: 'Finishing Soon', color: 'bg-yellow-100 text-yellow-800', icon: 'AlertCircle' };
+    } else {
+      return { label: 'Active', color: 'bg-blue-100 text-blue-800', icon: 'Play' };
+    }
+  };
+
 
   const normalizeMachineName = (machineName) => {
     if (!machineName) return '';
@@ -2269,6 +2428,12 @@ const GanttChart = () => {
     }
   };
 
+  // Function to handle delete load confirmation
+  const handleDeleteLoadConfirmation = (load) => {
+    setLoadToDelete(load);
+    setShowDeleteConfirm(true);
+  };
+
   const handleConfirmLoad = () => {
     if (scannedParts.length === 0) {
       alert('No parts scanned!');
@@ -2500,6 +2665,338 @@ const GanttChart = () => {
     return `${remainingDays} days remaining`;
   };
 
+  // Testing Modal Component
+  const TestingModal = () => {
+    if (!showTestingModal) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-2xl w-full max-w-7xl mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-purple-50 to-white sticky top-0">
+            <div>
+              <h3 className="text-xl font-bold text-gray-800">Testing - {selectedChamberForTesting}</h3>
+              <p className="text-sm text-gray-600 mt-1">Select a part to begin testing</p>
+            </div>
+            <button
+              onClick={() => {
+                setShowTestingModal(false);
+                setSelectedChamberForTesting(null);
+                setChamberLoadDetails([]);
+              }}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          <div className="p-6">
+
+            {/* Loads and Parts Table */}
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Load Details
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Duration
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Loaded At
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Time Remaining
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Parts & Testing
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {chamberLoadDetails.map((load, loadIndex) => {
+                    const statusInfo = getStatusInfo(load);
+
+                    return (
+                      <React.Fragment key={load.id}>
+                        <tr className="bg-gray-50">
+                          <td className="px-6 py-4" colSpan="6">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="text-sm font-bold text-gray-800">
+                                  Load #{loadIndex + 1} - ID: {load.id}
+                                </div>
+                                <div className="text-xs text-gray-600 mt-1">
+                                  Ticket: {load.machineDetails?.ticketCode || 'N/A'} |
+                                  Project: {load.machineDetails?.project || 'N/A'} / {load.machineDetails?.build || 'N/A'} |
+                                  Colour: {load.machineDetails?.colour || 'N/A'}
+                                </div>
+                              </div>
+                              <div className="text-sm text-gray-600">
+                                {load.parts?.length || 0} part(s)
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900 font-medium">
+                              {load.chamber}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Load ID: {load.id}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.color}`}>
+                              {statusInfo.label}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-1">
+                              <Clock size={14} className="text-gray-400" />
+                              <span className="text-sm font-medium">{formatDuration(load.duration)}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900">{formatDateTime(load.loadedAt)}</div>
+                            <div className="text-xs text-gray-500">
+                              Est. complete: {formatDateTime(load.estimatedCompletion)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className={`text-sm font-medium ${statusInfo.label === 'Active' ? 'text-blue-600' :
+                              statusInfo.label === 'Finishing Soon' ? 'text-yellow-600' :
+                                statusInfo.label === 'Completed' ? 'text-green-600' :
+                                  'text-red-600'
+                              }`}>
+                              {calculateTimeRemaining(load.estimatedCompletion)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="space-y-2">
+                              {load.parts?.map((part, partIndex) => (
+                                <div key={partIndex} className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors">
+                                  <div className="flex-1">
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {part.partNumber}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      Serial: {part.serialNumber} | Test: {part.testName}
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => handleNavigateToTestingForPart(load, part)}
+                                      className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs font-medium"
+                                    >
+                                      <TestTube size={14} />
+                                      Test
+                                    </button>
+                                    {/* {load.status !== 'completed' && (
+                                      <button
+                                        onClick={() => handleMarkLoadComplete(load.id)}
+                                        className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-medium"
+                                        title="Mark as Complete"
+                                      >
+                                        <CheckCircle size={14} />
+                                        Complete
+                                      </button>
+                                    )} */}
+                                    <button
+                                      onClick={() => handleDeleteLoadConfirmation(load)}
+                                      className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-xs font-medium"
+                                    >
+                                      <Trash2 size={14} />
+                                      Delete
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {chamberLoadDetails.length === 0 && (
+              <div className="text-center py-12">
+                <AlertCircle className="mx-auto text-gray-400 mb-4" size={48} />
+                <p className="text-gray-500 text-lg">No loads found for this chamber</p>
+              </div>
+            )}
+          </div>
+
+          <div className="p-6 bg-gray-50 border-t flex justify-end">
+            <button
+              onClick={() => {
+                setShowTestingModal(false);
+                setSelectedChamberForTesting(null);
+                setChamberLoadDetails([]);
+              }}
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors font-medium"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Delete Confirmation Modal Component
+  const DeleteConfirmModal = () => {
+    if (!showDeleteConfirm || !loadToDelete) return null;
+
+    const handleDeleteLoad = () => {
+      const chamberLoads = getChamberLoadsFromStorage();
+      const updatedLoads = chamberLoads.filter(load => load.id !== loadToDelete.id);
+
+      // Also need to update ticket allocations to return the allocated parts
+      const allocations = JSON.parse(localStorage.getItem('ticket_allocations_array') || '[]');
+      const updatedAllocations = [...allocations];
+
+      // For each part in the load, increment the allocatedParts count back
+      loadToDelete.parts.forEach(part => {
+        const allocationIndex = updatedAllocations.findIndex(a => a.ticketCode === part.ticketCode);
+        if (allocationIndex !== -1) {
+          const testIndex = updatedAllocations[allocationIndex].testAllocations?.findIndex(
+            t => t.id === part.testId
+          );
+
+          if (testIndex !== -1) {
+            const test = updatedAllocations[allocationIndex].testAllocations[testIndex];
+            const oldAllocatedCount = test.allocatedParts || 0;
+            const newAllocatedCount = oldAllocatedCount + 1;
+
+            updatedAllocations[allocationIndex].testAllocations[testIndex].allocatedParts = newAllocatedCount;
+
+            // If all parts are returned and test was in progress, set back to pending
+            const requiredQty = test.requiredQty || 0;
+            if (newAllocatedCount >= requiredQty && test.status === 2) {
+              updatedAllocations[allocationIndex].testAllocations[testIndex].status = 1;
+            }
+          }
+        }
+      });
+
+      // Save updated data
+      localStorage.setItem('chamberLoads', JSON.stringify(updatedLoads));
+      localStorage.setItem('ticket_allocations_array', JSON.stringify(updatedAllocations));
+
+      // Show success message
+      alert(`Successfully deleted load from ${loadToDelete.chamber}\n\n${loadToDelete.parts.length} part(s) have been returned to available inventory.`);
+
+      // Close modal and refresh data
+      setShowDeleteConfirm(false);
+      setLoadToDelete(null);
+
+      // Refresh the view
+      setTimeout(() => {
+        const tests = loadRunningTests();
+        loadSampleData(tests);
+        calculateMachineAvailability();
+      }, 100);
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4">
+          <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-red-50 to-white">
+            <div className="flex items-center gap-3">
+              <Trash2 className="text-red-600" size={24} />
+              <div>
+                <h3 className="text-xl font-bold text-gray-800">Confirm Deletion</h3>
+                <p className="text-sm text-gray-600 mt-1">This action cannot be undone</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                setLoadToDelete(null);
+              }}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          <div className="p-6">
+            <div className="flex items-center justify-center mb-6">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="text-red-600" size={32} />
+              </div>
+            </div>
+
+            <div className="text-center mb-6">
+              <h4 className="text-lg font-semibold text-gray-800 mb-2">
+                Delete Load from {loadToDelete?.chamber}?
+              </h4>
+              <p className="text-gray-600 mb-4">
+                You are about to delete this load. This will remove all parts from the chamber and return them to available inventory.
+              </p>
+
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-left">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-gray-500">Chamber:</span>
+                    <span className="font-medium ml-2">{loadToDelete?.chamber}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Parts:</span>
+                    <span className="font-medium ml-2">{loadToDelete?.parts?.length || 0}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Duration:</span>
+                    <span className="font-medium ml-2">{formatDuration(loadToDelete?.duration)}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Status:</span>
+                    <span className="font-medium ml-2">
+                      {loadToDelete?.timerStatus === 'start' ? 'Test Running' : 'Loaded'}
+                    </span>
+                  </div>
+                  {loadToDelete?.parts?.map((part, index) => (
+                    <div key={index} className="col-span-2 text-xs bg-white p-2 rounded border">
+                      <span className="font-medium">{part.partNumber}</span>
+                      <span className="text-gray-500 ml-2">({part.testName})</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setLoadToDelete(null);
+                }}
+                className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteLoad}
+                className="px-5 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center gap-2"
+              >
+                <Trash2 size={18} />
+                Delete Load
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderTableView = () => {
     return (
       <div className="p-6">
@@ -2525,6 +3022,9 @@ const GanttChart = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Action
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Testing
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -2535,6 +3035,14 @@ const GanttChart = () => {
                   activeParts: 0,
                   lastUpdated: 'N/A'
                 };
+
+                // Check if this chamber has any loaded parts
+                const chamberLoads = getChamberLoadsFromStorage();
+                const hasLoadedParts = chamberLoads.some(load =>
+                  load.chamber === row.chamber &&
+                  load.status === 'loaded' &&
+                  load.parts?.length > 0
+                );
 
                 return (
                   <tr key={index} className="hover:bg-gray-50">
@@ -2574,6 +3082,20 @@ const GanttChart = () => {
                         {availability.status === 'loading' ? 'Loading...' : 'Load Chamber'}
                       </button>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => handleOpenTestingModal(row.chamber)}
+                        disabled={!hasLoadedParts}
+                        className={`flex items-center gap-2 px-4 py-2 rounded text-xs font-medium transition-colors ${hasLoadedParts
+                          ? 'bg-purple-600 text-white hover:bg-purple-700'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}
+                        title={hasLoadedParts ? 'View Testing Options' : 'No parts loaded in this chamber'}
+                      >
+                        <Eye size={16} />
+                        View Testing
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -2583,6 +3105,7 @@ const GanttChart = () => {
       </div>
     );
   };
+
 
   const renderCalendarView = () => {
     return (
@@ -3354,6 +3877,9 @@ const GanttChart = () => {
           </div>
         </div>
       )}
+      {/* Testing Modal */}
+      <TestingModal />
+      <DeleteConfirmModal />
     </div>
   );
 };
