@@ -1,5 +1,5 @@
 // import React, { useState, useEffect } from 'react';
-// import { RefreshCw, FileSpreadsheet, X, Scan, Search, Info, Clock, Calendar, Grid } from 'lucide-react';
+// import { RefreshCw, FileSpreadsheet, X, Scan, Search, Info, Clock, Calendar, Grid, Upload, Image as ImageIcon } from 'lucide-react';
 
 // const GanttChart = () => {
 //   const [data, setData] = useState([]);
@@ -18,6 +18,7 @@
 //   const [chamberLoadingStatus, setChamberLoadingStatus] = useState({});
 //   const [viewMode, setViewMode] = useState('table'); // 'calendar' or 'table'
 //   const [machineAvailability, setMachineAvailability] = useState({});
+//   const [uploadingImages, setUploadingImages] = useState({}); // Track image upload state per part
 
 //   useEffect(() => {
 //     initializeData();
@@ -51,7 +52,7 @@
 //         const now = new Date();
 //         const hasActiveLoad = activeLoads.some(load => {
 //           const loadEnd = new Date(load.estimatedCompletion);
-//           return loadEnd > now;
+//           return loadEnd >= now;
 //         });
 
 //         if (hasActiveLoad) {
@@ -144,7 +145,6 @@
 //       { chamber: 'Salt spray', tests: [] },
 //       { chamber: 'UV', tests: [] },
 //       { chamber: 'Out source', tests: [] },
-//       { chamber: 'CKVI', tests: [] },
 //       { chamber: 'CKV1', tests: [] },
 //       { chamber: 'Instron', tests: [] },
 //       { chamber: 'UTM', tests: [] },
@@ -184,6 +184,71 @@
 
 //     setData(result);
 //     setFileName('Equipment Schedule Data');
+//   };
+
+//   // Function to generate static test data for chamber loads
+//   const getStaticChamberLoads = () => {
+//     const now = new Date();
+//     const oneHour = 60 * 60 * 1000;
+//     const oneDay = 24 * 60 * 60 * 1000;
+
+//     return [
+//       {
+//         id: 1001,
+//         chamber: 'Salt spray',
+//         parts: [
+//           { partNumber: 'PART-001', serialNumber: 'SN001' },
+//           { partNumber: 'PART-002', serialNumber: 'SN002' }
+//         ],
+//         duration: 72, // 72 hours = 3 days
+//         loadedAt: new Date(now.getTime() - (2 * oneDay)).toISOString(), // Loaded 2 days ago
+//         testStatus: 'start', // Status: 'start' or 'stop'
+//         testStartTime: new Date(now.getTime() - (1.5 * oneDay)).toISOString(), // Started 1.5 days ago
+//         estimatedCompletion: new Date(new Date(now.getTime() - (1.5 * oneDay)).getTime() + (72 * oneHour)).toISOString(),
+//         status: 'loaded'
+//       },
+//       {
+//         id: 1002,
+//         chamber: 'Heat soak',
+//         parts: [
+//           { partNumber: 'PART-003', serialNumber: 'SN003' }
+//         ],
+//         duration: 48, // 48 hours = 2 days
+//         loadedAt: new Date(now.getTime() - (1 * oneDay)).toISOString(), // Loaded 1 day ago
+//         testStatus: 'stop', // NOT started yet
+//         testStartTime: null,
+//         estimatedCompletion: null,
+//         status: 'loaded'
+//       },
+//       {
+//         id: 1003,
+//         chamber: 'UV',
+//         parts: [
+//           { partNumber: 'PART-004', serialNumber: 'SN004' },
+//           { partNumber: 'PART-005', serialNumber: 'SN005' },
+//           { partNumber: 'PART-006', serialNumber: 'SN006' }
+//         ],
+//         duration: 24, // 24 hours = 1 day
+//         loadedAt: new Date(now.getTime() - (12 * oneHour)).toISOString(), // Loaded 12 hours ago
+//         testStatus: 'start', // Started immediately
+//         testStartTime: new Date(now.getTime() - (12 * oneHour)).toISOString(),
+//         estimatedCompletion: new Date(new Date(now.getTime() - (12 * oneHour)).getTime() + (24 * oneHour)).toISOString(),
+//         status: 'loaded'
+//       },
+//       {
+//         id: 1004,
+//         chamber: 'Hardness machine',
+//         parts: [
+//           { partNumber: 'PART-007', serialNumber: 'SN007' }
+//         ],
+//         duration: 168, // 168 hours = 7 days
+//         loadedAt: new Date(now.getTime() + (1 * oneDay)).toISOString(), // Will be loaded tomorrow
+//         testStatus: 'start', // Will be started
+//         testStartTime: new Date(now.getTime() + (1.5 * oneDay)).toISOString(), // Will start 1.5 days from now
+//         estimatedCompletion: new Date(new Date(now.getTime() + (1.5 * oneDay)).getTime() + (168 * oneHour)).toISOString(),
+//         status: 'loaded'
+//       }
+//     ];
 //   };
 
 //   const normalizeMachineName = (machineName) => {
@@ -227,6 +292,63 @@
 //     setChamberLoadingStatus(prev => ({
 //       ...prev,
 //       [chamberName]: true
+//     }));
+//   };
+
+//   // Function to handle image upload for a part
+//   const handleImageUpload = (partId, imageType, file) => {
+//     setUploadingImages(prev => ({
+//       ...prev,
+//       [partId]: {
+//         ...prev[partId],
+//         [imageType]: true
+//       }
+//     }));
+
+//     const reader = new FileReader();
+//     reader.onload = (e) => {
+//       const imageData = e.target.result;
+
+//       // Update the scanned part with image data
+//       setScannedParts(prev => prev.map(part => {
+//         if (part.id === partId) {
+//           return {
+//             ...part,
+//             [imageType === 'cosmetic' ? 'cosmeticImage' : 'nonCosmeticImage']: imageData,
+//             [imageType === 'cosmetic' ? 'cosmeticImages' : 'nonCosmeticImages']: [
+//               ...(part[imageType === 'cosmetic' ? 'cosmeticImages' : 'nonCosmeticImages'] || []),
+//               imageData
+//             ]
+//           };
+//         }
+//         return part;
+//       }));
+
+//       setUploadingImages(prev => ({
+//         ...prev,
+//         [partId]: {
+//           ...prev[partId],
+//           [imageType]: false
+//         }
+//       }));
+//     };
+//     reader.readAsDataURL(file);
+//   };
+
+//   // Function to remove image from a part
+//   const handleRemoveImage = (partId, imageType, imageIndex) => {
+//     setScannedParts(prev => prev.map(part => {
+//       if (part.id === partId) {
+//         const imagesArray = part[imageType === 'cosmetic' ? 'cosmeticImages' : 'nonCosmeticImages'] || [];
+//         const updatedImages = imagesArray.filter((_, idx) => idx !== imageIndex);
+
+//         return {
+//           ...part,
+//           [imageType === 'cosmetic' ? 'cosmeticImage' : 'nonCosmeticImage']: updatedImages[0] || '',
+//           [imageType === 'cosmetic' ? 'cosmeticImages' : 'nonCosmeticImages']: updatedImages
+//         };
+//       }
+//       return part;
 //     }));
 //   };
 
@@ -331,7 +453,7 @@
 //                 requiredQty: requiredQty,
 //                 remainingQty: remainingToAllocate,
 //                 alreadyAllocated: alreadyAllocated,
-//                 statusText: getTestStatusText(test.status) // Changed to getTestStatusText
+//                 statusText: getTestStatusText(test.status)
 //               });
 //             }
 //           }
@@ -355,7 +477,11 @@
 //         scannedAt: new Date().toLocaleString(),
 //         availableTests: matchingTests,
 //         selectedTestId: matchingTests[0]?.id,
-//         scanStatus: 'OK'
+//         scanStatus: 'OK',
+//         cosmeticImage: '',
+//         nonCosmeticImage: '',
+//         cosmeticImages: [],
+//         nonCosmeticImages: []
 //       };
 
 //       setScannedParts([...scannedParts, newScannedPart]);
@@ -399,7 +525,7 @@
 //           testName: test.testName,
 //           duration: test.time,
 //           status: test.status,
-//           statusText: getTestStatusText(test.status), // Updated reference
+//           statusText: getTestStatusText(test.status),
 //           requiredQty: test.requiredQty,
 //           allocatedParts: test.allocatedParts,
 //           remainingQty: test.remainingQty,
@@ -514,6 +640,21 @@
 
 //     localStorage.setItem('ticket_allocations_array', JSON.stringify(updatedAllocations));
 
+//     // Store images in localStorage for each part
+//     const partImagesData = JSON.parse(localStorage.getItem('partImagesData') || '{}');
+
+//     scannedParts.forEach(part => {
+//       if (part.cosmeticImages?.length > 0 || part.nonCosmeticImages?.length > 0) {
+//         partImagesData[part.partNumber] = {
+//           cosmeticImages: part.cosmeticImages || [],
+//           nonCosmeticImages: part.nonCosmeticImages || [],
+//           uploadedAt: new Date().toISOString()
+//         };
+//       }
+//     });
+
+//     localStorage.setItem('partImagesData', JSON.stringify(partImagesData));
+
 //     const loadData = {
 //       id: Date.now(),
 //       chamber: selectedChamber,
@@ -525,13 +666,19 @@
 //         testName: part.availableTests.find(t => t.id === part.selectedTestId)?.testName || 'Unknown',
 //         loadedAt: new Date().toISOString(),
 //         scanStatus: part.scanStatus,
-//         duration: part.availableTests.find(t => t.id === part.selectedTestId)?.time || 0
+//         duration: part.availableTests.find(t => t.id === part.selectedTestId)?.time || 0,
+//         cosmeticImages: part.cosmeticImages || [],
+//         nonCosmeticImages: part.nonCosmeticImages || [],
+//         hasImages: (part.cosmeticImages?.length > 0 || part.nonCosmeticImages?.length > 0)
 //       })),
 //       machineDetails: machineDetails,
 //       loadedAt: new Date().toISOString(),
 //       duration: totalDuration,
 //       status: 'loaded',
-//       estimatedCompletion: new Date(Date.now() + (totalDuration * 60 * 60 * 1000)).toISOString()
+//       testStatus: 'not_started', // Initial status: not_started, start, completed
+//       testStartTime: null, // Will be set when test starts
+//       estimatedCompletion: null, // Will be calculated when test starts
+//       actualStartTime: null // Same as testStartTime
 //     };
 
 //     const existingLoads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
@@ -546,6 +693,15 @@
 //       summary += `Allocated count decreased from ${data.oldValue} to ${data.newValue}. `;
 //       summary += `Now ${data.actuallyAllocated}/${data.requiredQty} allocated.\n`;
 //     });
+
+//     // Add image upload summary
+//     const partsWithImages = scannedParts.filter(part => 
+//       part.cosmeticImages?.length > 0 || part.nonCosmeticImages?.length > 0
+//     ).length;
+
+//     if (partsWithImages > 0) {
+//       summary += `\nImages uploaded for ${partsWithImages} part(s).`;
+//     }
 
 //     alert(summary);
 
@@ -678,7 +834,6 @@
 //                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
 //                       <button
 //                         onClick={() => handleLoadChamber(row.chamber)}
-//                         // disabled={availability.status === 'occupied' || availability.status === 'loading'}
 //                         className={'px-4 py-2 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700'}
 //                       >
 //                         {availability.status === 'loading' ? 'Loading...' : 'Load Chamber'}
@@ -692,7 +847,7 @@
 //         </div>
 
 //         {/* Legend for table view */}
-//         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+//         {/* <div className="mt-6 p-4 bg-gray-50 rounded-lg">
 //           <h4 className="text-sm font-medium text-gray-700 mb-3">Status Legend:</h4>
 //           <div className="flex flex-wrap gap-4">
 //             <div className="flex items-center">
@@ -708,7 +863,7 @@
 //               <span className="text-sm text-gray-600">Loading - Being loaded now</span>
 //             </div>
 //           </div>
-//         </div>
+//         </div> */}
 //       </div>
 //     );
 //   };
@@ -719,7 +874,6 @@
 //         <div style={{ minWidth: '1200px' }}>
 //           <div className="flex border-b bg-gray-50">
 //             <div className="w-80 p-4 border-r font-semibold text-sm text-gray-700">
-//               Equipment / Machine
 //               Equipment / Machine
 //             </div>
 //             <div className="flex-1 relative">
@@ -834,85 +988,117 @@
 //                       </div>
 //                     );
 //                   })}
-//                   {/* Loaded parts - Yellow vertical line at exact loadedAt, Red bar from next moment to completion */}
-//                     {activeChamberLoads.map((load, loadIdx) => {
-//                       const loadStart = new Date(load.loadedAt);
-//                       const loadEnd = new Date(load.estimatedCompletion);
+
+//                   {/* Static Test Data for Chamber Loads */}
+//                   {getStaticChamberLoads()
+//                     .filter(load => load.chamber === row.chamber)
+//                     .map((load, loadIdx) => {
+
+//                       // Determine which time to use based on test status
+//                       let startTime, endTime, shouldShowRed = false;
+
+//                       if (load.testStatus === 'start' && load.testStartTime) {
+//                         // If test is started, use actual start time
+//                         startTime = new Date(load.testStartTime);
+//                         endTime = new Date(load.estimatedCompletion);
+//                         shouldShowRed = true;
+//                       } else {
+//                         // If test is not started, don't show red bar
+//                         startTime = new Date(load.loadedAt);
+//                         endTime = new Date(load.loadedAt);
+//                         shouldShowRed = false;
+//                       }
+
 //                       const today = new Date();
 //                       today.setHours(0, 0, 0, 0);
 
 //                       // Calculate total duration in days
-//                       const loadDurationMs = loadEnd - loadStart;
+//                       const loadDurationMs = endTime - startTime;
 //                       const loadDurationDays = loadDurationMs / (1000 * 60 * 60 * 24);
 
 //                       // Calculate positions
-//                       const loadStartDate = new Date(loadStart);
+//                       const loadStartDate = new Date(startTime);
 //                       loadStartDate.setHours(0, 0, 0, 0);
 //                       const daysFromStart = Math.floor((loadStartDate - today) / (1000 * 60 * 60 * 24));
 
 //                       // Get exact time of day in seconds
-//                       const startHour = loadStart.getHours();
-//                       const startMinute = loadStart.getMinutes();
-//                       const startSecond = loadStart.getSeconds();
-//                       const startMillisecond = loadStart.getMilliseconds();
+//                       const startHour = startTime.getHours();
+//                       const startMinute = startTime.getMinutes();
+//                       const startSecond = startTime.getSeconds();
+//                       const startMillisecond = startTime.getMilliseconds();
 
 //                       // Calculate fraction of day for exact time
 //                       const totalSecondsInDay = 24 * 60 * 60;
 //                       const exactFraction = (startHour * 3600 + startMinute * 60 + startSecond + startMillisecond/1000) / totalSecondsInDay;
 
-//                       // Position for yellow vertical line (exact loadedAt time)
-//                       const yellowLineLeftPercent = (daysFromStart / totalDays) * 100 + (exactFraction / totalDays) * 100;
+//                       // Position for vertical line (exact start time)
+//                       const verticalLineLeftPercent = (daysFromStart / totalDays) * 100 + (exactFraction / totalDays) * 100;
 
-//                       // Position for red bar (starts immediately after yellow line)
+//                       // Position for colored bar (starts immediately after vertical line)
 //                       const oneMsInDays = 1 / (1000 * 60 * 60 * 24);
-//                       const redBarStartPercent = yellowLineLeftPercent + (oneMsInDays / totalDays) * 100;
+//                       const barStartPercent = verticalLineLeftPercent + (oneMsInDays / totalDays) * 100;
 
-//                       // Calculate width for red bar (from loadedAt+1ms to estimatedCompletion)
-//                       const redBarWidthPercent = (loadDurationDays / totalDays) * 100;
+//                       // Calculate width for colored bar
+//                       const barWidthPercent = (loadDurationDays / totalDays) * 100;
 
-//                       const yellowLineAdjustedLeft = Math.max(0, yellowLineLeftPercent);
-//                       const redBarAdjustedLeft = Math.max(0, redBarStartPercent);
-//                       const redBarAdjustedWidth = Math.min(100 - redBarAdjustedLeft, redBarWidthPercent + Math.min(0, redBarStartPercent));
+//                       const verticalLineAdjustedLeft = Math.max(0, verticalLineLeftPercent);
+//                       const barAdjustedLeft = Math.max(0, barStartPercent);
+//                       const barAdjustedWidth = Math.min(100 - barAdjustedLeft, barWidthPercent + Math.min(0, barStartPercent));
 
 //                       // Only show if within visible area
-//                       const isYellowVisible = yellowLineAdjustedLeft >= 0 && yellowLineAdjustedLeft <= 100;
-//                       const isRedVisible = redBarAdjustedWidth > 0;
+//                       const isVerticalVisible = verticalLineAdjustedLeft >= 0 && verticalLineAdjustedLeft <= 100;
+//                       const isBarVisible = barAdjustedWidth > 0 && shouldShowRed;
 
-//                       if (!isYellowVisible && !isRedVisible) return null;
+//                       if (!isVerticalVisible && !isBarVisible) return null;
+
+//                       // Determine colors based on test status
+//                       let verticalColor, barColor, borderColor, statusText;
+
+//                       if (load.testStatus === 'start') {
+//                         verticalColor = '#FFEB3B'; // Yellow for start line
+//                         barColor = '#f44336'; // Red for active test
+//                         borderColor = '#d32f2f';
+//                         statusText = 'Test Started';
+//                       } else {
+//                         verticalColor = '#9E9E9E'; // Grey for not started
+//                         barColor = '#9E9E9E'; // Grey for not started
+//                         borderColor = '#757575';
+//                         statusText = 'Loaded (Not Started)';
+//                       }
 
 //                       return (
-//                         <React.Fragment key={`load-${load.id}`}>
-//                           {/* Yellow vertical line at exact loadedAt time */}
-//                           {isYellowVisible && (
+//                         <React.Fragment key={`static-load-${load.id}-${loadIdx}`}>
+//                           {/* Vertical line at exact start/loaded time */}
+//                           {isVerticalVisible && (
 //                             <div
 //                               className="absolute top-0 bottom-0 cursor-pointer z-30"
 //                               style={{
-//                                 left: `${yellowLineAdjustedLeft}%`,
+//                                 left: `${verticalLineAdjustedLeft}%`,
 //                                 width: '3px',
-//                                 marginLeft: '-1.5px', // Center the line
-//                                 backgroundColor: '#FFEB3B',
-//                                 boxShadow: '0 0 5px 2px rgba(255, 235, 59, 0.5)',
+//                                 marginLeft: '-1.5px',
+//                                 backgroundColor: verticalColor,
+//                                 boxShadow: `0 0 5px 2px ${verticalColor === '#FFEB3B' ? 'rgba(255, 235, 59, 0.5)' : 'rgba(158, 158, 158, 0.5)'}`,
 //                                 pointerEvents: 'auto'
 //                               }}
-//                               title={`Parts Loaded At:\n${loadStart.toLocaleString()}\n${load.parts.length} part${load.parts.length > 1 ? 's' : ''}: ${load.parts.map(p => p.partNumber).join(', ')}`}
+//                               title={`${statusText}\nMachine: ${load.chamber}\nStart Time: ${startTime.toLocaleString()}\nEnd Time: ${endTime.toLocaleString()}\nDuration: ${load.duration} hours\nStatus: ${load.testStatus}\nParts: ${load.parts.map(p => p.partNumber).join(', ')}`}
 //                             />
 //                           )}
 
-//                           {/* Red bar for the test duration (starts immediately after yellow line) */}
-//                           {isRedVisible && (
+//                           {/* Red bar ONLY if test is started */}
+//                           {isBarVisible && shouldShowRed && (
 //                             <div
 //                               className="absolute top-2 bottom-2 flex flex-col items-center justify-center text-white text-xs font-medium shadow-md cursor-pointer z-20"
 //                               style={{
-//                                 left: `${redBarAdjustedLeft}%`,
-//                                 width: `${redBarAdjustedWidth}%`,
-//                                 backgroundColor: '#f44336',
+//                                 left: `${barAdjustedLeft}%`,
+//                                 width: `${barAdjustedWidth}%`,
+//                                 backgroundColor: barColor,
 //                                 minWidth: '2px',
 //                                 borderRadius: '0 4px 4px 0',
-//                                 border: '1px solid #d32f2f'
+//                                 border: `1px solid ${borderColor}`
 //                               }}
-//                               title={`Test Running\nDuration: ${load.duration} hours\nStart: ${loadStart.toLocaleString()}\nEnd: ${loadEnd.toLocaleString()}\nStatus: ${load.status}\nParts: ${load.parts.map(p => p.partNumber).join(', ')}`}
+//                               title={`Test Running\nMachine: ${load.chamber}\nStatus: ${load.testStatus}\nStarted: ${startTime.toLocaleString()}\nEnds: ${endTime.toLocaleString()}\nDuration: ${load.duration} hours\nRemaining: ${Math.ceil((endTime - new Date()) / (1000 * 60 * 60 * 24))} days\nParts: ${load.parts.map(p => p.partNumber).join(', ')}`}
 //                             >
-//                               {redBarAdjustedWidth > 3 && (
+//                               {barAdjustedWidth > 3 && (
 //                                 <div className="px-1 text-center">
 //                                   <div className="font-semibold text-[10px] truncate text-white">
 //                                     {load.parts.length} part{load.parts.length > 1 ? 's' : ''}
@@ -921,23 +1107,27 @@
 //                                     {load.duration}h
 //                                   </div>
 //                                   <div className="text-[7px] text-white opacity-70 mt-0.5">
-//                                     {loadStart.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+//                                     {startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+//                                   </div>
+//                                   <div className="text-[7px] text-white opacity-70 mt-0.5">
+//                                     Status: {load.testStatus}
 //                                   </div>
 //                                 </div>
 //                               )}
-//                               {redBarAdjustedWidth <= 3 && redBarAdjustedWidth > 1 && (
+//                               {barAdjustedWidth <= 3 && barAdjustedWidth > 1 && (
 //                                 <div className="w-full h-full flex items-center justify-center">
 //                                   <div className="w-1.5 h-1.5 rounded-full bg-white/90"></div>
 //                                 </div>
 //                               )}
-//                               {redBarAdjustedWidth <= 1 && (
+//                               {barAdjustedWidth <= 1 && (
 //                                 <div className="w-full h-full bg-red-600"></div>
 //                               )}
 //                             </div>
 //                           )}
 //                         </React.Fragment>
 //                       );
-//                     })}
+//                     })
+//                   }
 //                 </div>
 //               </div>
 //             );
@@ -946,6 +1136,247 @@
 //       </div>
 //     );
 //   };
+
+//   // Function to render image upload section for each part
+//   const renderImageUploadSection = (part) => {
+//     const isUploadingCosmetic = uploadingImages[part.id]?.cosmetic || false;
+//     const isUploadingNonCosmetic = uploadingImages[part.id]?.nonCosmetic || false;
+
+//     return (
+//       <div className="mt-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+//         <h5 className="text-sm font-medium text-gray-700 mb-3">Upload Images for {part.partNumber}</h5>
+
+//         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+//           {/* Cosmetic Image Upload */}
+//           <div>
+//             <label className="block text-sm font-medium text-gray-700 mb-2">
+//               Cosmetic Images
+//             </label>
+
+//             {/* Display uploaded cosmetic images */}
+//             {part.cosmeticImages && part.cosmeticImages.length > 0 && (
+//               <div className="mb-3">
+//                 <div className="flex flex-wrap gap-2 mb-2">
+//                   {part.cosmeticImages.map((img, index) => (
+//                     <div key={index} className="relative">
+//                       <img 
+//                         src={img} 
+//                         alt={`Cosmetic ${index + 1}`}
+//                         className="w-16 h-16 object-cover border rounded-lg"
+//                       />
+//                       <button
+//                         onClick={() => handleRemoveImage(part.id, 'cosmetic', index)}
+//                         className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+//                       >
+//                         <X size={10} />
+//                       </button>
+//                     </div>
+//                   ))}
+//                 </div>
+//                 <div className="text-xs text-gray-500">
+//                   {part.cosmeticImages.length} image(s) uploaded
+//                 </div>
+//               </div>
+//             )}
+
+//             <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed ${isUploadingCosmetic ? 'border-gray-300 bg-gray-100' : 'border-blue-300 bg-blue-50 hover:border-blue-400 hover:bg-blue-100'} rounded-lg cursor-pointer transition-colors`}>
+//               {isUploadingCosmetic ? (
+//                 <div className="text-center">
+//                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+//                   <span className="text-sm text-blue-600">Uploading...</span>
+//                 </div>
+//               ) : (
+//                 <>
+//                   <Upload className="text-blue-400 mb-2" size={20} />
+//                   <span className="text-sm font-medium text-blue-600">
+//                     {part.cosmeticImages?.length > 0 ? 'Add More Cosmetic Images' : 'Upload Cosmetic Image'}
+//                   </span>
+//                   <span className="text-xs text-gray-500 mt-1">Click to browse</span>
+//                   <input
+//                     type="file"
+//                     accept="image/*"
+//                     multiple
+//                     onChange={(e) => {
+//                       const files = Array.from(e.target.files || []);
+//                       files.forEach(file => {
+//                         handleImageUpload(part.id, 'cosmetic', file);
+//                       });
+//                       e.target.value = '';
+//                     }}
+//                     className="hidden"
+//                   />
+//                 </>
+//               )}
+//             </label>
+//           </div>
+
+//           {/* Non-Cosmetic Image Upload */}
+//           <div>
+//             <label className="block text-sm font-medium text-gray-700 mb-2">
+//               Non-Cosmetic Images
+//             </label>
+
+//             {/* Display uploaded non-cosmetic images */}
+//             {part.nonCosmeticImages && part.nonCosmeticImages.length > 0 && (
+//               <div className="mb-3">
+//                 <div className="flex flex-wrap gap-2 mb-2">
+//                   {part.nonCosmeticImages.map((img, index) => (
+//                     <div key={index} className="relative">
+//                       <img 
+//                         src={img} 
+//                         alt={`Non-Cosmetic ${index + 1}`}
+//                         className="w-16 h-16 object-cover border rounded-lg"
+//                       />
+//                       <button
+//                         onClick={() => handleRemoveImage(part.id, 'nonCosmetic', index)}
+//                         className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+//                       >
+//                         <X size={10} />
+//                       </button>
+//                     </div>
+//                   ))}
+//                 </div>
+//                 <div className="text-xs text-gray-500">
+//                   {part.nonCosmeticImages.length} image(s) uploaded
+//                 </div>
+//               </div>
+//             )}
+
+//             <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed ${isUploadingNonCosmetic ? 'border-gray-300 bg-gray-100' : 'border-green-300 bg-green-50 hover:border-green-400 hover:bg-green-100'} rounded-lg cursor-pointer transition-colors`}>
+//               {isUploadingNonCosmetic ? (
+//                 <div className="text-center">
+//                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mx-auto mb-2"></div>
+//                   <span className="text-sm text-green-600">Uploading...</span>
+//                 </div>
+//               ) : (
+//                 <>
+//                   <Upload className="text-green-400 mb-2" size={20} />
+//                   <span className="text-sm font-medium text-green-600">
+//                     {part.nonCosmeticImages?.length > 0 ? 'Add More Non-Cosmetic Images' : 'Upload Non-Cosmetic Image'}
+//                   </span>
+//                   <span className="text-xs text-gray-500 mt-1">Click to browse</span>
+//                   <input
+//                     type="file"
+//                     accept="image/*"
+//                     multiple
+//                     onChange={(e) => {
+//                       const files = Array.from(e.target.files || []);
+//                       files.forEach(file => {
+//                         handleImageUpload(part.id, 'nonCosmetic', file);
+//                       });
+//                       e.target.value = '';
+//                     }}
+//                     className="hidden"
+//                   />
+//                 </>
+//               )}
+//             </label>
+//           </div>
+//         </div>
+//       </div>
+//     );
+//   };
+
+//   // Function to render static test status panel
+//   // const renderStaticTestStatusPanel = () => {
+//   //   const staticLoads = getStaticChamberLoads();
+
+//   //   return (
+//   //     <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+//   //       <div className="flex items-center justify-between mb-4">
+//   //         <h4 className="text-sm font-medium text-blue-800">
+//   //           📊 Static Test Status Panel (Demo Data)
+//   //         </h4>
+//   //         <span className="text-xs text-blue-600">
+//   //           {staticLoads.length} test loads simulated
+//   //         </span>
+//   //       </div>
+
+//   //       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+//   //         {staticLoads.map((load, index) => {
+//   //           const startTime = load.testStartTime ? new Date(load.testStartTime) : null;
+//   //           const endTime = load.estimatedCompletion ? new Date(load.estimatedCompletion) : null;
+//   //           const now = new Date();
+
+//   //           let timeStatus = '';
+//   //           let timeColor = 'text-gray-600';
+
+//   //           if (load.testStatus === 'start' && startTime && endTime) {
+//   //             if (now < startTime) {
+//   //               timeStatus = `Starts in ${Math.ceil((startTime - now) / (1000 * 60 * 60 * 24))} days`;
+//   //               timeColor = 'text-yellow-600';
+//   //             } else if (now >= startTime && now <= endTime) {
+//   //               const remainingDays = Math.ceil((endTime - now) / (1000 * 60 * 60 * 24));
+//   //               timeStatus = `Ends in ${remainingDays} days`;
+//   //               timeColor = 'text-red-600';
+//   //             } else if (now > endTime) {
+//   //               timeStatus = 'Completed';
+//   //               timeColor = 'text-green-600';
+//   //             }
+//   //           } else {
+//   //             timeStatus = 'Not Started';
+//   //             timeColor = 'text-gray-500';
+//   //           }
+
+//   //           return (
+//   //             <div 
+//   //               key={index}
+//   //               className={`p-3 rounded-lg border ${load.testStatus === 'start' ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}
+//   //             >
+//   //               <div className="flex justify-between items-start mb-2">
+//   //                 <div className="font-medium text-gray-800">{load.chamber}</div>
+//   //                 <span className={`px-2 py-1 rounded text-xs font-medium ${
+//   //                   load.testStatus === 'start' 
+//   //                     ? 'bg-red-100 text-red-800' 
+//   //                     : 'bg-gray-100 text-gray-800'
+//   //                 }`}>
+//   //                   {load.testStatus}
+//   //                 </span>
+//   //               </div>
+
+//   //               <div className="text-xs text-gray-600 mb-1">
+//   //                 {load.parts.length} part{load.parts.length > 1 ? 's' : ''} • {load.duration}h
+//   //               </div>
+
+//   //               {startTime && (
+//   //                 <div className="text-xs text-gray-600 mb-1">
+//   //                   Start: {startTime.toLocaleDateString()} {startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+//   //                 </div>
+//   //               )}
+
+//   //               {endTime && load.testStatus === 'start' && (
+//   //                 <div className="text-xs text-gray-600 mb-2">
+//   //                   End: {endTime.toLocaleDateString()} {endTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+//   //                 </div>
+//   //               )}
+
+//   //               <div className={`text-xs font-medium ${timeColor}`}>
+//   //                 {timeStatus}
+//   //               </div>
+//   //             </div>
+//   //           );
+//   //         })}
+//   //       </div>
+
+//   //       <div className="mt-4 pt-4 border-t border-blue-200">
+//   //         <div className="flex flex-wrap gap-4 text-xs text-gray-600">
+//   //           <div className="flex items-center gap-1">
+//   //             <div className="w-3 h-3 rounded-full bg-red-500"></div>
+//   //             <span>Red bar = Test started (active)</span>
+//   //           </div>
+//   //           <div className="flex items-center gap-1">
+//   //             <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+//   //             <span>Yellow line = Start time marker</span>
+//   //           </div>
+//   //           <div className="flex items-center gap-1">
+//   //             <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+//   //             <span>Grey line = Loaded but not started</span>
+//   //           </div>
+//   //         </div>
+//   //       </div>
+//   //     </div>
+//   //   );
+//   // };
 
 //   return (
 //     <div className="w-full p-4 bg-gray-50 min-h-screen">
@@ -1026,6 +1457,9 @@
 //           <>
 //             {viewMode === 'calendar' ? renderCalendarView() : renderTableView()}
 
+//             {/* Add the static test status panel for calendar view */}
+//             {/* {viewMode === 'calendar' && renderStaticTestStatusPanel()} */}
+
 //             <div className="p-4 bg-gradient-to-r from-gray-50 to-white border-t">
 //               <div className="flex items-center justify-between">
 //                 <div className="flex items-center gap-6">
@@ -1034,12 +1468,20 @@
 //                     <span className="text-sm text-gray-700">Available</span>
 //                   </div>
 //                   <div className="flex items-center gap-2">
-//                     <div className="w-6 h-4 rounded-lg" style={{ backgroundColor: '#e57373' }}></div>
-//                     <span className="text-sm text-gray-700">Testing / In Use</span>
+//                     <div className="w-6 h-4 rounded-lg" style={{ backgroundColor: '#f44336' }}></div>
+//                     <span className="text-sm text-gray-700">Test Started (Active)</span>
 //                   </div>
 //                   <div className="flex items-center gap-2">
-//                     <div className="w-6 h-4 rounded-lg" style={{ backgroundColor: '#ffeb3b' }}></div>
-//                     <span className="text-sm text-gray-700">Loaded Parts</span>
+//                     <div className="w-6 h-4 rounded-lg" style={{ backgroundColor: '#e57373' }}></div>
+//                     <span className="text-sm text-gray-700">Scheduled Test</span>
+//                   </div>
+//                   <div className="flex items-center gap-2">
+//                     <div className="w-3 h-4 bg-yellow-500"></div>
+//                     <span className="text-sm text-gray-700">Start Time Marker</span>
+//                   </div>
+//                   <div className="flex items-center gap-2">
+//                     <div className="w-3 h-4 bg-gray-400"></div>
+//                     <span className="text-sm text-gray-700">Loaded (Not Started)</span>
 //                   </div>
 //                 </div>
 
@@ -1057,12 +1499,12 @@
 
 //       {/* Load Chamber Modal */}
 //       {showLoadModal && (
-//         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-//           <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+//         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+//           <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl mx-4 max-h-[90vh] overflow-y-auto">
 //             <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-green-50 to-white sticky top-0">
 //               <div>
 //                 <h3 className="text-xl font-bold text-gray-800">Load Chamber: {selectedChamber}</h3>
-//                 <p className="text-sm text-gray-600 mt-1">Scan parts and select tests</p>
+//                 <p className="text-sm text-gray-600 mt-1">Scan parts, upload images, and select tests</p>
 //               </div>
 //               <button
 //                 onClick={() => {
@@ -1162,7 +1604,7 @@
 //                 <h4 className="text-sm font-medium text-gray-700 mb-3">
 //                   Scanned Parts ({scannedParts.length})
 //                 </h4>
-//                 <div className="max-h-80 overflow-y-auto border border-gray-200 rounded-lg">
+//                 <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
 //                   {scannedParts.length === 0 ? (
 //                     <div className="p-8 text-center text-gray-400">
 //                       No parts scanned yet
@@ -1182,6 +1624,12 @@
 //                                 }`}>
 //                                   {part.scanStatus}
 //                                 </span>
+//                                 {(part.cosmeticImages?.length > 0 || part.nonCosmeticImages?.length > 0) && (
+//                                   <span className="px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800 flex items-center gap-1">
+//                                     <ImageIcon size={12} />
+//                                     Images Uploaded
+//                                   </span>
+//                                 )}
 //                               </div>
 //                               <div className="text-sm text-gray-500 mt-2 space-y-1">
 //                                 <div>Serial: {part.serialNumber} • Ticket: {part.ticketCode}</div>
@@ -1197,12 +1645,66 @@
 //                               <X size={20} />
 //                             </button>
 //                           </div>
+
+//                           {/* Image Upload Section for each part */}
+//                           {renderImageUploadSection(part)}
+
+//                           {/* Test Selection for the part */}
+//                           <div className="mt-4">
+//                             <label className="block text-sm font-medium text-gray-700 mb-2">
+//                               Select Test for {part.partNumber}
+//                             </label>
+//                             <select
+//                               value={part.selectedTestId || ''}
+//                               onChange={(e) => handleTestSelection(part.id, e.target.value)}
+//                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+//                             >
+//                               <option value="">Select a test</option>
+//                               {part.availableTests?.map(test => (
+//                                 <option key={test.id} value={test.id}>
+//                                   {test.testName} (Remaining: {test.remainingQty} parts)
+//                                 </option>
+//                               ))}
+//                             </select>
+//                           </div>
 //                         </div>
 //                       ))}
 //                     </div>
 //                   )}
 //                 </div>
 //               </div>
+
+//               {/* Image Upload Summary */}
+//               {scannedParts.length > 0 && (
+//                 <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+//                   <h4 className="text-sm font-medium text-purple-800 mb-2 flex items-center gap-2">
+//                     <ImageIcon size={16} />
+//                     Image Upload Summary
+//                   </h4>
+//                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+//                     <div>
+//                       <span className="text-gray-600">Parts with cosmetic images:</span>
+//                       <span className="font-medium ml-2">
+//                         {scannedParts.filter(p => p.cosmeticImages?.length > 0).length} / {scannedParts.length}
+//                       </span>
+//                     </div>
+//                     <div>
+//                       <span className="text-gray-600">Parts with non-cosmetic images:</span>
+//                       <span className="font-medium ml-2">
+//                         {scannedParts.filter(p => p.nonCosmeticImages?.length > 0).length} / {scannedParts.length}
+//                       </span>
+//                     </div>
+//                     <div className="md:col-span-2">
+//                       <span className="text-gray-600">Total images uploaded:</span>
+//                       <span className="font-medium ml-2">
+//                         {scannedParts.reduce((sum, part) => 
+//                           sum + (part.cosmeticImages?.length || 0) + (part.nonCosmeticImages?.length || 0), 0
+//                         )}
+//                       </span>
+//                     </div>
+//                   </div>
+//                 </div>
+//               )}
 
 //               {/* Action Buttons */}
 //               <div className="flex justify-end gap-3">
@@ -1236,6 +1738,8 @@
 
 // export default GanttChart;
 
+
+
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, FileSpreadsheet, X, Scan, Search, Info, Clock, Calendar, Grid, Upload, Image as ImageIcon } from 'lucide-react';
 
@@ -1265,12 +1769,47 @@ const GanttChart = () => {
   useEffect(() => {
     if (data.length > 0) {
       calculateMachineAvailability();
+
+      // Update availability every minute to refresh status
+      const interval = setInterval(() => {
+        calculateMachineAvailability();
+      }, 60000); // Every minute
+
+      return () => clearInterval(interval);
     }
   }, [data]);
 
+  // Function to get chamber loads from localStorage with calculated estimatedCompletion
+  const getChamberLoadsFromStorage = () => {
+    try {
+      const chamberLoads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
+
+      return chamberLoads.map(load => {
+        // Calculate estimatedCompletion if it's null but we have duration and timerStartTime
+        let estimatedCompletion = load.estimatedCompletion;
+
+        if (!estimatedCompletion && load.duration && load.timerStartTime && load.timerStatus === 'start') {
+          const startTime = new Date(load.timerStartTime);
+          const durationInMs = parseFloat(load.duration) * 60 * 60 * 1000; // Convert hours to milliseconds
+          estimatedCompletion = new Date(startTime.getTime() + durationInMs).toISOString();
+        }
+
+        return {
+          ...load,
+          estimatedCompletion: estimatedCompletion || load.estimatedCompletion,
+          // Ensure we have testStatus based on timerStatus
+          testStatus: load.timerStatus === 'start' ? 'start' : (load.testStatus || 'stop')
+        };
+      });
+    } catch (error) {
+      console.error('Error loading chamber loads from storage:', error);
+      return [];
+    }
+  };
+
   const calculateMachineAvailability = () => {
     const availability = {};
-    const chamberLoads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
+    const chamberLoads = getChamberLoadsFromStorage();
 
     data.forEach(row => {
       const machineName = row.chamber;
@@ -1286,17 +1825,23 @@ const GanttChart = () => {
       }
       // Check if machine has active loads
       else if (activeLoads.length > 0) {
-        // Check if any load is currently active (not completed)
         const now = new Date();
-        const hasActiveLoad = activeLoads.some(load => {
-          const loadEnd = new Date(load.estimatedCompletion);
-          return loadEnd >= now;
+
+        // Check if any load is currently running (timer started)
+        const hasRunningLoad = activeLoads.some(load => {
+          if (load.timerStatus === 'start' && load.timerStartTime) {
+            const startTime = new Date(load.timerStartTime);
+            const durationInMs = parseFloat(load.duration) * 60 * 60 * 1000;
+            const estimatedEnd = new Date(startTime.getTime() + durationInMs);
+            return now >= startTime && now <= estimatedEnd;
+          }
+          return false;
         });
 
-        if (hasActiveLoad) {
+        if (hasRunningLoad) {
           status = 'occupied'; // red
         } else {
-          status = 'available'; // green (all loads completed)
+          status = 'available'; // green (no running loads)
         }
       }
 
@@ -1670,7 +2215,7 @@ const GanttChart = () => {
     }
   };
 
-  // Renamed this function to avoid conflict
+  // Helper function to get test status text
   const getTestStatusText = (statusCode) => {
     switch (statusCode) {
       case 1: return 'Pending';
@@ -1848,7 +2393,11 @@ const GanttChart = () => {
       loadedAt: new Date().toISOString(),
       duration: totalDuration,
       status: 'loaded',
-      estimatedCompletion: new Date(Date.now() + (totalDuration * 60 * 60 * 1000)).toISOString()
+      testStatus: 'not_started', // Initial status: not_started, start, completed
+      timerStatus: 'stop', // Initial timer status: stop or start
+      timerStartTime: null, // Will be set when test starts
+      estimatedCompletion: null, // Will be calculated when test starts
+      actualStartTime: null // Same as timerStartTime
     };
 
     const existingLoads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
@@ -1934,6 +2483,23 @@ const GanttChart = () => {
     }
   };
 
+  // Helper function to calculate remaining time
+  const calculateRemainingTime = (load) => {
+    if (load.timerStatus !== 'start' || !load.timerStartTime) return null;
+
+    const now = new Date();
+    const startTime = new Date(load.timerStartTime);
+    const durationInMs = parseFloat(load.duration) * 60 * 60 * 1000;
+    const endTime = new Date(startTime.getTime() + durationInMs);
+
+    if (now > endTime) return 'Completed';
+
+    const remainingMs = endTime - now;
+    const remainingDays = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
+
+    return `${remainingDays} days remaining`;
+  };
+
   const renderTableView = () => {
     return (
       <div className="p-6">
@@ -2014,25 +2580,6 @@ const GanttChart = () => {
             </tbody>
           </table>
         </div>
-
-        {/* Legend for table view */}
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Status Legend:</h4>
-          <div className="flex flex-wrap gap-4">
-            <div className="flex items-center">
-              <div className="w-4 h-4 rounded-full bg-green-500 mr-2"></div>
-              <span className="text-sm text-gray-600">Available - Ready to load</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-4 h-4 rounded-full bg-red-500 mr-2"></div>
-              <span className="text-sm text-gray-600">Occupied - Currently in use</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-4 h-4 rounded-full bg-yellow-500 mr-2"></div>
-              <span className="text-sm text-gray-600">Loading - Being loaded now</span>
-            </div>
-          </div>
-        </div>
       </div>
     );
   };
@@ -2061,7 +2608,7 @@ const GanttChart = () => {
           </div>
 
           {data.map((row, rowIdx) => {
-            const chamberLoads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
+            const chamberLoads = getChamberLoadsFromStorage();
             const activeChamberLoads = chamberLoads.filter(load =>
               load.chamber === row.chamber &&
               load.status === 'loaded'
@@ -2157,110 +2704,159 @@ const GanttChart = () => {
                       </div>
                     );
                   })}
-                  {/* Loaded parts - Yellow vertical line at exact loadedAt, Red bar from next moment to completion */}
-                  {activeChamberLoads.map((load, loadIdx) => {
-                    const loadStart = new Date(load.loadedAt);
-                    const loadEnd = new Date(load.estimatedCompletion);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
 
-                    // Calculate total duration in days
-                    const loadDurationMs = loadEnd - loadStart;
-                    const loadDurationDays = loadDurationMs / (1000 * 60 * 60 * 24);
+                  {/* Dynamic Chamber Loads from Storage */}
+                  {getChamberLoadsFromStorage()
+                    .filter(load => load.chamber === row.chamber)
+                    .map((load, loadIdx) => {
 
-                    // Calculate positions
-                    const loadStartDate = new Date(loadStart);
-                    loadStartDate.setHours(0, 0, 0, 0);
-                    const daysFromStart = Math.floor((loadStartDate - today) / (1000 * 60 * 60 * 24));
+                      // Determine which time to use based on timerStatus
+                      let startTime, endTime, shouldShowRed = false;
 
-                    // Get exact time of day in seconds
-                    const startHour = loadStart.getHours();
-                    const startMinute = loadStart.getMinutes();
-                    const startSecond = loadStart.getSeconds();
-                    const startMillisecond = loadStart.getMilliseconds();
+                      if (load.timerStatus === 'start' && load.timerStartTime) {
+                        // If timer is started, use actual start time
+                        startTime = new Date(load.timerStartTime);
 
-                    // Calculate fraction of day for exact time
-                    const totalSecondsInDay = 24 * 60 * 60;
-                    const exactFraction = (startHour * 3600 + startMinute * 60 + startSecond + startMillisecond / 1000) / totalSecondsInDay;
+                        // Calculate end time based on duration
+                        const durationInMs = parseFloat(load.duration) * 60 * 60 * 1000;
+                        endTime = new Date(startTime.getTime() + durationInMs);
 
-                    // Position for yellow vertical line (exact loadedAt time)
-                    const yellowLineLeftPercent = (daysFromStart / totalDays) * 100 + (exactFraction / totalDays) * 100;
+                        shouldShowRed = true;
+                      } else {
+                        // If timer is not started, use loadedAt time but don't show red bar
+                        startTime = new Date(load.loadedAt);
+                        endTime = new Date(load.loadedAt);
+                        shouldShowRed = false;
+                      }
 
-                    // Position for red bar (starts immediately after yellow line)
-                    const oneMsInDays = 1 / (1000 * 60 * 60 * 24);
-                    const redBarStartPercent = yellowLineLeftPercent + (oneMsInDays / totalDays) * 100;
+                      // Add null check for estimatedCompletion
+                      if (!load.estimatedCompletion && load.timerStatus === 'start' && load.timerStartTime) {
+                        // Calculate estimated completion
+                        const durationInMs = parseFloat(load.duration) * 60 * 60 * 1000;
+                        endTime = new Date(startTime.getTime() + durationInMs);
+                      }
 
-                    // Calculate width for red bar (from loadedAt+1ms to estimatedCompletion)
-                    const redBarWidthPercent = (loadDurationDays / totalDays) * 100;
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
 
-                    const yellowLineAdjustedLeft = Math.max(0, yellowLineLeftPercent);
-                    const redBarAdjustedLeft = Math.max(0, redBarStartPercent);
-                    const redBarAdjustedWidth = Math.min(100 - redBarAdjustedLeft, redBarWidthPercent + Math.min(0, redBarStartPercent));
+                      // Calculate total duration in days
+                      const loadDurationMs = endTime - startTime;
+                      const loadDurationDays = loadDurationMs / (1000 * 60 * 60 * 24);
 
-                    // Only show if within visible area
-                    const isYellowVisible = yellowLineAdjustedLeft >= 0 && yellowLineAdjustedLeft <= 100;
-                    const isRedVisible = redBarAdjustedWidth > 0;
+                      // Calculate positions
+                      const loadStartDate = new Date(startTime);
+                      loadStartDate.setHours(0, 0, 0, 0);
+                      const daysFromStart = Math.floor((loadStartDate - today) / (1000 * 60 * 60 * 24));
 
-                    if (!isYellowVisible && !isRedVisible) return null;
+                      // Get exact time of day in seconds
+                      const startHour = startTime.getHours();
+                      const startMinute = startTime.getMinutes();
+                      const startSecond = startTime.getSeconds();
+                      const startMillisecond = startTime.getMilliseconds();
 
-                    return (
-                      <React.Fragment key={`load-${load.id}`}>
-                        {/* Yellow vertical line at exact loadedAt time */}
-                        {isYellowVisible && (
-                          <div
-                            className="absolute top-0 bottom-0 cursor-pointer z-30"
-                            style={{
-                              left: `${yellowLineAdjustedLeft}%`,
-                              width: '3px',
-                              marginLeft: '-1.5px', // Center the line
-                              backgroundColor: '#FFEB3B',
-                              boxShadow: '0 0 5px 2px rgba(255, 235, 59, 0.5)',
-                              pointerEvents: 'auto'
-                            }}
-                            title={`Parts Loaded At:\n${loadStart.toLocaleString()}\n${load.parts.length} part${load.parts.length > 1 ? 's' : ''}: ${load.parts.map(p => p.partNumber).join(', ')}`}
-                          />
-                        )}
+                      // Calculate fraction of day for exact time
+                      const totalSecondsInDay = 24 * 60 * 60;
+                      const exactFraction = (startHour * 3600 + startMinute * 60 + startSecond + startMillisecond / 1000) / totalSecondsInDay;
 
-                        {/* Red bar for the test duration (starts immediately after yellow line) */}
-                        {isRedVisible && (
-                          <div
-                            className="absolute top-2 bottom-2 flex flex-col items-center justify-center text-white text-xs font-medium shadow-md cursor-pointer z-20"
-                            style={{
-                              left: `${redBarAdjustedLeft}%`,
-                              width: `${redBarAdjustedWidth}%`,
-                              backgroundColor: '#f44336',
-                              minWidth: '2px',
-                              borderRadius: '0 4px 4px 0',
-                              border: '1px solid #d32f2f'
-                            }}
-                            title={`Test Running\nDuration: ${load.duration} hours\nStart: ${loadStart.toLocaleString()}\nEnd: ${loadEnd.toLocaleString()}\nStatus: ${load.status}\nParts: ${load.parts.map(p => p.partNumber).join(', ')}`}
-                          >
-                            {redBarAdjustedWidth > 3 && (
-                              <div className="px-1 text-center">
-                                <div className="font-semibold text-[10px] truncate text-white">
-                                  {load.parts.length} part{load.parts.length > 1 ? 's' : ''}
+                      // Position for vertical line (exact start time)
+                      const verticalLineLeftPercent = (daysFromStart / totalDays) * 100 + (exactFraction / totalDays) * 100;
+
+                      // Position for colored bar (starts immediately after vertical line)
+                      const oneMsInDays = 1 / (1000 * 60 * 60 * 24);
+                      const barStartPercent = verticalLineLeftPercent + (oneMsInDays / totalDays) * 100;
+
+                      // Calculate width for colored bar
+                      const barWidthPercent = (loadDurationDays / totalDays) * 100;
+
+                      const verticalLineAdjustedLeft = Math.max(0, verticalLineLeftPercent);
+                      const barAdjustedLeft = Math.max(0, barStartPercent);
+                      const barAdjustedWidth = Math.min(100 - barAdjustedLeft, barWidthPercent + Math.min(0, barStartPercent));
+
+                      // Only show if within visible area
+                      const isVerticalVisible = verticalLineAdjustedLeft >= 0 && verticalLineAdjustedLeft <= 100;
+                      const isBarVisible = barAdjustedWidth > 0 && shouldShowRed;
+
+                      if (!isVerticalVisible && !isBarVisible) return null;
+
+                      // Determine colors based on timer status
+                      let verticalColor, barColor, borderColor, statusText;
+
+                      if (load.timerStatus === 'start') {
+                        verticalColor = '#FFEB3B'; // Yellow for start line
+                        barColor = '#f44336'; // Red for active test
+                        borderColor = '#d32f2f';
+                        statusText = 'Test Started';
+                      } else {
+                        verticalColor = '#9E9E9E'; // Grey for not started
+                        barColor = '#9E9E9E'; // Grey for not started
+                        borderColor = '#757575';
+                        statusText = 'Loaded (Not Started)';
+                      }
+
+                      const remainingTime = calculateRemainingTime(load);
+
+                      return (
+                        <React.Fragment key={`load-${load.id}-${loadIdx}`}>
+                          {/* Vertical line at exact start/loaded time */}
+                          {isVerticalVisible && (
+                            <div
+                              className="absolute top-0 bottom-0 cursor-pointer z-30"
+                              style={{
+                                left: `${verticalLineAdjustedLeft}%`,
+                                width: '3px',
+                                marginLeft: '-1.5px',
+                                backgroundColor: verticalColor,
+                                boxShadow: `0 0 5px 2px ${verticalColor === '#FFEB3B' ? 'rgba(255, 235, 59, 0.5)' : 'rgba(158, 158, 158, 0.5)'}`,
+                                pointerEvents: 'auto'
+                              }}
+                              title={`${statusText}\nMachine: ${load.chamber}\nStart Time: ${startTime.toLocaleString()}\nEnd Time: ${endTime.toLocaleString()}\nDuration: ${load.duration} hours\nStatus: ${load.timerStatus}\nParts: ${load.parts.map(p => p.partNumber).join(', ')}\n${remainingTime ? `Remaining: ${remainingTime}` : ''}`}
+                            />
+                          )}
+
+                          {/* Red bar ONLY if timer is started */}
+                          {isBarVisible && shouldShowRed && (
+                            <div
+                              className="absolute top-2 bottom-2 flex flex-col items-center justify-center text-white text-xs font-medium shadow-md cursor-pointer z-20"
+                              style={{
+                                left: `${barAdjustedLeft}%`,
+                                width: `${barAdjustedWidth}%`,
+                                backgroundColor: barColor,
+                                minWidth: '2px',
+                                borderRadius: '0 4px 4px 0',
+                                border: `1px solid ${borderColor}`
+                              }}
+                              title={`Test Running\nMachine: ${load.chamber}\nStatus: ${load.timerStatus}\nStarted: ${startTime.toLocaleString()}\nEnds: ${endTime.toLocaleString()}\nDuration: ${load.duration} hours\nRemaining: ${Math.ceil((endTime - new Date()) / (1000 * 60 * 60 * 24))} days\nParts: ${load.parts.map(p => p.partNumber).join(', ')}`}
+                            >
+                              {barAdjustedWidth > 3 && (
+                                <div className="px-1 text-center">
+                                  <div className="font-semibold text-[10px] truncate text-white">
+                                    {load.parts.length} part{load.parts.length > 1 ? 's' : ''}
+                                  </div>
+                                  <div className="text-[8px] text-white opacity-90 mt-0.5">
+                                    {load.duration}h
+                                  </div>
+                                  <div className="text-[7px] text-white opacity-70 mt-0.5">
+                                    {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                  <div className="text-[7px] text-white opacity-70 mt-0.5">
+                                    Status: {load.timerStatus}
+                                  </div>
                                 </div>
-                                <div className="text-[8px] text-white opacity-90 mt-0.5">
-                                  {load.duration}h
+                              )}
+                              {barAdjustedWidth <= 3 && barAdjustedWidth > 1 && (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-white/90"></div>
                                 </div>
-                                <div className="text-[7px] text-white opacity-70 mt-0.5">
-                                  {loadStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </div>
-                              </div>
-                            )}
-                            {redBarAdjustedWidth <= 3 && redBarAdjustedWidth > 1 && (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <div className="w-1.5 h-1.5 rounded-full bg-white/90"></div>
-                              </div>
-                            )}
-                            {redBarAdjustedWidth <= 1 && (
-                              <div className="w-full h-full bg-red-600"></div>
-                            )}
-                          </div>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
+                              )}
+                              {barAdjustedWidth <= 1 && (
+                                <div className="w-full h-full bg-red-600"></div>
+                              )}
+                            </div>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
+                  }
                 </div>
               </div>
             );
@@ -2487,7 +3083,7 @@ const GanttChart = () => {
           <>
             {viewMode === 'calendar' ? renderCalendarView() : renderTableView()}
 
-            {/* <div className="p-4 bg-gradient-to-r from-gray-50 to-white border-t">
+            <div className="p-4 bg-gradient-to-r from-gray-50 to-white border-t">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2">
@@ -2495,23 +3091,31 @@ const GanttChart = () => {
                     <span className="text-sm text-gray-700">Available</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-4 rounded-lg" style={{ backgroundColor: '#e57373' }}></div>
-                    <span className="text-sm text-gray-700">Testing / In Use</span>
+                    <div className="w-6 h-4 rounded-lg" style={{ backgroundColor: '#f44336' }}></div>
+                    <span className="text-sm text-gray-700">Test Started (Active)</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-4 rounded-lg" style={{ backgroundColor: '#ffeb3b' }}></div>
-                    <span className="text-sm text-gray-700">Loaded Parts</span>
+                    <div className="w-6 h-4 rounded-lg" style={{ backgroundColor: '#e57373' }}></div>
+                    <span className="text-sm text-gray-700">Scheduled Test</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-4 bg-yellow-500"></div>
+                    <span className="text-sm text-gray-700">Start Time Marker</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-4 bg-gray-400"></div>
+                    <span className="text-sm text-gray-700">Loaded (Not Started)</span>
                   </div>
                 </div>
 
                 <div className="text-sm text-gray-500">
-                  {viewMode === 'calendar' 
+                  {viewMode === 'calendar'
                     ? `Showing ${numberOfDays} days • ${runningTests.length} active test(s)`
                     : `${data.length} machines • Last updated: ${new Date().toLocaleTimeString()}`
                   }
                 </div>
               </div>
-            </div> */}
+            </div>
           </>
         )}
       </div>
