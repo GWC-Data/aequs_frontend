@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Upload, X, ChevronRight, ChevronLeft, CheckCircle, Plus, AlertCircle, Image as ImageIcon, Play, Pause, Clock } from "lucide-react";
+import { Upload, X, ChevronRight, ChevronLeft, CheckCircle, Plus, AlertCircle, Image as ImageIcon, Play, Pause, Clock, Scan, Search, AlertTriangle } from "lucide-react";
 
 // Reference image dimensions
 const REFERENCE_IMAGE_WIDTH = 480;
@@ -294,6 +294,41 @@ interface TestTimerState {
     [testName: string]: TimerStatus;
 }
 
+// Part scan states interface
+interface ScanState {
+    isScanning: boolean;
+    scannedParts: ScannedPart[];
+    partInput: string;
+    showScanModal: boolean;
+    availableTests: any[];
+    selectedTest: string;
+    machineDetails: any;
+    uploadingImages: { [key: string]: { [key: string]: boolean } };
+}
+
+interface ScannedPart {
+    id: number;
+    partNumber: string;
+    serialNumber: string;
+    ticketCode: string;
+    project: string;
+    build: string;
+    colour: string;
+    anoType: string;
+    oqcRecordId: string;
+    sessionId: string;
+    sessionNumber: string;
+    scannedAt: string;
+    availableTests: any[];
+    selectedTestId: string;
+    scanStatus: string;
+    cosmeticImage: string;
+    nonCosmeticImage: string;
+    cosmeticImages: string[];
+    nonCosmeticImages: string[];
+    hasImages?: boolean;
+}
+
 // DefaultForm Component
 interface DefaultFormProps {
     formData: FormData;
@@ -343,6 +378,9 @@ function DefaultForm({
         options: [] as string[]
     });
     const [newOption, setNewOption] = useState('');
+
+    // Track verified parts for final upload (second round)
+    const [verifiedPartsForFinalUpload, setVerifiedPartsForFinalUpload] = useState<Set<string>>(new Set());
 
     // Format time display
     const formatTime = (seconds: number) => {
@@ -1024,422 +1062,104 @@ function DefaultForm({
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-200">
-                                            {rowsByPart[part.partNumber]?.map((row, index) => (
-                                                <tr key={row.id} className={index % 2 === 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50 hover:bg-gray-100"}>
-                                                    <td className="px-4 py-4 text-center font-semibold text-gray-900 border-r border-gray-200">
-                                                        {row.srNo}
-                                                    </td>
-                                                    <td className="px-4 py-4 text-center border-r border-gray-200">
-                                                        {row.testDate && (() => {
-                                                            const testStartDate = new Date(row.testDate);
-                                                            const checkpointTime = new Date(testStartDate.getTime() + (checkpointHours * 60 * 60 * 1000));
-                                                            const now = new Date();
-                                                            const hoursElapsed = (now.getTime() - testStartDate.getTime()) / (1000 * 60 * 60);
-                                                            const checkpointReached = now >= checkpointTime;
+                                            {rowsByPart[part.partNumber]?.map((row, index) => {
+                                                // Check if this part has been verified for final round uploads
+                                                const isPartVerified = verifiedPartsForFinalUpload.has(row.partNumber);
 
-                                                            return (
-                                                                <div className="flex flex-col items-center gap-1">
-                                                                    <div className={`text-xs font-semibold px-2 py-1 rounded ${checkpointReached
-                                                                        ? 'bg-red-100 text-red-700'
-                                                                        : 'bg-green-100 text-green-700'
-                                                                        }`}>
-                                                                        {checkpointReached ? '⚠️ Checkpoint' : '✓ Active'}
+                                                return (
+                                                    <tr key={row.id} className={index % 2 === 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50 hover:bg-gray-100"}>
+                                                        <td className="px-4 py-4 text-center font-semibold text-gray-900 border-r border-gray-200">
+                                                            {row.srNo}
+                                                        </td>
+                                                        <td className="px-4 py-4 text-center border-r border-gray-200">
+                                                            {row.testDate && (() => {
+                                                                const testStartDate = new Date(row.testDate);
+                                                                const checkpointTime = new Date(testStartDate.getTime() + (checkpointHours * 60 * 60 * 1000));
+                                                                const now = new Date();
+                                                                const hoursElapsed = (now.getTime() - testStartDate.getTime()) / (1000 * 60 * 60);
+                                                                const checkpointReached = now >= checkpointTime;
+
+                                                                return (
+                                                                    <div className="flex flex-col items-center gap-1">
+                                                                        <div className={`text-xs font-semibold px-2 py-1 rounded ${checkpointReached
+                                                                            ? 'bg-red-100 text-red-700'
+                                                                            : 'bg-green-100 text-green-700'
+                                                                            }`}>
+                                                                            {checkpointReached ? '⚠️ Checkpoint' : '✓ Active'}
+                                                                        </div>
+                                                                        <div className="text-[10px] text-gray-500">
+                                                                            {hoursElapsed.toFixed(1)}h / {checkpointHours}h
+                                                                        </div>
                                                                     </div>
-                                                                    <div className="text-[10px] text-gray-500">
-                                                                        {hoursElapsed.toFixed(1)}h / {checkpointHours}h
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })()}
-                                                    </td>
-                                                    <td className="px-4 py-4 border-r border-gray-200">
-                                                        <input
-                                                            type="date"
-                                                            value={row.testDate}
-                                                            onChange={(e) => updateRowField(row.id, 'testDate', e.target.value)}
-                                                            className="w-full min-w-[140px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                        />
-                                                    </td>
-                                                    <td className="px-4 py-4 border-r border-gray-200">
-                                                        <input
-                                                            value={row.config}
-                                                            onChange={(e) => updateRowField(row.id, 'config', e.target.value)}
-                                                            className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                        />
-                                                    </td>
-                                                    <td className="px-4 py-4 border-r border-gray-200">
-                                                        <input
-                                                            value={row.sampleId}
-                                                            onChange={(e) => updateRowField(row.id, 'sampleId', e.target.value)}
-                                                            className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                        />
-                                                    </td>
+                                                                );
+                                                            })()}
+                                                        </td>
+                                                        <td className="px-4 py-4 border-r border-gray-200">
+                                                            <input
+                                                                type="date"
+                                                                value={row.testDate}
+                                                                onChange={(e) => updateRowField(row.id, 'testDate', e.target.value)}
+                                                                className="w-full min-w-[140px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                            />
+                                                        </td>
+                                                        <td className="px-4 py-4 border-r border-gray-200">
+                                                            <input
+                                                                value={row.config}
+                                                                onChange={(e) => updateRowField(row.id, 'config', e.target.value)}
+                                                                className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                            />
+                                                        </td>
+                                                        <td className="px-4 py-4 border-r border-gray-200">
+                                                            <input
+                                                                value={row.sampleId}
+                                                                onChange={(e) => updateRowField(row.id, 'sampleId', e.target.value)}
+                                                                className="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                            />
+                                                        </td>
 
-                                                    {/* First Round Images (only show if not second round) */}
-                                                    {!isSecondRound && (
-                                                        <>
-                                                            <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
-                                                                <div className="space-y-2">
-                                                                    {/* Show existing cosmetic images from storage first */}
-                                                                    {existingImages.cosmeticImages.length > 0 ? (
-                                                                        <div className="space-y-2">
-                                                                            {/* <div className="text-xs text-gray-500 mb-1">
-                                                                                Pre-uploaded images ({existingImages.cosmeticImages.length}):
-                                                                            </div> */}
-                                                                            <div className="grid grid-cols-2 gap-1">
-                                                                                {existingImages.cosmeticImages.map((img, imgIndex) => (
-                                                                                    <div key={imgIndex} className="relative group">
-                                                                                        <img
-                                                                                            src={img}
-                                                                                            alt={`Cosmetic ${imgIndex + 1}`}
-                                                                                            className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
+                                                        {/* First Round Images (only show if not second round) */}
+                                                        {!isSecondRound && (
+                                                            <>
+                                                                <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
+                                                                    <div className="space-y-2">
+                                                                        {/* Show existing cosmetic images from storage first */}
+                                                                        {existingImages.cosmeticImages.length > 0 ? (
+                                                                            <div className="space-y-2">
+                                                                                <div className="text-xs text-gray-500 mb-1">
+                                                                                    Pre-uploaded images ({existingImages.cosmeticImages.length}):
+                                                                                </div>
+                                                                                <div className="grid grid-cols-2 gap-1">
+                                                                                    {existingImages.cosmeticImages.map((img, imgIndex) => (
+                                                                                        <div key={imgIndex} className="relative group">
+                                                                                            <img
+                                                                                                src={img}
+                                                                                                alt={`Cosmetic ${imgIndex + 1}`}
+                                                                                                className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
 
-                                                                                        />
-                                                                                        {/* <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                                                                                            />
+                                                                                            {/* <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
                                                                                             {imgIndex + 1}
                                                                                         </div> */}
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        </div>
-                                                                    ) : row.cosmeticImages && row.cosmeticImages.length > 0 ? (
-                                                                        <div className="space-y-2">
-                                                                            <div className="grid grid-cols-2 gap-1">
-                                                                                {row.cosmeticImages.map((img, imgIndex) => (
-                                                                                    <div key={imgIndex} className="relative group">
-                                                                                        <img
-                                                                                            src={img}
-                                                                                            alt={`Cosmetic ${imgIndex + 1}`}
-                                                                                            className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
-                                                                                        />
-                                                                                        {/* <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
-                                                                                            {imgIndex + 1}
-                                                                                        </div> */}
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => {
-                                                                                    const input = document.createElement('input');
-                                                                                    input.type = 'file';
-                                                                                    input.accept = 'image/*';
-                                                                                    input.multiple = true;
-                                                                                    input.onchange = (e) => {
-                                                                                        const files = (e.target as HTMLInputElement).files;
-                                                                                        if (files) {
-                                                                                            Array.from(files).forEach(file => {
-                                                                                                const reader = new FileReader();
-                                                                                                reader.onload = (event) => {
-                                                                                                    const newImage = event.target?.result as string;
-                                                                                                    const updatedCosmeticImages = [...(row.cosmeticImages || []), newImage];
-                                                                                                    updateRowField(row.id, 'cosmeticImages', JSON.stringify(updatedCosmeticImages));
-                                                                                                    updateRowField(row.id, 'cosmeticImage', updatedCosmeticImages[0] || '');
-                                                                                                };
-                                                                                                reader.readAsDataURL(file);
-                                                                                            });
-                                                                                        }
-                                                                                    };
-                                                                                    input.click();
-                                                                                }}
-                                                                                className="w-full px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
-                                                                            >
-                                                                                + Add More
-                                                                            </button>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors bg-blue-50">
-                                                                            <Upload size={20} className="text-blue-400 mb-2" />
-                                                                            <span className="text-sm font-medium text-blue-600">Upload Cosmetic</span>
-                                                                            <span className="text-xs text-gray-500 mt-1">Click to browse</span>
-                                                                            <input
-                                                                                type="file"
-                                                                                accept="image/*"
-                                                                                onChange={(e) => {
-                                                                                    const files = e.target.files;
-                                                                                    if (files) {
-                                                                                        Array.from(files).forEach(file => {
-                                                                                            const reader = new FileReader();
-                                                                                            reader.onload = (event) => {
-                                                                                                const imageUrl = event.target?.result as string;
-                                                                                                const updatedCosmeticImages = [...(row.cosmeticImages || []), imageUrl];
-                                                                                                updateRowField(row.id, 'cosmeticImages', JSON.stringify(updatedCosmeticImages));
-                                                                                                updateRowField(row.id, 'cosmeticImage', updatedCosmeticImages[0] || '');
-                                                                                            };
-                                                                                            reader.readAsDataURL(file);
-                                                                                        });
-                                                                                    }
-                                                                                }}
-                                                                                className="hidden"
-                                                                                multiple
-                                                                            />
-                                                                        </label>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
-                                                                <div className="space-y-2">
-                                                                    {/* Show existing non-cosmetic images from storage first */}
-                                                                    {existingImages.nonCosmeticImages.length > 0 ? (
-                                                                        <div className="space-y-2">
-                                                                            {/* <div className="text-xs text-gray-500 mb-1">
-                                                                                Pre-uploaded images ({existingImages.nonCosmeticImages.length}):
-                                                                            </div> */}
-                                                                            <div className="grid grid-cols-2 gap-1">
-                                                                                {existingImages.nonCosmeticImages.map((img, imgIndex) => (
-                                                                                    <div key={imgIndex} className="relative group">
-                                                                                        <img
-                                                                                            src={img}
-                                                                                            alt={`Non-Cosmetic ${imgIndex + 1}`}
-                                                                                            className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
-                                                                                        />
-                                                                                        {/* <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
-                                                                                            {imgIndex + 1}
-                                                                                        </div> */}
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        </div>
-                                                                    ) : row.nonCosmeticImages && row.nonCosmeticImages.length > 0 ? (
-                                                                        <div className="space-y-2">
-                                                                            <div className="grid grid-cols-2 gap-1">
-                                                                                {row.nonCosmeticImages.map((img, imgIndex) => (
-                                                                                    <div key={imgIndex} className="relative group">
-                                                                                        <img
-                                                                                            src={img}
-                                                                                            alt={`Non-Cosmetic ${imgIndex + 1}`}
-                                                                                            className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
-                                                                                        />
-                                                                                        <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
-                                                                                            {imgIndex + 1}
                                                                                         </div>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => {
-                                                                                    const input = document.createElement('input');
-                                                                                    input.type = 'file';
-                                                                                    input.accept = 'image/*';
-                                                                                    input.onchange = (e) => {
-                                                                                        const file = (e.target as HTMLInputElement).files?.[0];
-                                                                                        if (file) {
-                                                                                            handleImageUpload(row.id, 'nonCosmetic', file);
-                                                                                        }
-                                                                                    };
-                                                                                    input.click();
-                                                                                }}
-                                                                                className="w-full px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
-                                                                            >
-                                                                                + Add More
-                                                                            </button>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-green-300 rounded-lg cursor-pointer hover:border-green-400 transition-colors bg-green-50">
-                                                                            <Upload size={20} className="text-green-400 mb-2" />
-                                                                            <span className="text-sm font-medium text-green-600">Upload Non-Cosmetic</span>
-                                                                            <input
-                                                                                type="file"
-                                                                                accept="image/*"
-                                                                                onChange={(e) => {
-                                                                                    const file = e.target.files?.[0];
-                                                                                    if (file) {
-                                                                                        handleImageUpload(row.id, 'nonCosmetic', file);
-                                                                                    }
-                                                                                }}
-                                                                                className="hidden"
-                                                                            />
-                                                                        </label>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 py-4 border-r border-gray-200 min-w-[150px]">
-                                                                {row.croppedImages && row.croppedImages.length > 0 ? (
-                                                                    <div className="space-y-2">
-                                                                        <div className="grid grid-cols-2 gap-1">
-                                                                            {row.croppedImages.map((img, imgIndex) => (
-                                                                                <div key={imgIndex} className="relative">
-                                                                                    <img
-                                                                                        src={img}
-                                                                                        alt={`Cropped ${imgIndex + 1}`}
-                                                                                        className="w-16 h-16 object-contain border rounded-lg"
-                                                                                    />
-                                                                                    {row.regionLabel && imgIndex === 0 && (
-                                                                                        <div className="text-xs text-center font-semibold text-gray-700 mt-1">
-                                                                                            {row.regionLabel}
-                                                                                        </div>
-                                                                                    )}
+                                                                                    ))}
                                                                                 </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                ) : existingImages.nonCosmeticImages.length > 0 ? (
-                                                                    <div className="text-center py-4">
-                                                                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                                                                        <span className="text-xs text-gray-500">
-                                                                            {shouldSplitImages() ? 'Processing cropped images...' : 'No splitting required'}
-                                                                        </span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="text-xs text-gray-400 text-center">No images uploaded</div>
-                                                                )}
-                                                            </td>
-                                                        </>
-                                                    )}
-
-                                                    {/* Second Round Images */}
-                                                    {isSecondRound && (
-                                                        <>
-                                                            {/* First Round Cosmetic Images (Read-only) */}
-                                                            <td className="px-4 py-4 border-r border-gray-200 min-w-[150px] bg-gray-50">
-                                                                {existingImages.cosmeticImages && existingImages.cosmeticImages.length > 0 ? (
-                                                                    <div className="space-y-2">
-                                                                        {/* <div className="text-xs text-gray-500 mb-1">
-                                                                            First Round ({existingImages.cosmeticImages.length}):
-                                                                        </div> */}
-                                                                        <div className="grid grid-cols-2 gap-1">
-                                                                            {existingImages.cosmeticImages.slice(0, 4).map((img, imgIndex) => (
-                                                                                <div key={imgIndex} className="relative group">
-                                                                                    <img
-                                                                                        src={img}
-                                                                                        alt={`First Round Cosmetic ${imgIndex + 1}`}
-                                                                                        className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
-                                                                                        onClick={() => {
-                                                                                            // Open in modal/lightbox if needed
-                                                                                            window.open(img, '_blank');
-                                                                                        }}
-                                                                                    />
-                                                                                    {/* <div className="absolute top-0 right-0 bg-blue-600 bg-opacity-75 text-white text-xs px-1 rounded">
-                                                                                        {imgIndex + 1}
-                                                                                    </div> */}
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                        {existingImages.cosmeticImages.length > 4 && (
-                                                                            <div className="text-xs text-gray-500">
-                                                                                +{existingImages.cosmeticImages.length - 4} more
                                                                             </div>
-                                                                        )}
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="text-xs text-gray-400 text-center py-2">No first round images</div>
-                                                                )}
-                                                            </td>
-
-                                                            {/* First Round Non-Cosmetic Images (Read-only) */}
-                                                            <td className="px-4 py-4 border-r border-gray-200 min-w-[150px] bg-gray-50">
-                                                                {existingImages.nonCosmeticImages && existingImages.nonCosmeticImages.length > 0 ? (
-                                                                    <div className="space-y-2">
-                                                                        {/* <div className="text-xs text-gray-500 mb-1">
-                                                                            First Round ({existingImages.nonCosmeticImages.length}):
-                                                                        </div> */}
-                                                                        <div className="grid grid-cols-2 gap-1">
-                                                                            {existingImages.nonCosmeticImages.slice(0, 4).map((img, imgIndex) => (
-                                                                                <div key={imgIndex} className="relative group">
-                                                                                    <img
-                                                                                        src={img}
-                                                                                        alt={`First Round Non-Cosmetic ${imgIndex + 1}`}
-                                                                                        className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
-                                                                                        onClick={() => {
-                                                                                            window.open(img, '_blank');
-                                                                                        }}
-                                                                                    />
-                                                                                    {/* <div className="absolute top-0 right-0 bg-green-600 bg-opacity-75 text-white text-xs px-1 rounded">
-                                                                                        {imgIndex + 1}
-                                                                                    </div> */}
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                        {existingImages.nonCosmeticImages.length > 4 && (
-                                                                            <div className="text-xs text-gray-500">
-                                                                                +{existingImages.nonCosmeticImages.length - 4} more
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="text-xs text-gray-400 text-center py-2">No first round images</div>
-                                                                )}
-                                                            </td>
-
-                                                            {/* First Round Cropped Images (Read-only) */}
-                                                            <td className="px-4 py-4 border-r border-gray-200 min-w-[150px] bg-gray-50">
-                                                                {row.croppedImages && row.croppedImages.length > 0 ? (
-                                                                    <div className="space-y-2">
-                                                                        {/* <div className="text-xs text-gray-500 mb-1">
-                                                                            Cropped ({row.croppedImages.length}):
-                                                                        </div> */}
-                                                                        <div className="grid grid-cols-2 gap-1">
-                                                                            {row.croppedImages.slice(0, 4).map((img, imgIndex) => (
-                                                                                <div key={imgIndex} className="relative">
-                                                                                    <img
-                                                                                        src={img}
-                                                                                        alt={`First Round Cropped ${imgIndex + 1}`}
-                                                                                        className="w-16 h-16 object-contain border rounded-lg cursor-pointer"
-                                                                                        onClick={() => {
-                                                                                            window.open(img, '_blank');
-                                                                                        }}
-                                                                                    />
-                                                                                    {row.regionLabel && imgIndex === 0 && (
-                                                                                        <div className="text-[10px] text-center font-semibold text-gray-700 mt-1 truncate">
-                                                                                            {row.regionLabel}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                        {row.croppedImages.length > 4 && (
-                                                                            <div className="text-xs text-gray-500">
-                                                                                +{row.croppedImages.length - 4} more
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="text-xs text-gray-400 text-center py-2">
-                                                                        {shouldSplitImages() ? 'No cropped images' : 'N/A'}
-                                                                    </div>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
-                                                                <div className="space-y-2">
-                                                                    {/* Show existing final cosmetic images from storage first */}
-                                                                    {existingImages.finalCosmeticImages && existingImages.finalCosmeticImages.length > 0 ? (
-                                                                        <div className="space-y-2">
-                                                                            <div className="text-xs text-gray-500 mb-1">
-                                                                                Final cosmetic images ({existingImages.finalCosmeticImages.length}):
-                                                                            </div>
-                                                                            <div className="grid grid-cols-2 gap-1">
-                                                                                {existingImages.finalCosmeticImages.map((img, imgIndex) => (
-                                                                                    <div key={imgIndex} className="relative group">
-                                                                                        <img
-                                                                                            src={img}
-                                                                                            alt={`Final Cosmetic ${imgIndex + 1}`}
-                                                                                            className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
-                                                                                        />
-                                                                                        {/* <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                                                                        ) : row.cosmeticImages && row.cosmeticImages.length > 0 ? (
+                                                                            <div className="space-y-2">
+                                                                                <div className="grid grid-cols-2 gap-1">
+                                                                                    {row.cosmeticImages.map((img, imgIndex) => (
+                                                                                        <div key={imgIndex} className="relative group">
+                                                                                            <img
+                                                                                                src={img}
+                                                                                                alt={`Cosmetic ${imgIndex + 1}`}
+                                                                                                className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
+                                                                                            />
+                                                                                            {/* <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
                                                                                             {imgIndex + 1}
                                                                                         </div> */}
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        </div>
-                                                                    ) : row.finalCosmeticImages && row.finalCosmeticImages.length > 0 ? (
-                                                                        <div className="space-y-2">
-                                                                            <div className="grid grid-cols-2 gap-1">
-                                                                                {row.finalCosmeticImages.map((img, imgIndex) => (
-                                                                                    <div key={imgIndex} className="relative group">
-                                                                                        <img
-                                                                                            src={img}
-                                                                                            alt={`Final Cosmetic ${imgIndex + 1}`}
-                                                                                            className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
-                                                                                        />
-                                                                                        {/* <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
-                                                                                            {imgIndex + 1}
-                                                                                        </div> */}
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                            {projectType === "Hulk" && (
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
                                                                                 <button
                                                                                     type="button"
                                                                                     onClick={() => {
@@ -1451,7 +1171,14 @@ function DefaultForm({
                                                                                             const files = (e.target as HTMLInputElement).files;
                                                                                             if (files) {
                                                                                                 Array.from(files).forEach(file => {
-                                                                                                    handleFinalRoundImageUpload(row.id, part.partNumber, 'cosmetic', file);
+                                                                                                    const reader = new FileReader();
+                                                                                                    reader.onload = (event) => {
+                                                                                                        const newImage = event.target?.result as string;
+                                                                                                        const updatedCosmeticImages = [...(row.cosmeticImages || []), newImage];
+                                                                                                        updateRowField(row.id, 'cosmeticImages', JSON.stringify(updatedCosmeticImages));
+                                                                                                        updateRowField(row.id, 'cosmeticImage', updatedCosmeticImages[0] || '');
+                                                                                                    };
+                                                                                                    reader.readAsDataURL(file);
                                                                                                 });
                                                                                             }
                                                                                         };
@@ -1461,165 +1188,490 @@ function DefaultForm({
                                                                                 >
                                                                                     + Add More
                                                                                 </button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors bg-blue-50">
+                                                                                <Upload size={20} className="text-blue-400 mb-2" />
+                                                                                <span className="text-sm font-medium text-blue-600">Upload Cosmetic</span>
+                                                                                <span className="text-xs text-gray-500 mt-1">Click to browse</span>
+                                                                                <input
+                                                                                    type="file"
+                                                                                    accept="image/*"
+                                                                                    onChange={(e) => {
+                                                                                        const files = e.target.files;
+                                                                                        if (files) {
+                                                                                            Array.from(files).forEach(file => {
+                                                                                                const reader = new FileReader();
+                                                                                                reader.onload = (event) => {
+                                                                                                    const imageUrl = event.target?.result as string;
+                                                                                                    const updatedCosmeticImages = [...(row.cosmeticImages || []), imageUrl];
+                                                                                                    updateRowField(row.id, 'cosmeticImages', JSON.stringify(updatedCosmeticImages));
+                                                                                                    updateRowField(row.id, 'cosmeticImage', updatedCosmeticImages[0] || '');
+                                                                                                };
+                                                                                                reader.readAsDataURL(file);
+                                                                                            });
+                                                                                        }
+                                                                                    }}
+                                                                                    className="hidden"
+                                                                                    multiple
+                                                                                />
+                                                                            </label>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
+                                                                    <div className="space-y-2">
+                                                                        {/* Show existing non-cosmetic images from storage first */}
+                                                                        {existingImages.nonCosmeticImages.length > 0 ? (
+                                                                            <div className="space-y-2">
+                                                                                <div className="text-xs text-gray-500 mb-1">
+                                                                                    Pre-uploaded images ({existingImages.nonCosmeticImages.length}):
+                                                                                </div>
+                                                                                <div className="grid grid-cols-2 gap-1">
+                                                                                    {existingImages.nonCosmeticImages.map((img, imgIndex) => (
+                                                                                        <div key={imgIndex} className="relative group">
+                                                                                            <img
+                                                                                                src={img}
+                                                                                                alt={`Non-Cosmetic ${imgIndex + 1}`}
+                                                                                                className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
+                                                                                            />
+                                                                                            {/* <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                                                                                            {imgIndex + 1}
+                                                                                        </div> */}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : row.nonCosmeticImages && row.nonCosmeticImages.length > 0 ? (
+                                                                            <div className="space-y-2">
+                                                                                <div className="grid grid-cols-2 gap-1">
+                                                                                    {row.nonCosmeticImages.map((img, imgIndex) => (
+                                                                                        <div key={imgIndex} className="relative group">
+                                                                                            <img
+                                                                                                src={img}
+                                                                                                alt={`Non-Cosmetic ${imgIndex + 1}`}
+                                                                                                className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
+                                                                                            />
+                                                                                            <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                                                                                                {imgIndex + 1}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        const input = document.createElement('input');
+                                                                                        input.type = 'file';
+                                                                                        input.accept = 'image/*';
+                                                                                        input.onchange = (e) => {
+                                                                                            const file = (e.target as HTMLInputElement).files?.[0];
+                                                                                            if (file) {
+                                                                                                handleImageUpload(row.id, 'nonCosmetic', file);
+                                                                                            }
+                                                                                        };
+                                                                                        input.click();
+                                                                                    }}
+                                                                                    className="w-full px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                                                                                >
+                                                                                    + Add More
+                                                                                </button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-green-300 rounded-lg cursor-pointer hover:border-green-400 transition-colors bg-green-50">
+                                                                                <Upload size={20} className="text-green-400 mb-2" />
+                                                                                <span className="text-sm font-medium text-green-600">Upload Non-Cosmetic</span>
+                                                                                <input
+                                                                                    type="file"
+                                                                                    accept="image/*"
+                                                                                    onChange={(e) => {
+                                                                                        const file = e.target.files?.[0];
+                                                                                        if (file) {
+                                                                                            handleImageUpload(row.id, 'nonCosmetic', file);
+                                                                                        }
+                                                                                    }}
+                                                                                    className="hidden"
+                                                                                />
+                                                                            </label>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-4 py-4 border-r border-gray-200 min-w-[150px]">
+                                                                    {row.croppedImages && row.croppedImages.length > 0 ? (
+                                                                        <div className="space-y-2">
+                                                                            <div className="grid grid-cols-2 gap-1">
+                                                                                {row.croppedImages.map((img, imgIndex) => (
+                                                                                    <div key={imgIndex} className="relative">
+                                                                                        <img
+                                                                                            src={img}
+                                                                                            alt={`Cropped ${imgIndex + 1}`}
+                                                                                            className="w-16 h-16 object-contain border rounded-lg"
+                                                                                        />
+                                                                                        {row.regionLabel && imgIndex === 0 && (
+                                                                                            <div className="text-xs text-center font-semibold text-gray-700 mt-1">
+                                                                                                {row.regionLabel}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : existingImages.nonCosmeticImages.length > 0 ? (
+                                                                        <div className="text-center py-4">
+                                                                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                                                                            <span className="text-xs text-gray-500">
+                                                                                {shouldSplitImages() ? 'Processing cropped images...' : 'No splitting required'}
+                                                                            </span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-xs text-gray-400 text-center">No images uploaded</div>
+                                                                    )}
+                                                                </td>
+                                                            </>
+                                                        )}
+
+                                                        {/* Second Round Images */}
+                                                        {isSecondRound && (
+                                                            <>
+                                                                {/* First Round Cosmetic Images (Read-only) */}
+                                                                <td className="px-4 py-4 border-r border-gray-200 min-w-[150px] bg-gray-50">
+                                                                    {existingImages.cosmeticImages && existingImages.cosmeticImages.length > 0 ? (
+                                                                        <div className="space-y-2">
+                                                                            {/* <div className="text-xs text-gray-500 mb-1">
+                                                                            First Round ({existingImages.cosmeticImages.length}):
+                                                                        </div> */}
+                                                                            <div className="grid grid-cols-2 gap-1">
+                                                                                {existingImages.cosmeticImages.slice(0, 4).map((img, imgIndex) => (
+                                                                                    <div key={imgIndex} className="relative group">
+                                                                                        <img
+                                                                                            src={img}
+                                                                                            alt={`First Round Cosmetic ${imgIndex + 1}`}
+                                                                                            className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
+                                                                                            onClick={() => {
+                                                                                                // Open in modal/lightbox if needed
+                                                                                                window.open(img, '_blank');
+                                                                                            }}
+                                                                                        />
+                                                                                        {/* <div className="absolute top-0 right-0 bg-blue-600 bg-opacity-75 text-white text-xs px-1 rounded">
+                                                                                        {imgIndex + 1}
+                                                                                    </div> */}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                            {existingImages.cosmeticImages.length > 4 && (
+                                                                                <div className="text-xs text-gray-500">
+                                                                                    +{existingImages.cosmeticImages.length - 4} more
+                                                                                </div>
                                                                             )}
                                                                         </div>
                                                                     ) : (
-                                                                        <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-purple-300 rounded-lg cursor-pointer hover:border-purple-400 transition-colors bg-purple-50">
-                                                                            <Upload size={20} className="text-purple-400 mb-2" />
-                                                                            <span className="text-sm font-medium text-purple-600">
-                                                                                Upload Final Cosmetic
-                                                                            </span>
-                                                                            <span className="text-xs text-gray-500 mt-1">Click to browse</span>
-                                                                            <input
-                                                                                type="file"
-                                                                                accept="image/*"
-                                                                                multiple={projectType === "Hulk"}
-                                                                                onChange={(e) => {
-                                                                                    const files = e.target.files;
-                                                                                    if (files) {
-                                                                                        Array.from(files).forEach(file => {
-                                                                                            handleFinalRoundImageUpload(row.id, part.partNumber, 'cosmetic', file);
-                                                                                        });
-                                                                                    }
-                                                                                }}
-                                                                                className="hidden"
-                                                                            />
-                                                                        </label>
+                                                                        <div className="text-xs text-gray-400 text-center py-2">No first round images</div>
                                                                     )}
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
-                                                                <div className="space-y-2">
-                                                                    {/* Show existing final non-cosmetic images from storage first */}
-                                                                    {existingImages.finalNonCosmeticImages && existingImages.finalNonCosmeticImages.length > 0 ? (
+                                                                </td>
+
+                                                                {/* First Round Non-Cosmetic Images (Read-only) */}
+                                                                <td className="px-4 py-4 border-r border-gray-200 min-w-[150px] bg-gray-50">
+                                                                    {existingImages.nonCosmeticImages && existingImages.nonCosmeticImages.length > 0 ? (
                                                                         <div className="space-y-2">
-                                                                            <div className="text-xs text-gray-500 mb-1">
-                                                                                Final non-cosmetic images ({existingImages.finalNonCosmeticImages.length}):
-                                                                            </div>
+                                                                            {/* <div className="text-xs text-gray-500 mb-1">
+                                                                            First Round ({existingImages.nonCosmeticImages.length}):
+                                                                        </div> */}
                                                                             <div className="grid grid-cols-2 gap-1">
-                                                                                {existingImages.finalNonCosmeticImages.map((img, imgIndex) => (
+                                                                                {existingImages.nonCosmeticImages.slice(0, 4).map((img, imgIndex) => (
                                                                                     <div key={imgIndex} className="relative group">
                                                                                         <img
                                                                                             src={img}
-                                                                                            alt={`Final Non-Cosmetic ${imgIndex + 1}`}
+                                                                                            alt={`First Round Non-Cosmetic ${imgIndex + 1}`}
                                                                                             className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
+                                                                                            onClick={() => {
+                                                                                                window.open(img, '_blank');
+                                                                                            }}
                                                                                         />
-                                                                                        <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
-                                                                                            {imgIndex + 1}
-                                                                                        </div>
+                                                                                        {/* <div className="absolute top-0 right-0 bg-green-600 bg-opacity-75 text-white text-xs px-1 rounded">
+                                                                                        {imgIndex + 1}
+                                                                                    </div> */}
                                                                                     </div>
                                                                                 ))}
                                                                             </div>
-                                                                        </div>
-                                                                    ) : row.nonCosmeticImages && row.nonCosmeticImages.length > 0 ? (
-                                                                        <div className="space-y-2">
-                                                                            <div className="grid grid-cols-2 gap-1">
-                                                                                {row.nonCosmeticImages.map((img, imgIndex) => (
-                                                                                    <div key={imgIndex} className="relative group">
-                                                                                        <img
-                                                                                            src={img}
-                                                                                            alt={`Final Non-Cosmetic ${imgIndex + 1}`}
-                                                                                            className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
-                                                                                        />
-                                                                                        {/* <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
-                                                                                            {imgIndex + 1}
-                                                                                        </div> */}
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => {
-                                                                                    const input = document.createElement('input');
-                                                                                    input.type = 'file';
-                                                                                    input.accept = 'image/*';
-                                                                                    input.onchange = (e) => {
-                                                                                        const file = (e.target as HTMLInputElement).files?.[0];
-                                                                                        if (file) {
-                                                                                            handleFinalRoundImageUpload(row.id, part.partNumber, 'nonCosmetic', file);
-                                                                                        }
-                                                                                    };
-                                                                                    input.click();
-                                                                                }}
-                                                                                className="w-full px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
-                                                                            >
-                                                                                + Add More
-                                                                            </button>
+                                                                            {existingImages.nonCosmeticImages.length > 4 && (
+                                                                                <div className="text-xs text-gray-500">
+                                                                                    +{existingImages.nonCosmeticImages.length - 4} more
+                                                                                </div>
+                                                                            )}
                                                                         </div>
                                                                     ) : (
-                                                                        <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-orange-300 rounded-lg cursor-pointer hover:border-orange-400 transition-colors bg-orange-50">
-                                                                            <Upload size={20} className="text-orange-400 mb-2" />
-                                                                            <span className="text-sm font-medium text-orange-600">Upload Final Non-Cosmetic</span>
-                                                                            <input
-                                                                                type="file"
-                                                                                accept="image/*"
-                                                                                onChange={(e) => {
-                                                                                    const file = e.target.files?.[0];
-                                                                                    if (file) {
-                                                                                        handleFinalRoundImageUpload(row.id, part.partNumber, 'nonCosmetic', file);
-                                                                                    }
-                                                                                }}
-                                                                                className="hidden"
-                                                                            />
-                                                                        </label>
+                                                                        <div className="text-xs text-gray-400 text-center py-2">No first round images</div>
                                                                     )}
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 py-4 border-r border-gray-200 min-w-[150px]">
-                                                                {row.croppedImages && row.croppedImages.length > 0 ? (
-                                                                    <div className="space-y-2">
-                                                                        <div className="grid grid-cols-2 gap-1">
-                                                                            {row.croppedImages.map((img, imgIndex) => (
-                                                                                <div key={imgIndex} className="relative">
-                                                                                    <img
-                                                                                        src={img}
-                                                                                        alt={`Final Cropped ${imgIndex + 1}`}
-                                                                                        className="w-16 h-16 object-contain border rounded-lg"
-                                                                                    />
-                                                                                    {row.regionLabel && imgIndex === 0 && (
-                                                                                        <div className="text-xs text-center font-semibold text-gray-700 mt-1">
-                                                                                            {row.regionLabel}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                ) : existingImages.finalNonCosmeticImages && existingImages.finalNonCosmeticImages.length > 0 ? (
-                                                                    <div className="text-center py-4">
-                                                                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                                                                        <span className="text-xs text-gray-500">
-                                                                            {shouldSplitImages() ? 'Processing final cropped images...' : 'No splitting required'}
-                                                                        </span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="text-xs text-gray-400 text-center">No final images uploaded</div>
-                                                                )}
-                                                            </td>
-                                                        </>
-                                                    )}
+                                                                </td>
 
-                                                    {formData.customColumns?.map((column) => (
-                                                        <td key={column.id} className={`px-4 py-4 border-r border-gray-200 ${column.type === 'image' ? 'min-w-[200px]' : ''}`}>
-                                                            {renderField(row, column)}
+                                                                {/* First Round Cropped Images (Read-only) */}
+                                                                <td className="px-4 py-4 border-r border-gray-200 min-w-[150px] bg-gray-50">
+                                                                    {row.croppedImages && row.croppedImages.length > 0 ? (
+                                                                        <div className="space-y-2">
+                                                                            {/* <div className="text-xs text-gray-500 mb-1">
+                                                                            Cropped ({row.croppedImages.length}):
+                                                                        </div> */}
+                                                                            <div className="grid grid-cols-2 gap-1">
+                                                                                {row.croppedImages.slice(0, 4).map((img, imgIndex) => (
+                                                                                    <div key={imgIndex} className="relative">
+                                                                                        <img
+                                                                                            src={img}
+                                                                                            alt={`First Round Cropped ${imgIndex + 1}`}
+                                                                                            className="w-16 h-16 object-contain border rounded-lg cursor-pointer"
+                                                                                            onClick={() => {
+                                                                                                window.open(img, '_blank');
+                                                                                            }}
+                                                                                        />
+                                                                                        {row.regionLabel && imgIndex === 0 && (
+                                                                                            <div className="text-[10px] text-center font-semibold text-gray-700 mt-1 truncate">
+                                                                                                {row.regionLabel}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                            {row.croppedImages.length > 4 && (
+                                                                                <div className="text-xs text-gray-500">
+                                                                                    +{row.croppedImages.length - 4} more
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-xs text-gray-400 text-center py-2">
+                                                                            {shouldSplitImages() ? 'No cropped images' : 'N/A'}
+                                                                        </div>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
+                                                                    <div className="space-y-2">
+                                                                        {/* Show existing final cosmetic images from storage first */}
+                                                                        {existingImages.finalCosmeticImages && existingImages.finalCosmeticImages.length > 0 ? (
+                                                                            <div className="space-y-2">
+                                                                                <div className="text-xs text-gray-500 mb-1">
+                                                                                    Final cosmetic images ({existingImages.finalCosmeticImages.length}):
+                                                                                </div>
+                                                                                <div className="grid grid-cols-2 gap-1">
+                                                                                    {existingImages.finalCosmeticImages.map((img, imgIndex) => (
+                                                                                        <div key={imgIndex} className="relative group">
+                                                                                            <img
+                                                                                                src={img}
+                                                                                                alt={`Final Cosmetic ${imgIndex + 1}`}
+                                                                                                className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
+                                                                                            />
+                                                                                            {/* <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                                                                                            {imgIndex + 1}
+                                                                                        </div> */}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : row.finalCosmeticImages && row.finalCosmeticImages.length > 0 ? (
+                                                                            <div className="space-y-2">
+                                                                                <div className="grid grid-cols-2 gap-1">
+                                                                                    {row.finalCosmeticImages.map((img, imgIndex) => (
+                                                                                        <div key={imgIndex} className="relative group">
+                                                                                            <img
+                                                                                                src={img}
+                                                                                                alt={`Final Cosmetic ${imgIndex + 1}`}
+                                                                                                className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
+                                                                                            />
+                                                                                            {/* <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                                                                                            {imgIndex + 1}
+                                                                                        </div> */}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                                {projectType === "Hulk" && (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => {
+                                                                                            const input = document.createElement('input');
+                                                                                            input.type = 'file';
+                                                                                            input.accept = 'image/*';
+                                                                                            input.multiple = true;
+                                                                                            input.onchange = (e) => {
+                                                                                                const files = (e.target as HTMLInputElement).files;
+                                                                                                if (files) {
+                                                                                                    Array.from(files).forEach(file => {
+                                                                                                        handleFinalRoundImageUpload(row.id, part.partNumber, 'cosmetic', file);
+                                                                                                    });
+                                                                                                }
+                                                                                            };
+                                                                                            input.click();
+                                                                                        }}
+                                                                                        className="w-full px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                                                                                    >
+                                                                                        + Add More
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg transition-colors ${!isPartVerified ? 'opacity-50 cursor-not-allowed border-gray-300 bg-gray-50' : 'cursor-pointer hover:border-purple-400 border-purple-300 bg-purple-50'}`}>
+                                                                                <Upload size={20} className={`mb-2 ${!isPartVerified ? 'text-gray-400' : 'text-purple-400'}`} />
+                                                                                <span className={`text-sm font-medium ${!isPartVerified ? 'text-gray-500' : 'text-purple-600'}`}>
+                                                                                    {!isPartVerified ? 'Scan Part First' : 'Upload Final Cosmetic'}
+                                                                                </span>
+                                                                                <span className="text-xs text-gray-500 mt-1">
+                                                                                    {!isPartVerified ? 'Part must be scanned' : 'Click to browse'}
+                                                                                </span>
+                                                                                <input
+                                                                                    type="file"
+                                                                                    accept="image/*"
+                                                                                    multiple={projectType === "Hulk"}
+                                                                                    onChange={(e) => {
+                                                                                        const files = e.target.files;
+                                                                                        if (files && isPartVerified) {
+                                                                                            Array.from(files).forEach(file => {
+                                                                                                handleFinalRoundImageUpload(row.id, part.partNumber, 'cosmetic', file);
+                                                                                            });
+                                                                                        }
+                                                                                    }}
+                                                                                    className="hidden"
+                                                                                    disabled={!isPartVerified}
+                                                                                />
+                                                                            </label>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-4 py-4 border-r border-gray-200 min-w-[200px]">
+                                                                    <div className="space-y-2">
+                                                                        {/* Show existing final non-cosmetic images from storage first */}
+                                                                        {existingImages.finalNonCosmeticImages && existingImages.finalNonCosmeticImages.length > 0 ? (
+                                                                            <div className="space-y-2">
+                                                                                <div className="text-xs text-gray-500 mb-1">
+                                                                                    Final non-cosmetic images ({existingImages.finalNonCosmeticImages.length}):
+                                                                                </div>
+                                                                                <div className="grid grid-cols-2 gap-1">
+                                                                                    {existingImages.finalNonCosmeticImages.map((img, imgIndex) => (
+                                                                                        <div key={imgIndex} className="relative group">
+                                                                                            <img
+                                                                                                src={img}
+                                                                                                alt={`Final Non-Cosmetic ${imgIndex + 1}`}
+                                                                                                className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
+                                                                                            />
+                                                                                            <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                                                                                                {imgIndex + 1}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : row.nonCosmeticImages && row.nonCosmeticImages.length > 0 ? (
+                                                                            <div className="space-y-2">
+                                                                                <div className="grid grid-cols-2 gap-1">
+                                                                                    {row.nonCosmeticImages.map((img, imgIndex) => (
+                                                                                        <div key={imgIndex} className="relative group">
+                                                                                            <img
+                                                                                                src={img}
+                                                                                                alt={`Final Non-Cosmetic ${imgIndex + 1}`}
+                                                                                                className="w-16 h-16 object-cover border rounded-lg cursor-pointer"
+                                                                                            />
+                                                                                            {/* <div className="absolute top-0 right-0 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                                                                                            {imgIndex + 1}
+                                                                                        </div> */}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        const input = document.createElement('input');
+                                                                                        input.type = 'file';
+                                                                                        input.accept = 'image/*';
+                                                                                        input.onchange = (e) => {
+                                                                                            const file = (e.target as HTMLInputElement).files?.[0];
+                                                                                            if (file) {
+                                                                                                handleFinalRoundImageUpload(row.id, part.partNumber, 'nonCosmetic', file);
+                                                                                            }
+                                                                                        };
+                                                                                        input.click();
+                                                                                    }}
+                                                                                    className="w-full px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                                                                                >
+                                                                                    + Add More
+                                                                                </button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg transition-colors ${!isPartVerified ? 'opacity-50 cursor-not-allowed border-gray-300 bg-gray-50' : 'cursor-pointer hover:border-orange-400 border-orange-300 bg-orange-50'}`}>
+                                                                                <Upload size={20} className={`mb-2 ${!isPartVerified ? 'text-gray-400' : 'text-orange-400'}`} />
+                                                                                <span className={`text-sm font-medium ${!isPartVerified ? 'text-gray-500' : 'text-orange-600'}`}>
+                                                                                    {!isPartVerified ? 'Scan Part First' : 'Upload Final Non-Cosmetic'}
+                                                                                </span>
+                                                                                <span className="text-xs text-gray-500 mt-1">
+                                                                                    {!isPartVerified ? 'Part must be scanned' : 'Click to browse'}
+                                                                                </span>
+                                                                                <input
+                                                                                    type="file"
+                                                                                    accept="image/*"
+                                                                                    onChange={(e) => {
+                                                                                        const file = e.target.files?.[0];
+                                                                                        if (file && isPartVerified) {
+                                                                                            handleFinalRoundImageUpload(row.id, part.partNumber, 'nonCosmetic', file);
+                                                                                        }
+                                                                                    }}
+                                                                                    className="hidden"
+                                                                                    disabled={!isPartVerified}
+                                                                                />
+                                                                            </label>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-4 py-4 border-r border-gray-200 min-w-[150px]">
+                                                                    {row.croppedImages && row.croppedImages.length > 0 ? (
+                                                                        <div className="space-y-2">
+                                                                            <div className="grid grid-cols-2 gap-1">
+                                                                                {row.croppedImages.map((img, imgIndex) => (
+                                                                                    <div key={imgIndex} className="relative">
+                                                                                        <img
+                                                                                            src={img}
+                                                                                            alt={`Final Cropped ${imgIndex + 1}`}
+                                                                                            className="w-16 h-16 object-contain border rounded-lg"
+                                                                                        />
+                                                                                        {row.regionLabel && imgIndex === 0 && (
+                                                                                            <div className="text-xs text-center font-semibold text-gray-700 mt-1">
+                                                                                                {row.regionLabel}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : existingImages.finalNonCosmeticImages && existingImages.finalNonCosmeticImages.length > 0 ? (
+                                                                        <div className="text-center py-4">
+                                                                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                                                                            <span className="text-xs text-gray-500">
+                                                                                {shouldSplitImages() ? 'Processing final cropped images...' : 'No splitting required'}
+                                                                            </span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-xs text-gray-400 text-center">No final images uploaded</div>
+                                                                    )}
+                                                                </td>
+                                                            </>
+                                                        )}
+
+                                                        {formData.customColumns?.map((column) => (
+                                                            <td key={column.id} className={`px-4 py-4 border-r border-gray-200 ${column.type === 'image' ? 'min-w-[200px]' : ''}`}>
+                                                                {renderField(row, column)}
+                                                            </td>
+                                                        ))}
+                                                        <td className="px-4 py-4">
+                                                            <select
+                                                                value={row.status}
+                                                                onChange={(e) => updateRowField(row.id, 'status', e.target.value)}
+                                                                className={`w-full min-w-[110px] px-3 py-2 border rounded-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${row.status === "Pass" ? "bg-green-50 text-green-700 border-green-200" :
+                                                                    row.status === "Fail" ? "bg-red-50 text-red-700 border-red-200" :
+                                                                        "bg-white border-gray-300 text-gray-700"
+                                                                    }`}
+                                                            >
+                                                                <option value="">Select</option>
+                                                                <option value="Pass">Pass</option>
+                                                                <option value="Fail">Fail</option>
+                                                            </select>
                                                         </td>
-                                                    ))}
-                                                    <td className="px-4 py-4">
-                                                        <select
-                                                            value={row.status}
-                                                            onChange={(e) => updateRowField(row.id, 'status', e.target.value)}
-                                                            className={`w-full min-w-[110px] px-3 py-2 border rounded-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${row.status === "Pass" ? "bg-green-50 text-green-700 border-green-200" :
-                                                                row.status === "Fail" ? "bg-red-50 text-red-700 border-red-200" :
-                                                                    "bg-white border-gray-300 text-gray-700"
-                                                                }`}
-                                                        >
-                                                            <option value="">Select</option>
-                                                            <option value="Pass">Pass</option>
-                                                            <option value="Fail">Fail</option>
-                                                        </select>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -1744,6 +1796,20 @@ export default function MultiStageTestFormEnhanced() {
     const [hasYellowMarks, setHasYellowMarks] = useState<boolean | null>(null);
     const [processingImages, setProcessingImages] = useState<Record<string, boolean>>({});
     const [projectType, setProjectType] = useState<string>(""); // Default to Flash
+    // Add this new state variable
+    const [verifiedPartsForFinalUpload, setVerifiedPartsForFinalUpload] = useState<Set<string>>(new Set());
+
+    // Part scan states
+    const [scanState, setScanState] = useState<ScanState>({
+        isScanning: false,
+        scannedParts: [],
+        partInput: '',
+        showScanModal: false,
+        availableTests: [],
+        selectedTest: '',
+        machineDetails: null,
+        uploadingImages: {}
+    });
 
     const location = useLocation();
     const navigate = useNavigate();
@@ -1928,6 +1994,436 @@ export default function MultiStageTestFormEnhanced() {
         }
 
         return tests;
+    };
+
+    // Helper function to normalize machine name
+    const normalizeMachineName = (machineName: string) => {
+        if (!machineName) return '';
+        const name = machineName.toLowerCase().trim();
+
+        const mappings = {
+            'dlsm random drop': 'DLSM RANDOM DROP',
+            '1.25m random drop': '1.25M RANDOM DROP',
+            'lm random drop': 'LM RANDOM DROP',
+            'lm control drop': 'LM CONTROL DROP',
+            'rock tumbler': 'ROCK TUMBLER',
+            'x-rite spectralight iii': 'X-RITE SPECTRALIGHT III',
+            'heat soak-01': 'HEAT SOAK-01',
+            'heat soak-02': 'HEAT SOAK-02',
+            'thermal cycle chamber': 'THERMAL CYCLE CHAMBER',
+            'uv chamber': 'UV CHAMBER',
+            'salt spray': 'SALT SPRAY',
+            'taber linear abraser': 'TABER LINEAR ABRASER',
+            'electromechanical utm instron': 'ELECTROMECHANICAL UTM INSTRON',
+            'foot survivability test': 'FOOT SURVIVABILITY TEST',
+            'oslr camera': 'OSLR Camera',
+            'tap immersion': 'TAP Immersion',
+            'pool immersion': 'POOL Immersion',
+            'ocean immersion': 'OCEAN Immersion',
+            'asi immersion': 'ASI Immersion'
+        };
+
+        for (const [key, value] of Object.entries(mappings)) {
+            if (name.includes(key) || key.includes(name)) {
+                return value;
+            }
+        }
+
+        return name;
+    };
+
+    // Part scan function
+    const handlePartScan = async () => {
+        if (!scanState.partInput.trim()) {
+            alert('Please enter a part number');
+            return;
+        }
+
+        setScanState(prev => ({ ...prev, isScanning: true }));
+        const partNumber = scanState.partInput.trim().toUpperCase();
+
+        try {
+            // For second round, we need to check if the part is already loaded in the current test
+            if (isSecondRound) {
+                const currentTestRecord = currentRecord?.testRecords?.[currentTestIndex];
+                const isPartInCurrentTest = currentTestRecord?.assignedParts.some(
+                    part => part.partNumber === partNumber
+                );
+
+                if (!isPartInCurrentTest) {
+                    alert(`Part ${partNumber} is not assigned to this test.`);
+                    setScanState(prev => ({ ...prev, isScanning: false }));
+                    return;
+                }
+            }
+
+            const oqcRecords = JSON.parse(localStorage.getItem('oqc_ticket_records') || '[]');
+            let partDetails: ScannedPart | null = null;
+            let foundTicketCode = null;
+
+            // Search for part in OQC records
+            for (const record of oqcRecords) {
+                for (const session of record.sessions || []) {
+                    const matchingPart = session.parts?.find(part =>
+                        part.partNumber?.toUpperCase() === partNumber
+                    );
+
+                    if (matchingPart) {
+                        partDetails = {
+                            id: Date.now(),
+                            partNumber: matchingPart.partNumber,
+                            serialNumber: matchingPart.serialNumber,
+                            ticketCode: record.ticketCode,
+                            project: record.project,
+                            build: record.build,
+                            colour: record.colour,
+                            anoType: record.anoType,
+                            oqcRecordId: record.id,
+                            sessionId: session.id,
+                            sessionNumber: session.sessionNumber,
+                            scannedAt: new Date().toLocaleString(),
+                            availableTests: [],
+                            selectedTestId: '',
+                            scanStatus: 'OK',
+                            cosmeticImage: '',
+                            nonCosmeticImage: '',
+                            cosmeticImages: [],
+                            nonCosmeticImages: []
+                        };
+                        foundTicketCode = record.ticketCode;
+                        break;
+                    }
+                }
+                if (partDetails) break;
+            }
+
+            if (!partDetails) {
+                alert(`Part ${partNumber} not found in OQC records!`);
+                setScanState(prev => ({ ...prev, isScanning: false }));
+                return;
+            }
+
+            // Check if part is already scanned in this session
+            const alreadyScanned = scanState.scannedParts.some(part => part.partNumber === partNumber);
+            if (alreadyScanned) {
+                alert(`Part ${partNumber} is already scanned in this session!`);
+                setScanState(prev => ({ ...prev, isScanning: false }));
+                return;
+            }
+
+            // For second round, don't check allocations - just add the part
+            if (!isSecondRound) {
+                // Check existing loads
+                const existingLoads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
+                const alreadyLoaded = existingLoads.some(load =>
+                    load.parts.some(part => part.partNumber === partNumber)
+                );
+
+                if (alreadyLoaded) {
+                    alert(`Part ${partNumber} is already loaded in another chamber!`);
+                    setScanState(prev => ({ ...prev, isScanning: false }));
+                    return;
+                }
+
+                // Find test allocations for this part
+                const allocations = JSON.parse(localStorage.getItem('ticket_allocations_array') || '[]');
+                const ticketAllocations = allocations.filter(allocation =>
+                    allocation.ticketCode === foundTicketCode
+                );
+
+                if (ticketAllocations.length === 0) {
+                    alert(`No allocations found for ticket ${foundTicketCode}`);
+                    setScanState(prev => ({ ...prev, isScanning: false }));
+                    return;
+                }
+
+                // Find matching tests for this chamber (if machine load data exists)
+                if (currentRecord?.machineLoadData) {
+                    const matchingTests = [];
+                    const normalizedChamber = normalizeMachineName(currentRecord.machineLoadData.chamber);
+
+                    ticketAllocations.forEach(allocation => {
+                        allocation.testAllocations?.forEach(test => {
+                            const normalizedMachine = normalizeMachineName(test.machineEquipment || '');
+                            const isMatch =
+                                normalizedMachine === normalizedChamber ||
+                                normalizedMachine.includes(normalizedChamber) ||
+                                normalizedChamber.includes(normalizedMachine);
+
+                            if (isMatch) {
+                                const allocatedParts = test.allocatedParts || 0;
+                                const requiredQty = test.requiredQty || 0;
+                                const remainingToAllocate = allocatedParts;
+
+                                if (remainingToAllocate > 0) {
+                                    const alreadyAllocated = requiredQty - allocatedParts;
+
+                                    matchingTests.push({
+                                        ...test,
+                                        ticketCode: allocation.ticketCode,
+                                        allocationId: allocation.id,
+                                        project: allocation.project,
+                                        build: allocation.build,
+                                        colour: allocation.colour,
+                                        allocatedParts: allocatedParts,
+                                        requiredQty: requiredQty,
+                                        remainingQty: remainingToAllocate,
+                                        alreadyAllocated: alreadyAllocated,
+                                        statusText: getTestStatusText(test.status)
+                                    });
+                                }
+                            }
+                        });
+                    });
+
+                    if (matchingTests.length === 0) {
+                        alert(`No available tests found for ${currentRecord.machineLoadData.chamber} in ticket ${foundTicketCode} or all tests are fully allocated!`);
+                        setScanState(prev => ({ ...prev, isScanning: false }));
+                        return;
+                    }
+
+                    partDetails.availableTests = matchingTests;
+                    if (!scanState.selectedTest && matchingTests.length > 0) {
+                        setScanState(prev => ({ ...prev, selectedTest: matchingTests[0].id }));
+                    }
+                } else {
+                    // If no machine load data, just add the part without test validation
+                    partDetails.scanStatus = 'NO_MACHINE_DATA';
+                }
+            } else {
+                // For second round, just mark as OK
+                partDetails.scanStatus = 'SECOND_ROUND_OK';
+            }
+
+            setScanState(prev => ({
+                ...prev,
+                scannedParts: [...prev.scannedParts, partDetails],
+                partInput: ''
+            }));
+
+            // Load existing images for this part
+            const existingImages = loadImagesFromStorage(partNumber);
+            if (existingImages.cosmeticImages.length > 0 || existingImages.nonCosmeticImages.length > 0) {
+                const updatedScannedParts = [...scanState.scannedParts, partDetails].map(part => {
+                    if (part.partNumber === partNumber) {
+                        return {
+                            ...part,
+                            cosmeticImages: existingImages.cosmeticImages,
+                            nonCosmeticImages: existingImages.nonCosmeticImages,
+                            hasImages: true
+                        };
+                    }
+                    return part;
+                });
+                setScanState(prev => ({ ...prev, scannedParts: updatedScannedParts }));
+            }
+
+        } catch (error) {
+            console.error('Error scanning part:', error);
+            alert('Error scanning part. Please try again.');
+        } finally {
+            setScanState(prev => ({ ...prev, isScanning: false }));
+        }
+    };
+
+    // Helper function for test status
+    const getTestStatusText = (statusCode: number) => {
+        switch (statusCode) {
+            case 1: return 'Pending';
+            case 2: return 'In Progress';
+            case 3: return 'Completed';
+            case 4: return 'Failed';
+            default: return 'Unknown';
+        }
+    };
+
+    // Image upload handler for scanning modal
+    const handleScanImageUpload = (partId: number, imageType: 'cosmetic' | 'nonCosmetic', file: File) => {
+        setScanState(prev => ({
+            ...prev,
+            uploadingImages: {
+                ...prev.uploadingImages,
+                [partId]: {
+                    ...prev.uploadingImages[partId],
+                    [imageType]: true
+                }
+            }
+        }));
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const imageData = e.target?.result as string;
+
+            setScanState(prev => {
+                const updatedScannedParts = prev.scannedParts.map(part => {
+                    if (part.id === partId) {
+                        const fieldName = imageType === 'cosmetic' ? 'cosmeticImages' : 'nonCosmeticImages';
+                        const currentImages = part[fieldName] || [];
+                        const updatedImages = [...currentImages, imageData];
+
+                        return {
+                            ...part,
+                            [imageType === 'cosmetic' ? 'cosmeticImage' : 'nonCosmeticImage']: imageData,
+                            [fieldName]: updatedImages,
+                            hasImages: true
+                        };
+                    }
+                    return part;
+                });
+
+                return {
+                    ...prev,
+                    scannedParts: updatedScannedParts,
+                    uploadingImages: {
+                        ...prev.uploadingImages,
+                        [partId]: {
+                            ...prev.uploadingImages[partId],
+                            [imageType]: false
+                        }
+                    }
+                };
+            });
+        };
+        reader.readAsDataURL(file);
+    };
+
+    // Remove scanned part
+    const handleRemoveScannedPart = (partId: number) => {
+        setScanState(prev => ({
+            ...prev,
+            scannedParts: prev.scannedParts.filter(part => part.id !== partId)
+        }));
+    };
+
+    // Remove image from scanned part
+    const handleRemoveScannedImage = (partId: number, imageType: 'cosmetic' | 'nonCosmetic', imageIndex: number) => {
+        setScanState(prev => {
+            const updatedScannedParts = prev.scannedParts.map(part => {
+                if (part.id === partId) {
+                    const fieldName = imageType === 'cosmetic' ? 'cosmeticImages' : 'nonCosmeticImages';
+                    const imagesArray = part[fieldName] || [];
+                    const updatedImages = imagesArray.filter((_, idx) => idx !== imageIndex);
+
+                    return {
+                        ...part,
+                        [fieldName]: updatedImages,
+                        [imageType === 'cosmetic' ? 'cosmeticImage' : 'nonCosmeticImage']: updatedImages[0] || ''
+                    };
+                }
+                return part;
+            });
+
+            return {
+                ...prev,
+                scannedParts: updatedScannedParts
+            };
+        });
+    };
+
+    // Confirm scanned parts for second round
+    // const handleConfirmScannedParts = () => {
+    //     if (scanState.scannedParts.length === 0) {
+    //         alert('No parts scanned!');
+    //         return;
+    //     }
+
+    //     // For second round, update the form with scanned parts
+    //     const formKey = `test_${currentTestIndex}`;
+    //     const formData = forms[formKey];
+    //     const currentChildTest = formData?.childTests?.[formData.currentChildTestIndex || 0];
+
+    //     if (!formData) {
+    //         alert('Form data not found!');
+    //         return;
+    //     }
+
+    //     // Update each scanned part in the form
+    //     const updatedRows = formData.rows.map(row => {
+    //         const scannedPart = scanState.scannedParts.find(part => part.partNumber === row.partNumber);
+    //         if (scannedPart) {
+    //             // Mark the part as verified for second round
+    //             return {
+    //                 ...row,
+    //                 scanStatus: 'VERIFIED',
+    //                 scannedAt: new Date().toLocaleString(),
+    //                 status: row.status === "Pending" ? "Ready for Final Images" : row.status
+    //             };
+    //         }
+    //         return row;
+    //     });
+
+    //     setForms(prev => ({
+    //         ...prev,
+    //         [formKey]: {
+    //             ...prev[formKey],
+    //             rows: updatedRows
+    //         }
+    //     }));
+
+    //     // Close scan modal and show success
+    //     setScanState(prev => ({ ...prev, showScanModal: false, scannedParts: [], partInput: '' }));
+    //     alert(`${scanState.scannedParts.length} part(s) verified for second round testing!`);
+    // };
+    // Confirm scanned parts for second round
+    const handleConfirmScannedParts = () => {
+        if (scanState.scannedParts.length === 0) {
+            alert('No parts scanned!');
+            return;
+        }
+
+        // For second round, update the form with scanned parts
+        const formKey = `test_${currentTestIndex}`;
+        const formData = forms[formKey];
+        const currentChildTest = formData?.childTests?.[formData.currentChildTestIndex || 0];
+
+        if (!formData) {
+            alert('Form data not found!');
+            return;
+        }
+
+        // Update each scanned part in the form
+        const updatedRows = formData.rows.map(row => {
+            const scannedPart = scanState.scannedParts.find(part => part.partNumber === row.partNumber);
+            if (scannedPart) {
+                // Mark the part as verified for second round
+                return {
+                    ...row,
+                    scanStatus: 'VERIFIED',
+                    scannedAt: new Date().toLocaleString(),
+                    status: row.status === "Pending" ? "Ready for Final Images" : row.status
+                };
+            }
+            return row;
+        });
+
+        setForms(prev => ({
+            ...prev,
+            [formKey]: {
+                ...prev[formKey],
+                rows: updatedRows
+            }
+        }));
+
+        // Add scanned parts to verified set
+        const newVerifiedParts = new Set(verifiedPartsForFinalUpload);
+        scanState.scannedParts.forEach(part => {
+            newVerifiedParts.add(part.partNumber);
+        });
+        setVerifiedPartsForFinalUpload(newVerifiedParts);
+
+        // Close scan modal and show success
+        setScanState(prev => ({ ...prev, showScanModal: false, scannedParts: [], partInput: '' }));
+        alert(`${scanState.scannedParts.length} part(s) verified for second round testing! You can now upload final images for these parts.`);
+    };
+
+    // Open scan modal for second round
+    const handleOpenScanModal = () => {
+        setScanState(prev => ({
+            ...prev,
+            showScanModal: true,
+            scannedParts: [],
+            partInput: ''
+        }));
     };
 
     // Load data from navigation state
@@ -2924,7 +3420,7 @@ export default function MultiStageTestFormEnhanced() {
                 // For non-cosmetic images, process the uploaded file
                 processNonCosmeticImage(file, partNumber, testName, childTestId, false);
             } else {
-                // For cosmetic images
+                // For cosmetic images, simple upload
                 handleSimpleImageUpload(file, partNumber, testName, type, childTestId, false);
             }
         }
@@ -3456,6 +3952,19 @@ export default function MultiStageTestFormEnhanced() {
                                 <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-semibold">
                                     Second Round - Upload Final Images
                                 </span>
+                                <div className="mt-2 flex items-center gap-2">
+                                    <AlertTriangle className="text-yellow-600" size={16} />
+                                    <span className="text-sm text-gray-700">
+                                        Scan parts before uploading final images
+                                    </span>
+                                    <button
+                                        onClick={handleOpenScanModal}
+                                        className="ml-4 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm"
+                                    >
+                                        <Scan size={16} />
+                                        Scan Parts
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -3674,6 +4183,7 @@ export default function MultiStageTestFormEnhanced() {
                                 row.childTestId === currentChildTest?.id
                             );
                             const existingImages = loadImagesFromStorage(part.partNumber);
+                            const isPartVerified = isSecondRound ? verifiedPartsForFinalUpload.has(part.partNumber) : true;
 
                             return (
                                 <div key={part.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
@@ -3709,7 +4219,7 @@ export default function MultiStageTestFormEnhanced() {
                                     </div>
 
                                     {/* Status Badge */}
-                                    <div className="mb-4">
+                                    <div className="mb-4 flex items-center gap-2">
                                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${rowData?.status === "Pass" ? "bg-green-100 text-green-800" :
                                             rowData?.status === "Fail" ? "bg-red-100 text-red-800" :
                                                 rowData?.status === "In Progress" ? "bg-yellow-100 text-yellow-800" :
@@ -3717,10 +4227,32 @@ export default function MultiStageTestFormEnhanced() {
                                             }`}>
                                             {rowData?.status || "Not Started"}
                                         </span>
+                                        {isSecondRound && !isPartVerified && (
+                                            <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 flex items-center gap-1">
+                                                <AlertCircle size={12} />
+                                                Not Scanned
+                                            </span>
+                                        )}
+                                        {isSecondRound && isPartVerified && (
+                                            <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 flex items-center gap-1">
+                                                <CheckCircle size={12} />
+                                                Verified
+                                            </span>
+                                        )}
                                     </div>
 
                                     {/* Image Upload Section */}
                                     <div className="space-y-4">
+                                        {/* Show warning if part is not verified in second round */}
+                                        {isSecondRound && !isPartVerified && (
+                                            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                                                <AlertCircle className="text-red-600 mt-0.5 flex-shrink-0" size={16} />
+                                                <div className="text-xs text-red-800">
+                                                    <p className="font-medium mb-1">This part has not been scanned yet</p>
+                                                    <p>Please scan this part using the "Scan Parts" button before uploading final images.</p>
+                                                </div>
+                                            </div>
+                                        )}
                                         {/* Cosmetic Images */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -3850,18 +4382,19 @@ export default function MultiStageTestFormEnhanced() {
                                                 </div>
                                             )}
 
-                                            {/* Upload button */}
-                                            <label className={`flex items-center justify-center h-20 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${processing ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-400 hover:bg-blue-100'}`}
+                                            <label className={`flex items-center justify-center h-20 border-2 border-dashed rounded-lg transition-colors ${processing || (isSecondRound && !isPartVerified) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-blue-400 hover:bg-blue-100'}`}
                                                 style={{
-                                                    borderColor: processing ? '#d1d5db' : isSecondRound ? '#a78bfa' : '#93c5fd',
-                                                    backgroundColor: processing ? '#f3f4f6' : isSecondRound ? '#f5f3ff' : '#eff6ff'
+                                                    borderColor: processing || (isSecondRound && !isPartVerified) ? '#d1d5db' : isSecondRound ? '#a78bfa' : '#93c5fd',
+                                                    backgroundColor: processing || (isSecondRound && !isPartVerified) ? '#f3f4f6' : isSecondRound ? '#f5f3ff' : '#eff6ff'
                                                 }}>
                                                 <div className="text-center">
-                                                    <Upload className={`mx-auto mb-1 ${processing ? 'text-gray-400' : isSecondRound ? 'text-purple-400' : 'text-blue-400'}`} size={20} />
-                                                    <span className={`text-sm font-medium ${processing ? 'text-gray-500' : isSecondRound ? 'text-purple-600' : 'text-blue-600'}`}>
-                                                        {processing ? 'Processing...' : `Upload ${isSecondRound ? 'Final ' : ''}Cosmetic Image${projectType === "Hulk" ? 's' : ''}`}
+                                                    <Upload className={`mx-auto mb-1 ${processing || (isSecondRound && !isPartVerified) ? 'text-gray-400' : isSecondRound ? 'text-purple-400' : 'text-blue-400'}`} size={20} />
+                                                    <span className={`text-sm font-medium ${processing || (isSecondRound && !isPartVerified) ? 'text-gray-500' : isSecondRound ? 'text-purple-600' : 'text-blue-600'}`}>
+                                                        {processing ? 'Processing...' : (isSecondRound && !isPartVerified) ? 'Scan Part First' : `Upload ${isSecondRound ? 'Final ' : ''}Cosmetic Image${projectType === "Hulk" ? 's' : ''}`}
                                                     </span>
-                                                    <p className="text-xs text-gray-500 mt-1">Click to add image{projectType === "Hulk" ? 's' : ''}</p>
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        {(isSecondRound && !isPartVerified) ? 'Part must be scanned' : 'Click to add image' + (projectType === "Hulk" ? 's' : '')}
+                                                    </p>
                                                 </div>
                                                 <input
                                                     type="file"
@@ -3869,7 +4402,7 @@ export default function MultiStageTestFormEnhanced() {
                                                     className="hidden"
                                                     multiple={projectType === "Hulk"}
                                                     onChange={(e) => {
-                                                        if (e.target.files && !processing) {
+                                                        if (e.target.files && !processing && !(isSecondRound && !isPartVerified)) {
                                                             Array.from(e.target.files).forEach(file => {
                                                                 handleImageUpload(
                                                                     part.partNumber,
@@ -3882,10 +4415,9 @@ export default function MultiStageTestFormEnhanced() {
                                                             e.target.value = '';
                                                         }
                                                     }}
-                                                    disabled={processing}
+                                                    disabled={processing || (isSecondRound && !isPartVerified)}
                                                 />
                                             </label>
-
                                             {/* Show total count */}
                                             {((isSecondRound ? existingImages.finalCosmeticImages : existingImages.cosmeticImages).length > 0 || (isSecondRound ? rowData?.finalCosmeticImages : rowData?.cosmeticImages)?.length > 0) && (
                                                 <div className="mt-2 text-xs text-gray-600">
@@ -4088,25 +4620,26 @@ export default function MultiStageTestFormEnhanced() {
                                                 </div>
                                             )}
 
-                                            {/* Upload button */}
-                                            <label className={`flex items-center justify-center h-20 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${processing ? 'opacity-50 cursor-not-allowed' : 'hover:border-green-400 hover:bg-green-100'}`}
+                                            <label className={`flex items-center justify-center h-20 border-2 border-dashed rounded-lg transition-colors ${processing || (isSecondRound && !isPartVerified) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-green-400 hover:bg-green-100'}`}
                                                 style={{
-                                                    borderColor: processing ? '#d1d5db' : isSecondRound ? '#fdba74' : '#86efac',
-                                                    backgroundColor: processing ? '#f3f4f6' : isSecondRound ? '#ffedd5' : '#f0fdf4'
+                                                    borderColor: processing || (isSecondRound && !isPartVerified) ? '#d1d5db' : isSecondRound ? '#fdba74' : '#86efac',
+                                                    backgroundColor: processing || (isSecondRound && !isPartVerified) ? '#f3f4f6' : isSecondRound ? '#ffedd5' : '#f0fdf4'
                                                 }}>
                                                 <div className="text-center">
-                                                    <Upload className={`mx-auto mb-1 ${processing ? 'text-gray-400' : isSecondRound ? 'text-orange-400' : 'text-green-400'}`} size={20} />
-                                                    <span className={`text-sm font-medium ${processing ? 'text-gray-500' : isSecondRound ? 'text-orange-600' : 'text-green-600'}`}>
-                                                        {processing ? 'Processing...' : `Upload ${isSecondRound ? 'Final ' : ''}Non-Cosmetic Image`}
+                                                    <Upload className={`mx-auto mb-1 ${processing || (isSecondRound && !isPartVerified) ? 'text-gray-400' : isSecondRound ? 'text-orange-400' : 'text-green-400'}`} size={20} />
+                                                    <span className={`text-sm font-medium ${processing || (isSecondRound && !isPartVerified) ? 'text-gray-500' : isSecondRound ? 'text-orange-600' : 'text-green-600'}`}>
+                                                        {processing ? 'Processing...' : (isSecondRound && !isPartVerified) ? 'Scan Part First' : `Upload ${isSecondRound ? 'Final ' : ''}Non-Cosmetic Image`}
                                                     </span>
-                                                    <p className="text-xs text-gray-500 mt-1">Click to add {isSecondRound ? 'new ' : ''}image</p>
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        {(isSecondRound && !isPartVerified) ? 'Part must be scanned' : `Click to add ${isSecondRound ? 'new ' : ''}image`}
+                                                    </p>
                                                 </div>
                                                 <input
                                                     type="file"
                                                     accept="image/*"
                                                     className="hidden"
                                                     onChange={(e) => {
-                                                        if (e.target.files?.[0] && !processing) {
+                                                        if (e.target.files?.[0] && !processing && !(isSecondRound && !isPartVerified)) {
                                                             handleImageUpload(
                                                                 part.partNumber,
                                                                 currentTestRecord!.testName,
@@ -4117,7 +4650,7 @@ export default function MultiStageTestFormEnhanced() {
                                                             e.target.value = '';
                                                         }
                                                     }}
-                                                    disabled={processing}
+                                                    disabled={processing || (isSecondRound && !isPartVerified)}
                                                 />
                                             </label>
 
@@ -4463,6 +4996,174 @@ export default function MultiStageTestFormEnhanced() {
         }
     };
 
+    // Render Part Scan Modal
+    const renderScanModal = () => {
+        if (!scanState.showScanModal) return null;
+
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+                    <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-blue-50 to-white sticky top-0">
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-800">Scan Parts for Second Round</h3>
+                            <p className="text-sm text-gray-600 mt-1">Verify parts before uploading final images</p>
+                        </div>
+                        <button
+                            onClick={() => setScanState(prev => ({ ...prev, showScanModal: false }))}
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                            <X size={24} />
+                        </button>
+                    </div>
+
+                    <div className="p-6">
+                        {/* Part Scan Input */}
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Scan Part Number
+                            </label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={scanState.partInput}
+                                    onChange={(e) => setScanState(prev => ({ ...prev, partInput: e.target.value }))}
+                                    onKeyPress={(e) => e.key === 'Enter' && handlePartScan()}
+                                    placeholder="Enter part number (e.g., PART-001)"
+                                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700 font-mono text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                                <button
+                                    onClick={handlePartScan}
+                                    disabled={scanState.isScanning || !scanState.partInput.trim()}
+                                    className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                                >
+                                    {scanState.isScanning ? (
+                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                    ) : (
+                                        <>
+                                            <Scan size={20} />
+                                            <span>Scan</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                            <p className="text-start text-sm text-gray-500 mt-2">
+                                Enter part number to verify for second round testing
+                            </p>
+                        </div>
+
+                        {/* Scanned Parts List */}
+                        <div className="mb-6">
+                            <h4 className="text-sm font-medium text-gray-700 mb-3">
+                                Scanned Parts ({scanState.scannedParts.length})
+                            </h4>
+                            <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
+                                {scanState.scannedParts.length === 0 ? (
+                                    <div className="p-8 text-center text-gray-400">
+                                        No parts scanned yet
+                                    </div>
+                                ) : (
+                                    <div className="divide-y">
+                                        {scanState.scannedParts.map((part) => {
+                                            const isUploadingCosmetic = scanState.uploadingImages[part.id]?.cosmetic || false;
+                                            const isUploadingNonCosmetic = scanState.uploadingImages[part.id]?.nonCosmetic || false;
+
+                                            return (
+                                                <div key={part.id} className="p-4 hover:bg-gray-50">
+                                                    <div className="flex justify-between items-start">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="font-medium text-gray-800 text-lg">{part.partNumber}</div>
+                                                                <span className={`px-2 py-1 rounded text-xs font-medium ${part.scanStatus === 'OK' || part.scanStatus === 'SECOND_ROUND_OK'
+                                                                    ? 'bg-green-100 text-green-800'
+                                                                    : 'bg-yellow-100 text-yellow-800'
+                                                                    }`}>
+                                                                    {part.scanStatus === 'SECOND_ROUND_OK' ? 'Verified for Second Round' : part.scanStatus}
+                                                                </span>
+                                                                {(part.cosmeticImages?.length > 0 || part.nonCosmeticImages?.length > 0) && (
+                                                                    <span className="px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800 flex items-center gap-1">
+                                                                        <ImageIcon size={12} />
+                                                                        {part.cosmeticImages?.length || 0} cosmetic, {part.nonCosmeticImages?.length || 0} non-cosmetic
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="text-sm text-gray-500 mt-2 space-y-1">
+                                                                <div>Serial: {part.serialNumber} • Ticket: {part.ticketCode}</div>
+                                                                <div>Project: {part.project} | Build: {part.build} | Colour: {part.colour}</div>
+                                                                <div className="text-gray-400 text-xs">Scanned: {part.scannedAt}</div>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleRemoveScannedPart(part.id)}
+                                                            className="text-red-500 hover:text-red-700 transition-colors ml-4"
+                                                            title="Remove part"
+                                                        >
+                                                            <X size={20} />
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Image Upload for Scanned Part */}
+
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Summary */}
+                        {scanState.scannedParts.length > 0 && (
+                            <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                                <h4 className="text-sm font-medium text-purple-800 mb-2">Scan Summary</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <span className="text-gray-600">Parts scanned:</span>
+                                        <span className="font-semibold ml-2">{scanState.scannedParts.length}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Parts with images:</span>
+                                        <span className="font-semibold ml-2">
+                                            {scanState.scannedParts.filter(p => p.hasImages).length} / {scanState.scannedParts.length}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Total cosmetic images:</span>
+                                        <span className="font-semibold ml-2">
+                                            {scanState.scannedParts.reduce((sum, part) => sum + (part.cosmeticImages?.length || 0), 0)}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Total non-cosmetic images:</span>
+                                        <span className="font-semibold ml-2">
+                                            {scanState.scannedParts.reduce((sum, part) => sum + (part.nonCosmeticImages?.length || 0), 0)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setScanState(prev => ({ ...prev, showScanModal: false }))}
+                                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmScannedParts}
+                                disabled={scanState.scannedParts.length === 0}
+                                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Confirm Scanned Parts ({scanState.scannedParts.length} parts)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     const stages = [
         { id: 0, name: "Image Upload" },
         { id: 1, name: "Test Forms" }
@@ -4549,6 +5250,9 @@ export default function MultiStageTestFormEnhanced() {
                     )}
                 </div>
             </div>
+
+            {/* Scan Modal */}
+            {renderScanModal()}
         </div>
     );
 }

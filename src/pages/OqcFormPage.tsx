@@ -99,7 +99,7 @@ const SOURCE_OPTIONS_ASSEMBLY = ["Line1", "Line2", "Other"];
 const SOURCE_OPTIONS_OLEO = ["Other"];
 const PROJECT_OPTIONS = ["FLASH", "LIGHT", "HULK", "AQUA"];
 const COLOUR_OPTIONS = ["NDA", "Stardust", "Light Blue", "N/A"];
-const REASON_OPTIONS = ["Mass Production", "New Product Introduction", "Line Qualification", "Machine Qualification", "Other"];
+const REASON_OPTIONS = ["MP", "NPI", "Line Qualification", "Machine Qualification", "Other"];
 
 // LocalStorage key
 const STORAGE_KEY = 'oqc_ticket_records';
@@ -125,8 +125,8 @@ const ANO_TYPE_CODES = {
 };
 
 const REASON_CODES = {
-  'Mass Production': 'MP',
-  'New Product Introduction': 'NP',
+  'MP': 'MP',
+  'NPI': 'NP',
   'Line Qualification': 'LQ',
   'Machine Qualification': 'MQ',
   'Other': 'OTH'
@@ -310,105 +310,105 @@ const OQCSystem = () => {
   // };
 
   const handleReUploadFromORT = (ortSession: ORTStage1Data) => {
-  // FIRST: Clean up old data from localStorage
-  // Remove from stage1TableData
-  const stage1DataStr = localStorage.getItem("stage1TableData");
-  if (stage1DataStr) {
-    const stage1Data = JSON.parse(stage1DataStr);
-    const filteredStage1Data = stage1Data.filter((item: any) => 
-      item.sessionId !== ortSession.sessionId
-    );
-    localStorage.setItem("stage1TableData", JSON.stringify(filteredStage1Data));
-  }
+    // FIRST: Clean up old data from localStorage
+    // Remove from stage1TableData
+    const stage1DataStr = localStorage.getItem("stage1TableData");
+    if (stage1DataStr) {
+      const stage1Data = JSON.parse(stage1DataStr);
+      const filteredStage1Data = stage1Data.filter((item: any) =>
+        item.sessionId !== ortSession.sessionId
+      );
+      localStorage.setItem("stage1TableData", JSON.stringify(filteredStage1Data));
+    }
 
-  // Remove from processedORTSubmissions
-  const processedSessionsStr = localStorage.getItem("processedORTSubmissions");
-  if (processedSessionsStr) {
-    const processedSessionIds = JSON.parse(processedSessionsStr);
-    const filteredProcessed = processedSessionIds.filter((id: string) => id !== ortSession.sessionId);
-    localStorage.setItem("processedORTSubmissions", JSON.stringify(filteredProcessed));
-  }
+    // Remove from processedORTSubmissions
+    const processedSessionsStr = localStorage.getItem("processedORTSubmissions");
+    if (processedSessionsStr) {
+      const processedSessionIds = JSON.parse(processedSessionsStr);
+      const filteredProcessed = processedSessionIds.filter((id: string) => id !== ortSession.sessionId);
+      localStorage.setItem("processedORTSubmissions", JSON.stringify(filteredProcessed));
+    }
 
-  // Check if this ticket already exists in OQC
-  const existingTicket = testRecords.find(t => t.ticketCode === ortSession.ticketCode);
+    // Check if this ticket already exists in OQC
+    const existingTicket = testRecords.find(t => t.ticketCode === ortSession.ticketCode);
 
-  let ticketToUse;
+    let ticketToUse;
 
-  if (existingTicket) {
-    // Check if there's already a session with this session number
-    const existingSessionIndex = existingTicket.sessions.findIndex(
-      s => s.sessionNumber === ortSession.sessionNumber
-    );
-
-    if (existingSessionIndex >= 0) {
-      // Remove the existing session (since it was not received)
-      const updatedSessions = existingTicket.sessions.filter(
-        (_, index) => index !== existingSessionIndex
+    if (existingTicket) {
+      // Check if there's already a session with this session number
+      const existingSessionIndex = existingTicket.sessions.findIndex(
+        s => s.sessionNumber === ortSession.sessionNumber
       );
 
+      if (existingSessionIndex >= 0) {
+        // Remove the existing session (since it was not received)
+        const updatedSessions = existingTicket.sessions.filter(
+          (_, index) => index !== existingSessionIndex
+        );
+
+        // Extract reason from inventory remarks
+        const reasonMatch = ortSession.inventoryRemarks?.match(/Not Received - Reason: (.+)/);
+        const ortReason = reasonMatch ? reasonMatch[1] : "Unknown reason";
+
+        const updatedTicket = {
+          ...existingTicket,
+          sessions: updatedSessions,
+          status: 'In-Progress',
+          // Update reason to include ORT rejection info
+          reason: existingTicket.reason
+        };
+
+        const updatedRecords = testRecords.map(record =>
+          record.id === existingTicket.id ? updatedTicket : record
+        );
+
+        setTestRecords(updatedRecords);
+        ticketToUse = updatedTicket;
+      } else {
+        ticketToUse = existingTicket;
+      }
+    } else {
+      // Create a new ticket for this session
       // Extract reason from inventory remarks
       const reasonMatch = ortSession.inventoryRemarks?.match(/Not Received - Reason: (.+)/);
       const ortReason = reasonMatch ? reasonMatch[1] : "Unknown reason";
 
-      const updatedTicket = {
-        ...existingTicket,
-        sessions: updatedSessions,
+      const newRecord: TestRecord = {
+        id: Date.now(),
+        ticketCode: ortSession.ticketCode,
+        totalQuantity: ortSession.totalQuantity || ortSession.partsBeingSent,
+        anoType: ortSession.detailsBox?.assemblyOQCAno || "N/A",
+        source: "ORT Re-upload",
+        reason: `Re-upload from ORT: ${ortReason}`,
+        project: ortSession.detailsBox?.project || "N/A",
+        build: ortSession.detailsBox?.batch || "N/A",
+        colour: ortSession.detailsBox?.color || "N/A",
+        dateTime: new Date().toISOString().split('T')[0],
         status: 'In-Progress',
-        // Update reason to include ORT rejection info
-        reason: existingTicket.reason
+        sessions: [],
+        createdAt: new Date().toISOString(),
+        oqcApproved: false
       };
 
-      const updatedRecords = testRecords.map(record =>
-        record.id === existingTicket.id ? updatedTicket : record
-      );
-
+      const updatedRecords = [...testRecords, newRecord];
       setTestRecords(updatedRecords);
-      ticketToUse = updatedTicket;
-    } else {
-      ticketToUse = existingTicket;
+      ticketToUse = newRecord;
     }
-  } else {
-    // Create a new ticket for this session
-    // Extract reason from inventory remarks
-    const reasonMatch = ortSession.inventoryRemarks?.match(/Not Received - Reason: (.+)/);
-    const ortReason = reasonMatch ? reasonMatch[1] : "Unknown reason";
 
-    const newRecord: TestRecord = {
-      id: Date.now(),
-      ticketCode: ortSession.ticketCode,
-      totalQuantity: ortSession.totalQuantity || ortSession.partsBeingSent,
-      anoType: ortSession.detailsBox?.assemblyOQCAno || "N/A",
-      source: "ORT Re-upload",
-      reason: `Re-upload from ORT: ${ortReason}`,
-      project: ortSession.detailsBox?.project || "N/A",
-      build: ortSession.detailsBox?.batch || "N/A",
-      colour: ortSession.detailsBox?.color || "N/A",
-      dateTime: new Date().toISOString().split('T')[0],
-      status: 'In-Progress',
-      sessions: [],
-      createdAt: new Date().toISOString(),
-      oqcApproved: false
-    };
+    // Clear temp scanned parts
+    setTempScannedParts([]);
+    setBarcodeInput('');
 
-    const updatedRecords = [...testRecords, newRecord];
-    setTestRecords(updatedRecords);
-    ticketToUse = newRecord;
-  }
+    // Set as selected ticket
+    setSelectedTicket(ticketToUse);
 
-  // Clear temp scanned parts
-  setTempScannedParts([]);
-  setBarcodeInput('');
+    // Navigate to scan tab
+    setActiveTab('scan');
 
-  // Set as selected ticket
-  setSelectedTicket(ticketToUse);
-
-  // Navigate to scan tab
-  setActiveTab('scan');
-
-  showNotification('info',
-    `Re-uploading session ${ortSession.sessionNumber} for ticket ${ortSession.ticketCode}. Old data has been cleaned up.`
-  );
-};
+    showNotification('info',
+      `Re-uploading session ${ortSession.sessionNumber} for ticket ${ortSession.ticketCode}. Old data has been cleaned up.`
+    );
+  };
 
   // Function to mark not received session as resolved
   // const handleMarkAsResolved = (sessionId: string) => {
@@ -434,36 +434,36 @@ const OQCSystem = () => {
   // };
 
   const handleMarkAsResolved = (sessionId: string) => {
-  if (window.confirm('Mark this session as resolved? This will remove the old "Not Received" data and clean up localStorage.')) {
-    // Update the ORT stage1 data
-    const updatedOrtData = ortStage1Data.filter((item: ORTStage1Data) => 
-      item.sessionId !== sessionId
-    );
-
-    setOrtStage1Data(updatedOrtData);
-    localStorage.setItem("stage1TableData", JSON.stringify(updatedOrtData));
-
-    // Also clean up ort_lab_submissions for this session
-    const ortSubmissionsStr = localStorage.getItem('ort_lab_submissions');
-    if (ortSubmissionsStr) {
-      const ortSubmissions = JSON.parse(ortSubmissionsStr);
-      const filteredSubmissions = ortSubmissions.filter((sub: any) => 
-        sub.id !== sessionId
+    if (window.confirm('Mark this session as resolved? This will remove the old "Not Received" data and clean up localStorage.')) {
+      // Update the ORT stage1 data
+      const updatedOrtData = ortStage1Data.filter((item: ORTStage1Data) =>
+        item.sessionId !== sessionId
       );
-      localStorage.setItem('ort_lab_submissions', JSON.stringify(filteredSubmissions));
-    }
 
-    // Clean up processedORTSubmissions
-    const processedSessionsStr = localStorage.getItem("processedORTSubmissions");
-    if (processedSessionsStr) {
-      const processedSessionIds = JSON.parse(processedSessionsStr);
-      const filteredProcessed = processedSessionIds.filter((id: string) => id !== sessionId);
-      localStorage.setItem("processedORTSubmissions", JSON.stringify(filteredProcessed));
-    }
+      setOrtStage1Data(updatedOrtData);
+      localStorage.setItem("stage1TableData", JSON.stringify(updatedOrtData));
 
-    showNotification('success', 'Session marked as resolved and old data cleaned up');
-  }
-};
+      // Also clean up ort_lab_submissions for this session
+      const ortSubmissionsStr = localStorage.getItem('ort_lab_submissions');
+      if (ortSubmissionsStr) {
+        const ortSubmissions = JSON.parse(ortSubmissionsStr);
+        const filteredSubmissions = ortSubmissions.filter((sub: any) =>
+          sub.id !== sessionId
+        );
+        localStorage.setItem('ort_lab_submissions', JSON.stringify(filteredSubmissions));
+      }
+
+      // Clean up processedORTSubmissions
+      const processedSessionsStr = localStorage.getItem("processedORTSubmissions");
+      if (processedSessionsStr) {
+        const processedSessionIds = JSON.parse(processedSessionsStr);
+        const filteredProcessed = processedSessionIds.filter((id: string) => id !== sessionId);
+        localStorage.setItem("processedORTSubmissions", JSON.stringify(filteredProcessed));
+      }
+
+      showNotification('success', 'Session marked as resolved and old data cleaned up');
+    }
+  };
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -482,7 +482,7 @@ const OQCSystem = () => {
     const colourCode = COLOUR_CODES[colour] || 'UNK';
     const anoCode = ANO_TYPE_CODES[anoType.toUpperCase()] || 'UNK';
 
-     const reasonCode = REASON_CODES[reason] || 'OTH';
+    const reasonCode = REASON_CODES[reason] || 'OTH';
 
     // Pad quantity to 3 digits
     const quantityPadded = String(quantity).padStart(3, '0');
@@ -881,92 +881,92 @@ const OQCSystem = () => {
   // };
 
   // Function to submit all sessions for a ticket
-  
+
   const handleSubmitSession = (ticketId: number, sessionId: string) => {
-  const updatedRecords = testRecords.map(record => {
-    if (record.id === ticketId) {
-      const updatedSessions = record.sessions.map(session => {
-        if (session.id === sessionId) {
-          return {
-            ...session,
-            submitted: true,
-            submittedAt: new Date().toISOString()
-          };
-        }
-        return session;
-      });
+    const updatedRecords = testRecords.map(record => {
+      if (record.id === ticketId) {
+        const updatedSessions = record.sessions.map(session => {
+          if (session.id === sessionId) {
+            return {
+              ...session,
+              submitted: true,
+              submittedAt: new Date().toISOString()
+            };
+          }
+          return session;
+        });
 
-      // Check if all sessions are submitted
-      const allSessionsSubmitted = updatedSessions.every(session => session.submitted);
-      const totalScanned = updatedSessions.reduce((sum, session) => sum + session.parts.length, 0);
-      const allScanned = totalScanned >= record.totalQuantity;
+        // Check if all sessions are submitted
+        const allSessionsSubmitted = updatedSessions.every(session => session.submitted);
+        const totalScanned = updatedSessions.reduce((sum, session) => sum + session.parts.length, 0);
+        const allScanned = totalScanned >= record.totalQuantity;
 
-      return {
-        ...record,
-        sessions: updatedSessions,
-        status: allSessionsSubmitted ? 'Ready for OQC Approval' : record.status
+        return {
+          ...record,
+          sessions: updatedSessions,
+          status: allSessionsSubmitted ? 'Ready for OQC Approval' : record.status
+        };
+      }
+      return record;
+    });
+
+    setTestRecords(updatedRecords);
+    showNotification('success', 'Session submitted successfully!');
+
+    // Find the submitted session and ticket for ORT Lab data
+    const submittedTicket = testRecords.find(t => t.id === ticketId);
+    const submittedSession = submittedTicket?.sessions.find(s => s.id === sessionId);
+
+    if (submittedTicket && submittedSession) {
+      // Prepare data for ORT Lab
+      const ortLabData = {
+        id: sessionId,
+        timestamp: new Date().toISOString(),
+        ticketId: ticketId,
+        ticketCode: submittedTicket.ticketCode,
+        sessionNumber: submittedSession.sessionNumber,
+        parts: submittedSession.parts,
+        project: submittedTicket.project,
+        build: submittedTicket.build,
+        colour: submittedTicket.colour,
+        anoType: submittedTicket.anoType,
+        source: submittedTicket.source,
+        reason: submittedTicket.reason,
+        oqcApprovedBy: submittedTicket.oqcApprovedBy,
+        oqcApprovedAt: submittedTicket.oqcApprovedAt,
+        submittedAt: submittedSession.submittedAt,
+        totalParts: submittedSession.parts.length,
+        serialNumber: submittedSession.parts.map(p => p.serialNumber).join(', '),
+        partNumbers: submittedSession.parts.map(p => p.partNumber),
+        rawBarcodeData: submittedSession.parts.map(p => `${p.serialNumber}:${p.partNumber}`).join('; '),
+        submitted: true,
+        totalQuantity: submittedTicket.totalQuantity
       };
+
+      // Store in localStorage for ORT Lab
+      const existingSubmissions = JSON.parse(localStorage.getItem('ort_lab_submissions') || '[]');
+
+      // Check if this session already exists in submissions
+      const existingSubmissionIndex = existingSubmissions.findIndex(
+        (sub: any) => sub.id === sessionId
+      );
+
+      if (existingSubmissionIndex >= 0) {
+        // Update existing submission
+        existingSubmissions[existingSubmissionIndex] = ortLabData;
+      } else {
+        // Add new submission
+        existingSubmissions.push(ortLabData);
+      }
+
+      localStorage.setItem('ort_lab_submissions', JSON.stringify(existingSubmissions));
+
+      // Navigate to ORT Lab page after a short delay
+      setTimeout(() => {
+        navigate('/ort-lab-form');
+      }, 1000);
     }
-    return record;
-  });
-
-  setTestRecords(updatedRecords);
-  showNotification('success', 'Session submitted successfully!');
-
-  // Find the submitted session and ticket for ORT Lab data
-  const submittedTicket = testRecords.find(t => t.id === ticketId);
-  const submittedSession = submittedTicket?.sessions.find(s => s.id === sessionId);
-
-  if (submittedTicket && submittedSession) {
-    // Prepare data for ORT Lab
-    const ortLabData = {
-      id: sessionId,
-      timestamp: new Date().toISOString(),
-      ticketId: ticketId,
-      ticketCode: submittedTicket.ticketCode,
-      sessionNumber: submittedSession.sessionNumber,
-      parts: submittedSession.parts,
-      project: submittedTicket.project,
-      build: submittedTicket.build,
-      colour: submittedTicket.colour,
-      anoType: submittedTicket.anoType,
-      source: submittedTicket.source,
-      reason: submittedTicket.reason,
-      oqcApprovedBy: submittedTicket.oqcApprovedBy,
-      oqcApprovedAt: submittedTicket.oqcApprovedAt,
-      submittedAt: submittedSession.submittedAt,
-      totalParts: submittedSession.parts.length,
-      serialNumber: submittedSession.parts.map(p => p.serialNumber).join(', '),
-      partNumbers: submittedSession.parts.map(p => p.partNumber),
-      rawBarcodeData: submittedSession.parts.map(p => `${p.serialNumber}:${p.partNumber}`).join('; '),
-      submitted: true,
-      totalQuantity: submittedTicket.totalQuantity
-    };
-
-    // Store in localStorage for ORT Lab
-    const existingSubmissions = JSON.parse(localStorage.getItem('ort_lab_submissions') || '[]');
-    
-    // Check if this session already exists in submissions
-    const existingSubmissionIndex = existingSubmissions.findIndex(
-      (sub: any) => sub.id === sessionId
-    );
-    
-    if (existingSubmissionIndex >= 0) {
-      // Update existing submission
-      existingSubmissions[existingSubmissionIndex] = ortLabData;
-    } else {
-      // Add new submission
-      existingSubmissions.push(ortLabData);
-    }
-    
-    localStorage.setItem('ort_lab_submissions', JSON.stringify(existingSubmissions));
-
-    // Navigate to ORT Lab page after a short delay
-    setTimeout(() => {
-      navigate('/ort-lab-form');
-    }, 1000);
-  }
-};
+  };
 
   const handleSubmitAllSessions = (ticketId: number) => {
     const updatedRecords = testRecords.map(record => {
@@ -1143,94 +1143,94 @@ const OQCSystem = () => {
   // };
 
   const handleSubmitToORTLab = (ticketId: number, sessionId: string, ticketCode: string) => {
-  const ticket = testRecords.find(t => t.id === ticketId);
-  const session = ticket?.sessions.find(s => s.id === sessionId);
+    const ticket = testRecords.find(t => t.id === ticketId);
+    const session = ticket?.sessions.find(s => s.id === sessionId);
 
-  if (!ticket || !session) {
-    showNotification('error', 'Ticket or session not found');
-    return;
-  }
-
-  // Check if ticket is OQC approved
-  if (!ticket.oqcApproved) {
-    showNotification('error', 'Ticket must be OQC approved before sending to ORT Lab');
-    return;
-  }
-
-  // Check if session is submitted
-  if (!session.submitted) {
-    showNotification('error', 'Session must be submitted before sending to ORT Lab');
-    return;
-  }
-
-  // Prepare data for ORT Lab
-  const ortLabData = {
-    ticketId,
-    ticketCode,
-    sessionId,
-    sessionNumber: session.sessionNumber,
-    timestamp: new Date().toISOString(),
-    parts: session.parts,
-    project: ticket.project,
-    build: ticket.build,
-    colour: ticket.colour,
-    anoType: ticket.anoType,
-    source: ticket.source,
-    reason: ticket.reason,
-    oqcApprovedBy: ticket.oqcApprovedBy,
-    oqcApprovedAt: ticket.oqcApprovedAt,
-    submittedAt: session.submittedAt,
-    totalParts: session.parts.length,
-    serialNumber: session.parts.map(p => p.serialNumber).join(', '),
-    partNumbers: session.parts.map(p => p.partNumber),
-    rawBarcodeData: session.parts.map(p => `${p.serialNumber}:${p.partNumber}`).join('; '),
-    submitted: true,
-    totalQuantity: ticket.totalQuantity
-  };
-
-  // Store in localStorage for ORT Lab to access
-  const existingSubmissions = JSON.parse(localStorage.getItem('ort_lab_submissions') || '[]');
-  
-  // Check if this session already exists in submissions
-  const existingSubmissionIndex = existingSubmissions.findIndex(
-    (sub: any) => sub.id === sessionId
-  );
-  
-  if (existingSubmissionIndex >= 0) {
-    // Update existing submission
-    existingSubmissions[existingSubmissionIndex] = ortLabData;
-  } else {
-    // Add new submission
-    existingSubmissions.push(ortLabData);
-  }
-  
-  localStorage.setItem('ort_lab_submissions', JSON.stringify(existingSubmissions));
-
-  // Update the session to mark as sent to ORT
-  const updatedRecords = testRecords.map(record => {
-    if (record.id === ticketId) {
-      return {
-        ...record,
-        sessions: record.sessions.map(s => {
-          if (s.id === sessionId) {
-            return {
-              ...s,
-              sentToORT: true,
-              sentToORTAt: new Date().toISOString()
-            };
-          }
-          return s;
-        })
-      };
+    if (!ticket || !session) {
+      showNotification('error', 'Ticket or session not found');
+      return;
     }
-    return record;
-  });
 
-  setTestRecords(updatedRecords);
+    // Check if ticket is OQC approved
+    if (!ticket.oqcApproved) {
+      showNotification('error', 'Ticket must be OQC approved before sending to ORT Lab');
+      return;
+    }
 
-  // Navigate to ORT Lab form
-  navigate('/ort-lab-form');
-};
+    // Check if session is submitted
+    if (!session.submitted) {
+      showNotification('error', 'Session must be submitted before sending to ORT Lab');
+      return;
+    }
+
+    // Prepare data for ORT Lab
+    const ortLabData = {
+      ticketId,
+      ticketCode,
+      sessionId,
+      sessionNumber: session.sessionNumber,
+      timestamp: new Date().toISOString(),
+      parts: session.parts,
+      project: ticket.project,
+      build: ticket.build,
+      colour: ticket.colour,
+      anoType: ticket.anoType,
+      source: ticket.source,
+      reason: ticket.reason,
+      oqcApprovedBy: ticket.oqcApprovedBy,
+      oqcApprovedAt: ticket.oqcApprovedAt,
+      submittedAt: session.submittedAt,
+      totalParts: session.parts.length,
+      serialNumber: session.parts.map(p => p.serialNumber).join(', '),
+      partNumbers: session.parts.map(p => p.partNumber),
+      rawBarcodeData: session.parts.map(p => `${p.serialNumber}:${p.partNumber}`).join('; '),
+      submitted: true,
+      totalQuantity: ticket.totalQuantity
+    };
+
+    // Store in localStorage for ORT Lab to access
+    const existingSubmissions = JSON.parse(localStorage.getItem('ort_lab_submissions') || '[]');
+
+    // Check if this session already exists in submissions
+    const existingSubmissionIndex = existingSubmissions.findIndex(
+      (sub: any) => sub.id === sessionId
+    );
+
+    if (existingSubmissionIndex >= 0) {
+      // Update existing submission
+      existingSubmissions[existingSubmissionIndex] = ortLabData;
+    } else {
+      // Add new submission
+      existingSubmissions.push(ortLabData);
+    }
+
+    localStorage.setItem('ort_lab_submissions', JSON.stringify(existingSubmissions));
+
+    // Update the session to mark as sent to ORT
+    const updatedRecords = testRecords.map(record => {
+      if (record.id === ticketId) {
+        return {
+          ...record,
+          sessions: record.sessions.map(s => {
+            if (s.id === sessionId) {
+              return {
+                ...s,
+                sentToORT: true,
+                sentToORTAt: new Date().toISOString()
+              };
+            }
+            return s;
+          })
+        };
+      }
+      return record;
+    });
+
+    setTestRecords(updatedRecords);
+
+    // Navigate to ORT Lab form
+    navigate('/ort-lab-form');
+  };
 
   const getStatusIcon = (status: 'Cosmetic OK' | 'Cosmetic Not OK' | null) => {
     switch (status) {
