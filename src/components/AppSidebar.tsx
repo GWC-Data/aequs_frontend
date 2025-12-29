@@ -1,4 +1,4 @@
-import { Home, List, LogOut, Check, PenTool, Settings, Gauge, Flag, Calendar, Backpack, ReceiptText, ScanBarcode, Ticket, TicketCheckIcon } from "lucide-react";
+import { Home, List, LogOut, Check, PenTool, Settings, Gauge, Flag, Calendar, Backpack, ReceiptText, ScanBarcode, Ticket, TicketCheckIcon, TestTubeIcon } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import Logo from '../assets/logo.png';
@@ -27,9 +27,9 @@ const navigationItems = [
   // { title: "Stage 2 Form", url: "/stage2-form", icon: PenTool },
   // { title: "Stage 2", url: "/stage2", icon: Flag },
   // { title: "Testing Dynamic", url: "/author", icon: Calendar },
-  { title: "Ticket Assignemnt", url: "/settings", icon: TicketCheckIcon },
+  { title: "Test Allocation", url: "/settings", icon: TestTubeIcon },
   { title: "Planning Dashboard", url: "/planning-detail", icon: Calendar },
-  { title: "Chamber Load Dashboard", url: "/", icon: Home },
+  // { title: "Chamber Load Dashboard", url: "/", icon: Home },
   { title: "Testing", url: "/form-default", icon: Settings },
   { title: "Report Dashboard", url: "/report-dashboard", icon: Settings },
 

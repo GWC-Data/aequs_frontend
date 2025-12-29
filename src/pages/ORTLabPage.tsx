@@ -756,7 +756,7 @@ const ORTLabPage = () => {
   }
 
   return (
-    <div className="mx-auto p-6 max-w-7xl">
+    <div className="mx-auto p-6">
       <Card>
         <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-indigo-50">
           <div className="flex justify-between items-center">
