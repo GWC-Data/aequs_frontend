@@ -52,7 +52,7 @@ const App = () => (
                   <Route path="/ort-lab-details" element={<ORTLabDetailsPage />} />
                   <Route path="/ort-lab-form" element={<ORTLabPage />} />
                   <Route path="/report-dashboard" element={<ReportDashboard />} />
-                  <Route path="/home-page" element={<Home/>}/>
+                  <Route path="/home-page" element={<Home />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>

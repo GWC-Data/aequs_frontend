@@ -87,6 +87,7 @@ const GanttChart = () => {
     try {
       const chamberLoads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
 
+
       return chamberLoads.map(load => {
         // If timer is started, ensure timerStatus is 'start'
         if (load.timerStartTime && load.timerStatus !== 'start') {
@@ -115,6 +116,7 @@ const GanttChart = () => {
             };
           }
         }
+
 
         return {
           ...load,
@@ -277,6 +279,7 @@ const GanttChart = () => {
       };
     });
 
+
     setMachineAvailability(availability);
   };
 
@@ -336,6 +339,7 @@ const GanttChart = () => {
       } catch (error) {
         console.error('Error loading running tests from localStorage:', error);
         setRunningTests([]);
+        resolve([]);
         resolve([]);
       }
     });
@@ -554,6 +558,7 @@ const GanttChart = () => {
     if (!machineName) return '';
     const name = machineName.toLowerCase().trim();
 
+
     const mappings = {
       'dlsm random drop': 'DLSM RANDOM DROP',
       '1.25m random drop': '1.25M RANDOM DROP',
@@ -575,6 +580,7 @@ const GanttChart = () => {
       'ocean immersion': 'OCEAN Immersion',
       'asi immersion': 'ASI Immersion'
     };
+
 
     for (const [key, value] of Object.entries(mappings)) {
       if (name.includes(key) || key.includes(name)) {
@@ -655,6 +661,7 @@ const GanttChart = () => {
         const imagesArray = part[imageType === 'cosmetic' ? 'cosmeticImages' : 'nonCosmeticImages'] || [];
         const updatedImages = imagesArray.filter((_, idx) => idx !== imageIndex);
 
+
         return {
           ...part,
           [imageType === 'cosmetic' ? 'cosmeticImage' : 'nonCosmeticImage']: updatedImages[0] || '',
@@ -682,8 +689,10 @@ const GanttChart = () => {
       for (const record of oqcRecords) {
         for (const session of record.sessions || []) {
           const matchingPart = session.parts?.find(part =>
+          const matchingPart = session.parts?.find(part =>
             part.partNumber?.toUpperCase() === partNumber
           );
+
 
           if (matchingPart) {
             partDetails = {
@@ -714,6 +723,7 @@ const GanttChart = () => {
 
       const existingLoads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
       const alreadyLoaded = existingLoads.some(load =>
+      const alreadyLoaded = existingLoads.some(load =>
         load.parts.some(part => part.partNumber === partNumber)
       );
 
@@ -725,6 +735,8 @@ const GanttChart = () => {
 
       const allocations = JSON.parse(localStorage.getItem('ticket_allocations_array') || '[]');
       const normalizedChamber = normalizeMachineName(selectedChamber);
+
+      const ticketAllocations = allocations.filter(allocation =>
 
       const ticketAllocations = allocations.filter(allocation =>
         allocation.ticketCode === foundTicketCode
@@ -741,6 +753,7 @@ const GanttChart = () => {
         allocation.testAllocations?.forEach(test => {
           const normalizedMachine = normalizeMachineName(test.machineEquipment || '');
           const isMatch =
+          const isMatch =
             normalizedMachine === normalizedChamber ||
             normalizedMachine.includes(normalizedChamber) ||
             normalizedChamber.includes(normalizedMachine);
@@ -750,8 +763,10 @@ const GanttChart = () => {
             const requiredQty = test.requiredQty || 0;
             const remainingToAllocate = allocatedParts;
 
+
             if (remainingToAllocate > 0) {
               const alreadyAllocated = requiredQty - allocatedParts;
+
 
               matchingTests.push({
                 ...test,
@@ -798,6 +813,7 @@ const GanttChart = () => {
       setScannedParts([...scannedParts, newScannedPart]);
       setPartInput('');
 
+
       updateMachineDetails(matchingTests);
 
     } catch (error) {
@@ -809,6 +825,7 @@ const GanttChart = () => {
   };
 
   const getTestStatusText = (statusCode) => {
+    switch (statusCode) {
     switch (statusCode) {
       case 1: return 'Pending';
       case 2: return 'In Progress';
@@ -822,6 +839,7 @@ const GanttChart = () => {
     if (tests.length > 0) {
       const firstTest = tests[0];
       const totalDuration = Math.max(...tests.map(t => parseFloat(t.time) || 0));
+
 
       setMachineDetails({
         machine: selectedChamber,
@@ -848,12 +866,14 @@ const GanttChart = () => {
 
   const handleTestSelection = (partId, testId) => {
     setScannedParts(prev => prev.map(part =>
+    setScannedParts(prev => prev.map(part =>
       part.id === partId ? { ...part, selectedTestId: testId } : part
     ));
   };
 
   const handleRemovePart = (partId) => {
     setScannedParts(scannedParts.filter(part => part.id !== partId));
+
 
     if (scannedParts.length === 1) {
       setAvailableTests([]);
@@ -1098,9 +1118,11 @@ const GanttChart = () => {
             t => t.id === part.selectedTestId
           );
 
+
           if (testIndex !== -1) {
             const test = updatedAllocations[allocationIndex].testAllocations[testIndex];
             const remainingToAllocate = test.allocatedParts || 0;
+
 
             if (remainingToAllocate <= 0) {
               hasCapacityIssues = true;
@@ -1125,19 +1147,24 @@ const GanttChart = () => {
             t => t.id === part.selectedTestId
           );
 
+
           if (testIndex !== -1) {
             const test = updatedAllocations[allocationIndex].testAllocations[testIndex];
             const oldAllocatedCount = test.allocatedParts || 0;
             const requiredQty = test.requiredQty || 0;
 
+
             const newAllocatedCount = Math.max(0, oldAllocatedCount - 1);
             updatedAllocations[allocationIndex].testAllocations[testIndex].allocatedParts = newAllocatedCount;
 
+
             const actuallyAllocatedSoFar = requiredQty - newAllocatedCount;
+
 
             if (updatedAllocations[allocationIndex].testAllocations[testIndex].status === 1) {
               updatedAllocations[allocationIndex].testAllocations[testIndex].status = 2;
             }
+
 
             if (!allocationSummary[test.testName]) {
               allocationSummary[test.testName] = {
@@ -1152,6 +1179,7 @@ const GanttChart = () => {
             allocationSummary[test.testName].newValue = newAllocatedCount;
             allocationSummary[test.testName].actuallyAllocated = actuallyAllocatedSoFar;
 
+
             totalDuration = Math.max(totalDuration, parseFloat(test.time) || 0);
           }
         }
@@ -1163,6 +1191,7 @@ const GanttChart = () => {
     // Save part images
     const partImagesData = JSON.parse(localStorage.getItem('partImagesData') || '{}');
 
+
     scannedParts.forEach(part => {
       if (part.cosmeticImages?.length > 0 || part.nonCosmeticImages?.length > 0) {
         partImagesData[part.partNumber] = {
@@ -1172,6 +1201,7 @@ const GanttChart = () => {
         };
       }
     });
+
 
     localStorage.setItem('partImagesData', JSON.stringify(partImagesData));
 
@@ -1248,6 +1278,7 @@ const GanttChart = () => {
 
     summary += 'Allocation Summary:\n';
 
+
     Object.entries(allocationSummary).forEach(([testName, data]) => {
       summary += `- ${testName}: ${data.count} part(s) allocated. `;
       summary += `Allocated count decreased from ${data.oldValue} to ${data.newValue}. `;
@@ -1257,6 +1288,7 @@ const GanttChart = () => {
     const partsWithImages = scannedParts.filter(part =>
       part.cosmeticImages?.length > 0 || part.nonCosmeticImages?.length > 0
     ).length;
+
 
     if (partsWithImages > 0) {
       summary += `\nImages uploaded for ${partsWithImages} part(s).`;
@@ -1298,6 +1330,7 @@ const GanttChart = () => {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
 
+
       headers.push({
         date: date,
         dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
@@ -1323,6 +1356,7 @@ const GanttChart = () => {
 
   const getStatusText = (status) => {
     switch (status) {
+    switch (status) {
       case 'available': return 'Available';
       case 'occupied': return 'Occupied';
       case 'loading': return 'Loading...';
@@ -1333,15 +1367,19 @@ const GanttChart = () => {
   const calculateRemainingTime = (load) => {
     if (load.timerStatus !== 'start' || !load.timerStartTime) return null;
 
+
     const now = new Date();
     const startTime = new Date(load.timerStartTime);
     const durationInMs = parseFloat(load.duration) * 60 * 60 * 1000;
     const endTime = new Date(startTime.getTime() + durationInMs);
 
+
     if (now > endTime) return 'Completed';
+
 
     const remainingMs = endTime - now;
     const remainingDays = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
+
 
     return `${remainingDays} days remaining`;
   };
@@ -1881,6 +1919,7 @@ const GanttChart = () => {
                     <td className="px-6 py-4">
                       <div className="flex items-center">
                         <div
+                        <div
                           className="w-3 h-3 rounded-full mr-3"
                           style={{ backgroundColor: getStatusColor(availability.status) }}
                         ></div>
@@ -1891,7 +1930,10 @@ const GanttChart = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${availability.status === 'available' ? 'bg-green-100 text-green-800' :
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${availability.status === 'available' ? 'bg-green-100 text-green-800' :
                         availability.status === 'occupied' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
                           'bg-yellow-100 text-yellow-800'
                         }`}>
                         {getStatusText(availability.status)}
@@ -1954,6 +1996,34 @@ const GanttChart = () => {
                       </button>
 
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <button
+                        onClick={() => handleLoadChamber(machine.machine_description)}
+                        className="px-3 py-1.5 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+                        title="Load Chamber"
+                      >
+                        Load Chamber
+                      </button>
+                      <button
+                        onClick={() => handleViewMachineDetails(machine)}
+                        className="px-3 py-1.5 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                        title="View Machine Details"
+                      >
+                        <Eye size={14} className="inline-block" />
+                      </button>
+                      <button
+                        onClick={() => handleOpenTestingModal(machine.machine_description)}
+                        disabled={!hasLoadedParts}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${hasLoadedParts
+                          ? 'bg-purple-600 text-white hover:bg-purple-700'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}
+                        title={hasLoadedParts ? 'View Testing Options' : 'No parts loaded in this machine'}
+                      >
+                        Testing
+                      </button>
+
+                    </td>
                   </tr>
                 );
               })}
@@ -1963,6 +2033,7 @@ const GanttChart = () => {
       </div>
     );
   };
+
 
   const renderCalendarView = () => {
     return (
@@ -1994,10 +2065,12 @@ const GanttChart = () => {
               load.status === 'loaded'
             ).sort((a, b) => new Date(a.loadedAt) - new Date(b.loadedAt));
 
+
             return (
               <div key={machine.sr_no} className="flex border-b hover:bg-blue-50 transition-colors">
                 <div className="w-80 p-3 border-r bg-white font-medium text-sm text-gray-800 flex items-center justify-between">
                   <div className="flex items-center flex-1">
+                    <div
                     <div
                       className="w-3 h-3 rounded-full mr-3"
                       style={{
@@ -2046,11 +2119,14 @@ const GanttChart = () => {
                     const testStart = new Date(test.startDateTime || test.submittedAt);
                     testStart.setHours(0, 0, 0, 0);
 
+
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
 
+
                     const daysFromStart = Math.floor((testStart - today) / (1000 * 60 * 60 * 24));
                     const testDurationDays = Math.ceil(test.duration / 24);
+
 
                     const leftPercent = (daysFromStart / totalDays) * 100;
                     const widthPercent = (testDurationDays / totalDays) * 100;
@@ -2101,6 +2177,7 @@ const GanttChart = () => {
 
                       let startTime, endTime, shouldShowRed = false;
 
+
                       if (load.timerStatus === 'start' && load.timerStartTime) {
                         startTime = new Date(load.timerStartTime);
                         const durationInMs = parseFloat(load.duration) * 60 * 60 * 1000;
@@ -2116,6 +2193,7 @@ const GanttChart = () => {
                         const durationInMs = parseFloat(load.duration) * 60 * 60 * 1000;
                         endTime = new Date(startTime.getTime() + durationInMs);
                       }
+
 
                       const today = new Date();
                       today.setHours(0, 0, 0, 0);
@@ -2142,6 +2220,7 @@ const GanttChart = () => {
 
                       const barWidthPercent = (loadDurationDays / totalDays) * 100;
 
+
                       const verticalLineAdjustedLeft = Math.max(0, verticalLineLeftPercent);
                       const barAdjustedLeft = Math.max(0, barStartPercent);
                       const barAdjustedWidth = Math.min(100 - barAdjustedLeft, barWidthPercent + Math.min(0, barStartPercent));
@@ -2149,9 +2228,11 @@ const GanttChart = () => {
                       const isVerticalVisible = verticalLineAdjustedLeft >= 0 && verticalLineAdjustedLeft <= 100;
                       const isBarVisible = barAdjustedWidth > 0 && shouldShowRed;
 
+
                       if (!isVerticalVisible && !isBarVisible) return null;
 
                       let verticalColor, barColor, borderColor, statusText;
+
 
                       if (load.timerStatus === 'start') {
                         verticalColor = '#FFEB3B';
@@ -2165,7 +2246,9 @@ const GanttChart = () => {
                         statusText = 'Loaded (Not Started)';
                       }
 
+
                       const remainingTime = calculateRemainingTime(load);
+
 
                       return (
                         <React.Fragment key={`load-${load.id}-${loadIdx}`}>
@@ -2207,6 +2290,7 @@ const GanttChart = () => {
                                   </div>
                                   <div className="text-[7px] text-white opacity-70 mt-0.5">
                                     {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                   </div>
                                   <div className="text-[7px] text-white opacity-70 mt-0.5">
                                     Status: {load.timerStatus}
@@ -2244,6 +2328,7 @@ const GanttChart = () => {
       <div className="mt-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
         <h5 className="text-sm font-medium text-gray-700 mb-3">Upload Images for {part.partNumber}</h5>
 
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2255,6 +2340,8 @@ const GanttChart = () => {
                 <div className="flex flex-wrap gap-2 mb-2">
                   {part.cosmeticImages.map((img, index) => (
                     <div key={index} className="relative">
+                      <img
+                        src={img}
                       <img
                         src={img}
                         alt={`Cosmetic ${index + 1}`}
@@ -2274,6 +2361,7 @@ const GanttChart = () => {
                 </div>
               </div>
             )}
+
 
             <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed ${isUploadingCosmetic ? 'border-gray-300 bg-gray-100' : 'border-blue-300 bg-blue-50 hover:border-blue-400 hover:bg-blue-100'} rounded-lg cursor-pointer transition-colors`}>
               {isUploadingCosmetic ? (
@@ -2318,6 +2406,8 @@ const GanttChart = () => {
                     <div key={index} className="relative">
                       <img
                         src={img}
+                      <img
+                        src={img}
                         alt={`Non-Cosmetic ${index + 1}`}
                         className="w-16 h-16 object-cover border rounded-lg"
                       />
@@ -2335,6 +2425,7 @@ const GanttChart = () => {
                 </div>
               </div>
             )}
+
 
             <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed ${isUploadingNonCosmetic ? 'border-gray-300 bg-gray-100' : 'border-green-300 bg-green-50 hover:border-green-400 hover:bg-green-100'} rounded-lg cursor-pointer transition-colors`}>
               {isUploadingNonCosmetic ? (
@@ -2391,12 +2482,20 @@ const GanttChart = () => {
                   ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}
+                className={`px-3 py-2 flex items-center gap-2 text-sm font-medium transition-colors ${viewMode === 'table'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
               >
                 <Grid size={16} />
                 Table View
               </button>
               <button
                 onClick={() => setViewMode('calendar')}
+                className={`px-3 py-2 flex items-center gap-2 text-sm font-medium transition-colors ${viewMode === 'calendar'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
                 className={`px-3 py-2 flex items-center gap-2 text-sm font-medium transition-colors ${viewMode === 'calendar'
                   ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -2447,6 +2546,7 @@ const GanttChart = () => {
           <>
             {viewMode === 'calendar' ? renderCalendarView() : renderTableView()}
 
+
             <div className="p-4 bg-gradient-to-r from-gray-50 to-white border-t">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-6">
@@ -2473,6 +2573,7 @@ const GanttChart = () => {
                 </div>
 
                 <div className="text-sm text-gray-500">
+                  {viewMode === 'calendar'
                   {viewMode === 'calendar'
                     ? `Showing ${numberOfDays} days • ${runningTests.length} active test(s)`
                     : `${data.length} machines • Last updated: ${new Date().toLocaleTimeString()}`
@@ -2537,6 +2638,7 @@ const GanttChart = () => {
                       <span className="text-gray-600">Available Tests:</span>
                       <div className="flex flex-wrap gap-2 mt-1">
                         {machineDetails.tests.map(test => (
+                          <div
                           <div
                             key={test.id}
                             className="flex flex-col px-3 py-2 bg-blue-100 text-blue-800 rounded text-xs font-medium"
@@ -2680,6 +2782,10 @@ const GanttChart = () => {
                                   ? 'bg-green-100 text-green-800'
                                   : 'bg-yellow-100 text-yellow-800'
                                   }`}>
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${part.scanStatus === 'OK'
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                                  }`}>
                                   {part.scanStatus}
                                 </span>
                                 {(part.cosmeticImages?.length > 0 || part.nonCosmeticImages?.length > 0) && (
@@ -2752,6 +2858,7 @@ const GanttChart = () => {
                     <div className="md:col-span-2">
                       <span className="text-gray-600">Total images uploaded:</span>
                       <span className="font-medium ml-2">
+                        {scannedParts.reduce((sum, part) =>
                         {scannedParts.reduce((sum, part) =>
                           sum + (part.cosmeticImages?.length || 0) + (part.nonCosmeticImages?.length || 0), 0
                         )}

@@ -148,6 +148,7 @@ const saveAllocationToStorage = (allocation: TicketAllocationData): void => {
   try {
     const allocations = getAllocationsFromStorage();
 
+
     const savedAllocation: SavedAllocation = {
       ...allocation,
       id: `alloc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -155,8 +156,10 @@ const saveAllocationToStorage = (allocation: TicketAllocationData): void => {
       updatedAt: new Date().toISOString(),
     };
 
+
     // Check if allocation for this ticket already exists
     const existingIndex = allocations.findIndex(a => a.ticketCode === allocation.ticketCode);
+
 
     if (existingIndex >= 0) {
       // Update existing allocation
@@ -167,13 +170,16 @@ const saveAllocationToStorage = (allocation: TicketAllocationData): void => {
       allocations.push(savedAllocation);
     }
 
+
     localStorage.setItem(ALLOCATIONS_STORAGE_KEY, JSON.stringify(allocations));
+
 
     toast({
       title: "Allocation Saved",
       description: `Allocation saved for ticket ${allocation.ticketCode}`,
       duration: 2000,
     });
+
 
   } catch (error) {
     console.error('Failed to save allocation:', error);
@@ -207,7 +213,9 @@ const deleteAllocationFromStorage = (ticketCode: string): void => {
     const allocations = getAllocationsFromStorage();
     const filteredAllocations = allocations.filter(allocation => allocation.ticketCode !== ticketCode);
 
+
     localStorage.setItem(ALLOCATIONS_STORAGE_KEY, JSON.stringify(filteredAllocations));
+
 
     toast({
       title: "Allocation Deleted",
@@ -234,12 +242,16 @@ const exportAllAllocations = (): void => {
     const dataStr = JSON.stringify(allocations, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
 
+    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+
     const exportFileDefaultName = `allocations_${new Date().toISOString().split('T')[0]}.json`;
+
 
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
+
 
     toast({
       title: "Export Successful",
@@ -358,17 +370,27 @@ const TicketViewPage: React.FC = () => {
   const reasonMatches = useCallback((masterReason: string, ticketReason: string): boolean => {
     if (!masterReason || !ticketReason) return false;
 
+
     const masterLower = masterReason.toLowerCase().trim();
     const ticketLower = ticketReason.toLowerCase().trim();
 
+
     // Direct match
     if (masterLower === ticketLower) return true;
+
 
     // Handle NPI exact match
     if (masterLower === 'npi' && ticketLower === 'npi') return true;
     if (masterLower === 'mp' && ticketLower === 'mp') return true;
 
+
     // Handle qualification variations (including Line/Machine qualification)
+    if ((masterLower === 'line/machine qualification' ||
+      masterLower === 'line qualification' ||
+      masterLower === 'machine qualification') &&
+      (ticketLower === 'line qualification' ||
+        ticketLower === 'machine qualification' ||
+        ticketLower === 'qualification')) {
     if ((masterLower === 'line/machine qualification' ||
       masterLower === 'line qualification' ||
       masterLower === 'machine qualification') &&
@@ -378,13 +400,17 @@ const TicketViewPage: React.FC = () => {
       return true;
     }
 
+
     // All qualification types match each other
     const isQualification = (reason: string) =>
+    const isQualification = (reason: string) =>
       reason.includes('qualification') || reason === 'qualification';
+
 
     if (isQualification(masterLower) && isQualification(ticketLower)) {
       return true;
     }
+
 
     return false;
   }, []);
@@ -393,17 +419,22 @@ const TicketViewPage: React.FC = () => {
   const projectMatches = useCallback((masterProject: string, ticketProject: string): boolean => {
     if (!masterProject || !ticketProject) return false;
 
+
     const masterLower = masterProject.toLowerCase();
     const ticketLower = ticketProject.toLowerCase();
+
 
     // Direct match
     if (masterLower === ticketLower) return true;
 
+
     // FLASH ↔ LIGHT equivalence
     if ((masterLower.includes('flash') || masterLower.includes('light')) &&
       (ticketLower.includes('flash') || ticketLower.includes('light'))) {
+      (ticketLower.includes('flash') || ticketLower.includes('light'))) {
       return true;
     }
+
 
     // For "Flash/Light" format in master sheet
     if (masterLower.includes('flash/light') || masterLower.includes('light/flash')) {
@@ -412,6 +443,7 @@ const TicketViewPage: React.FC = () => {
       }
     }
 
+
     return false;
   }, []);
 
@@ -419,13 +451,21 @@ const TicketViewPage: React.FC = () => {
   const parseProcessStage = useCallback((processStage: string): ParsedProcessStage => {
     if (!processStage) return { type: '', project: '', reason: '', original: processStage };
 
+
     // Clean the string - remove extra spaces and normalize
     const cleanedStage = processStage.trim();
+
 
     // Split by spaces and filter out empty strings
     const parts = cleanedStage.split(/\s+/).filter(p => p.trim());
 
+
     if (parts.length < 2) {
+      return {
+        type: parts[0]?.toUpperCase() || '',
+        project: '',
+        reason: '',
+        original: cleanedStage
       return {
         type: parts[0]?.toUpperCase() || '',
         project: '',
@@ -434,9 +474,11 @@ const TicketViewPage: React.FC = () => {
       };
     }
 
+
     const type = parts[0]?.toUpperCase() || '';
     let project = '';
     let reason = '';
+
 
     // Special handling for HULK: type + reason only (no project)
     if (type === 'HULK') {
@@ -460,6 +502,12 @@ const TicketViewPage: React.FC = () => {
       project,
       reason,
       original: cleanedStage
+
+    return {
+      type,
+      project,
+      reason,
+      original: cleanedStage
     };
   }, []);
 
@@ -469,8 +517,10 @@ const TicketViewPage: React.FC = () => {
     const ticketProject = ticket.detailsBox.project || '';
     const ticketReason = ticket.detailsBox.reason || '';
 
+
     // Filter by anoType first
     const matchingTypeStages = processStages.filter(stage => stage.type === ticketAnoType);
+
 
     if (matchingTypeStages.length === 0) {
       console.warn(`No process stages found for anoType: ${ticketAnoType}`);
@@ -481,33 +531,46 @@ const TicketViewPage: React.FC = () => {
     if (ticketProject.toUpperCase() === 'HULK') {
       console.log('HULK TICKET DETECTED - Matching on Project + Reason ONLY (ignoring anoType)');
 
+
       // Filter stages where type is HULK (from master sheet)
       const hulkStages = processStages.filter(stage => stage.type === 'HULK');
+
 
       // Format ticket reason for matching
       let formattedTicketReason = ticketReason.toLowerCase().trim();
 
+
       // Convert qualification variations to unified format
+      if (formattedTicketReason.includes('line qualification') ||
+        formattedTicketReason.includes('machine qualification')) {
       if (formattedTicketReason.includes('line qualification') ||
         formattedTicketReason.includes('machine qualification')) {
         formattedTicketReason = 'line/machine qualification';
       }
 
+
       // Try exact match first, then use reasonMatches logic
+      const exactMatch = hulkStages.find(stage =>
       const exactMatch = hulkStages.find(stage =>
         stage.reason.toLowerCase() === formattedTicketReason
       );
 
+
       if (exactMatch) return exactMatch;
+
+      const matchingStages = hulkStages.filter(stage =>
 
       const matchingStages = hulkStages.filter(stage =>
         reasonMatches(stage.reason, formattedTicketReason)
       );
 
+
       if (matchingStages.length > 0) return matchingStages[0];
+
 
       return null;
     }
+
 
     // For ANO/ASSEMBLY types (requires anoType + project + reason)
     if (ticketAnoType === 'ANO' || ticketAnoType === 'ASSEMBLY') {
@@ -518,19 +581,25 @@ const TicketViewPage: React.FC = () => {
         availableStages: matchingTypeStages.map(s => s.original)
       });
 
+
       // Format ticket qualification reason if needed
       let formattedTicketReason = ticketReason.toLowerCase().trim();
+      if (formattedTicketReason.includes('line qualification') ||
+        formattedTicketReason.includes('machine qualification')) {
       if (formattedTicketReason.includes('line qualification') ||
         formattedTicketReason.includes('machine qualification')) {
         formattedTicketReason = 'line/machine qualification';
       }
 
+
       const matchingStages = matchingTypeStages.filter(stage => {
         // Check project match with FLASH/LIGHT equivalence
         const projectMatch = projectMatches(stage.project, ticketProject);
 
+
         // Check reason match with qualification variations
         const reasonMatch = reasonMatches(stage.reason, formattedTicketReason);
+
 
         if (projectMatch && reasonMatch) {
           console.log('Stage matches:', {
@@ -545,13 +614,16 @@ const TicketViewPage: React.FC = () => {
           });
         }
 
+
         return projectMatch && reasonMatch;
       });
+
 
       if (matchingStages.length > 0) {
         console.log('Found ANO/ASSEMBLY match:', matchingStages[0].original);
         return matchingStages[0];
       }
+
 
       console.warn(`No matching ANO/ASSEMBLY process stage found for ticket:`, {
         ticketCode: ticket.ticketCode,
@@ -562,9 +634,13 @@ const TicketViewPage: React.FC = () => {
         availableStages: matchingTypeStages.map(s => ({
           original: s.original,
           parsed: { type: s.type, project: s.project, reason: s.reason }
+        availableStages: matchingTypeStages.map(s => ({
+          original: s.original,
+          parsed: { type: s.type, project: s.project, reason: s.reason }
         }))
       });
     }
+
 
     return null;
   }, [projectMatches, reasonMatches]);
@@ -574,13 +650,16 @@ const TicketViewPage: React.FC = () => {
     if (masterTestConfigs.length > 0) {
       console.log('=== MASTER SHEET VALIDATION ===');
 
+
       // Get all unique process stages
       const uniqueStages = Array.from(
         new Set(masterTestConfigs.map(config => config.processStage))
       );
 
+
       // Parse each stage
       const parsedStages = uniqueStages.map(stage => parseProcessStage(stage));
+
 
       // Group by type
       const byType = {
@@ -589,17 +668,22 @@ const TicketViewPage: React.FC = () => {
         HULK: parsedStages.filter(s => s.type === 'HULK')
       };
 
+
       console.log('ANO formats:', byType.ANO.map(s => s.original));
       console.log('ASSEMBLY formats:', byType.ASSEMBLY.map(s => s.original));
       console.log('HULK formats:', byType.HULK.map(s => s.original));
+
 
       // Check for expected formats
       const expectedHulkFormats = ['HULK NPI', 'HULK MP', 'HULK LINE/MACHINE QUALIFICATION'];
       const missingHulkFormats = expectedHulkFormats.filter(expected =>
         !byType.HULK.some(stage =>
+      const missingHulkFormats = expectedHulkFormats.filter(expected =>
+        !byType.HULK.some(stage =>
           stage.original.toUpperCase() === expected.toUpperCase()
         )
       );
+
 
       if (missingHulkFormats.length > 0) {
         console.warn('Missing HULK formats in master sheet:', missingHulkFormats);
@@ -615,19 +699,24 @@ const TicketViewPage: React.FC = () => {
       const arrayBuffer = await response.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });
 
+
       // Get first sheet
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
 
+
       // Convert to JSON with original column names
       const jsonData: ExcelTestConfiguration[] = XLSX.utils.sheet_to_json(worksheet);
 
+
       console.log('Excel data loaded:', jsonData.slice(0, 5)); // Debug log - first 5 rows
+
 
       // Map to TestConfiguration format, handling the differences
       const testConfigs: TestConfiguration[] = jsonData.map((row: ExcelTestConfiguration) => {
         // Clean up process stage - remove leading/trailing spaces
         const processStage = row['Processes Stage']?.toString().trim() || '';
+
 
         // Extract numeric quantity from "10pcs/build"
         const qtyString = row['Qty']?.toString() || '';
@@ -646,23 +735,29 @@ const TicketViewPage: React.FC = () => {
         };
       }).filter(config => config.processStage); // Filter out empty process stages
 
+
       setMasterTestConfigs(testConfigs);
+
 
       // Parse and store unique process stages
       const uniqueProcessStages = Array.from(
         new Set(testConfigs.map(config => config.processStage))
       );
 
+
       const parsedStages = uniqueProcessStages.map(stage => parseProcessStage(stage));
       setAvailableProcessStages(parsedStages);
 
+
       console.log('Process stages parsed:', parsedStages.slice(0, 10)); // Debug log
+
 
       toast({
         title: "Master Sheet Loaded",
         description: `Loaded ${testConfigs.length} test configurations from ${uniqueProcessStages.length} process stages`,
         duration: 2000,
       });
+
 
     } catch (error) {
       console.error('Failed to load master Excel sheet:', error);
@@ -722,6 +817,7 @@ const TicketViewPage: React.FC = () => {
   const extractNumericQty = (qtyString: string): number => {
     if (!qtyString) return 0;
 
+
     // Handle different formats:
     // "10pcs/build" → 10
     // "5 pcs" → 5
@@ -754,6 +850,7 @@ const TicketViewPage: React.FC = () => {
     // Find matching process stage
     const matchingStage = findMatchingProcessStage(ticket, availableProcessStages);
 
+
     if (!matchingStage) {
       console.error('No matching stage found for ticket:', ticket.ticketCode);
       toast({
@@ -766,6 +863,7 @@ const TicketViewPage: React.FC = () => {
     }
 
     console.log('Matched stage:', matchingStage.original);
+
 
     // Filter configs for the matched process stage
     const stageConfigs = masterTestConfigs.filter(
@@ -807,6 +905,7 @@ const TicketViewPage: React.FC = () => {
       const proportion = totalRequiredQty > 0 ? numericQty / totalRequiredQty : 0;
       const allocatedPartsRaw = proportion * totalAvailableParts;
       let allocatedParts = Math.round(allocatedPartsRaw);
+
 
       allocations.push({
         id: `test-${Date.now()}-${index}`,
@@ -910,6 +1009,7 @@ const TicketViewPage: React.FC = () => {
     // Check if we have a saved allocation first
     const savedAllocation = getAllocationByTicket(ticket.ticketCode);
 
+
     if (savedAllocation) {
       // Load saved allocation
       setAllocationData(savedAllocation);
@@ -980,11 +1080,13 @@ const TicketViewPage: React.FC = () => {
       const totalAllocated = updatedTests.reduce((sum, test) => sum + test.allocatedParts, 0);
       const remainingParts = Math.max(0, allocationData.totalQuantity - totalAllocated);
 
+
       setAllocationData({
         ...allocationData,
         testAllocations: updatedTests,
         remainingParts
       });
+
 
       toast({
         title: "Test Deleted",
@@ -998,14 +1100,17 @@ const TicketViewPage: React.FC = () => {
     if (allocationData) {
       // Update the test
       const updatedTests = allocationData.testAllocations.map(test =>
+      const updatedTests = allocationData.testAllocations.map(test =>
         test.id === updatedTest.id ? updatedTest : test
       );
+
 
       // If required quantity changed, recalculate all allocations
       const originalTest = allocationData.testAllocations.find(t => t.id === updatedTest.id);
       if (originalTest && originalTest.requiredQty !== updatedTest.requiredQty) {
         // Recalculate total required quantity
         const totalRequiredQty = updatedTests.reduce((sum, test) => sum + test.requiredQty, 0);
+
 
         // Recalculate allocations based on new proportions
         updatedTests.forEach(test => {
@@ -1016,9 +1121,11 @@ const TicketViewPage: React.FC = () => {
           test.currentAllocatedParts = allocatedParts; // Reset current to match new allocation
         });
 
+
         // Adjust for rounding differences
         let totalAllocated = updatedTests.reduce((sum, test) => sum + test.allocatedParts, 0);
         let difference = allocationData.totalQuantity - totalAllocated;
+
 
         if (difference !== 0) {
           const sortedTests = [...updatedTests].sort((a, b) => {
@@ -1026,6 +1133,7 @@ const TicketViewPage: React.FC = () => {
             const errorB = Math.abs((b.requiredQty / totalRequiredQty) * allocationData.totalQuantity - b.allocatedParts);
             return errorB - errorA;
           });
+
 
           if (difference > 0) {
             let index = 0;
@@ -1049,8 +1157,10 @@ const TicketViewPage: React.FC = () => {
         }
       }
 
+
       const finalAllocated = updatedTests.reduce((sum, test) => sum + test.allocatedParts, 0);
       const remainingParts = Math.max(0, allocationData.totalQuantity - finalAllocated);
+
 
       setAllocationData({
         ...allocationData,
@@ -1058,8 +1168,10 @@ const TicketViewPage: React.FC = () => {
         remainingParts
       });
 
+
       setShowEditDialog(false);
       setEditingTest(null);
+
 
       toast({
         title: "Test Updated",
@@ -1072,10 +1184,12 @@ const TicketViewPage: React.FC = () => {
   const getFilteredAvailableTests = () => {
     if (!allocationData) return [];
 
+
     // Get all tests for the current process stage
     const stageTests = masterTestConfigs.filter(
       config => config.processStage === allocationData.processStage
     );
+
 
     const existingTestNames = new Set(allocationData.testAllocations.map(test => test.testName));
     return stageTests.filter(test => !existingTestNames.has(test.testName));
@@ -1108,6 +1222,7 @@ const TicketViewPage: React.FC = () => {
         test => test.testName === newTestData.testName
       );
 
+
       if (testExists) {
         toast({
           variant: "destructive",
@@ -1134,11 +1249,14 @@ const TicketViewPage: React.FC = () => {
         isExpanded: false
       };
 
+
       // Add new test to the list
       const updatedTests = [...allocationData.testAllocations, newTest];
 
+
       // Calculate total required quantity including new test
       const totalRequiredQty = updatedTests.reduce((sum, test) => sum + test.requiredQty, 0);
+
 
       // Calculate allocations based on proportion of required quantity
       updatedTests.forEach(test => {
@@ -1152,9 +1270,11 @@ const TicketViewPage: React.FC = () => {
         test.currentAllocatedParts = allocatedParts; // Set current to same as allocated
       });
 
+
       // Adjust for rounding differences to ensure total allocated parts equals total available parts
       let totalAllocated = updatedTests.reduce((sum, test) => sum + test.allocatedParts, 0);
       let difference = allocationData.totalQuantity - totalAllocated;
+
 
       if (difference !== 0) {
         // Sort tests by rounding error (largest error first)
@@ -1163,6 +1283,7 @@ const TicketViewPage: React.FC = () => {
           const errorB = Math.abs((b.requiredQty / totalRequiredQty) * allocationData.totalQuantity - b.allocatedParts);
           return errorB - errorA;
         });
+
 
         if (difference > 0) {
           // Add extra parts to tests with largest rounding errors
@@ -1187,9 +1308,11 @@ const TicketViewPage: React.FC = () => {
         }
       }
 
+
       // Calculate remaining parts
       const finalAllocated = updatedTests.reduce((sum, test) => sum + test.allocatedParts, 0);
       const remainingParts = Math.max(0, allocationData.totalQuantity - finalAllocated);
+
 
       // Update allocation data
       setAllocationData({
@@ -1197,6 +1320,7 @@ const TicketViewPage: React.FC = () => {
         testAllocations: updatedTests,
         remainingParts
       });
+
 
       // Reset form
       setNewTestData({
@@ -1210,6 +1334,7 @@ const TicketViewPage: React.FC = () => {
         allocatedParts: ''
       });
       setShowAddTestDialog(false);
+
 
       // Show success message with allocation details
       const allocatedCount = newTest.allocatedParts;
@@ -1528,6 +1653,7 @@ const TicketViewPage: React.FC = () => {
           Back to Dashboard
         </Button>
 
+
         <Button
           onClick={() => setShowAllAllocationsDialog(true)}
           variant="outline"
@@ -1544,6 +1670,7 @@ const TicketViewPage: React.FC = () => {
         <CardHeader className="bg-[#e0413a] text-white">
           <CardTitle className="text-2xl">Ticket View - Test Allocation</CardTitle>
         </CardHeader>
+
 
         <CardContent className="pt-6">
           {/* Filters Section */}
@@ -1613,6 +1740,7 @@ const TicketViewPage: React.FC = () => {
               <div className="flex gap-2">
                 <Badge variant="outline" className="bg-green-50 text-green-700">
                   {savedAllocations.filter(allocation =>
+                  {savedAllocations.filter(allocation =>
                     allocation?.testAllocations?.length > 0
                   ).length} Active
                 </Badge>
@@ -1653,6 +1781,7 @@ const TicketViewPage: React.FC = () => {
                   filteredTickets.map((ticket) => {
                     const hasSaved = hasSavedAllocation(ticket.ticketCode);
                     const allocation = getSavedAllocation(ticket.ticketCode);
+
 
                     return (
                       <TableRow key={ticket.id} className="hover:bg-gray-50">
@@ -1759,6 +1888,7 @@ const TicketViewPage: React.FC = () => {
           {/* Summary */}
           <div className="mt-4 text-sm text-gray-600">
             Showing {filteredTickets.length} of {tickets.length} tickets |
+            Showing {filteredTickets.length} of {tickets.length} tickets |
             {savedAllocations.length} tickets with saved allocations
           </div>
         </CardContent>
@@ -1770,6 +1900,8 @@ const TicketViewPage: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="text-xl">Test Allocation Details</DialogTitle>
             <DialogDescription>
+              {allocationData && hasSavedAllocation(allocationData.ticketCode)
+                ? "Viewing saved allocation"
               {allocationData && hasSavedAllocation(allocationData.ticketCode)
                 ? "Viewing saved allocation"
                 : "Automatic allocation based on master sheet matching"
@@ -1830,6 +1962,9 @@ const TicketViewPage: React.FC = () => {
                       {allocationData.project.toUpperCase().includes('FLASH') ||
                         allocationData.project.toUpperCase().includes('LIGHT') ?
                         ' (FLASH/LIGHT equivalence applied)' : ''}
+                      {allocationData.project.toUpperCase().includes('FLASH') ||
+                        allocationData.project.toUpperCase().includes('LIGHT') ?
+                        ' (FLASH/LIGHT equivalence applied)' : ''}
                     </div>
                   </AlertDescription>
                 </Alert>
@@ -1879,6 +2014,7 @@ const TicketViewPage: React.FC = () => {
 
                   </div>
                 </div>
+
 
                 <Table>
                   <TableHeader className="bg-gray-100">
@@ -2003,12 +2139,16 @@ const TicketViewPage: React.FC = () => {
                 <p className="text-2xl font-bold text-green-700">
                   {savedAllocations.reduce((sum, alloc) => sum +
                     alloc.testAllocations.reduce((testSum, test) =>
+                  {savedAllocations.reduce((sum, alloc) => sum +
+                    alloc.testAllocations.reduce((testSum, test) =>
                       testSum + (test.allocatedParts - test.currentAllocatedParts), 0), 0)}
                 </p>
               </div>
               <div className="text-center">
                 <Label className="text-xs text-gray-600">Total Parts Remaining</Label>
                 <p className="text-2xl font-bold text-blue-700">
+                  {savedAllocations.reduce((sum, alloc) => sum +
+                    alloc.testAllocations.reduce((testSum, test) =>
                   {savedAllocations.reduce((sum, alloc) => sum +
                     alloc.testAllocations.reduce((testSum, test) =>
                       testSum + test.currentAllocatedParts, 0), 0)}
@@ -2019,7 +2159,10 @@ const TicketViewPage: React.FC = () => {
                 <p className="text-2xl font-bold text-purple-700">
                   {(() => {
                     const totalPlanned = savedAllocations.reduce((sum, alloc) => sum +
+                    const totalPlanned = savedAllocations.reduce((sum, alloc) => sum +
                       alloc.testAllocations.reduce((testSum, test) => testSum + test.allocatedParts, 0), 0);
+                    const totalScanned = savedAllocations.reduce((sum, alloc) => sum +
+                      alloc.testAllocations.reduce((testSum, test) =>
                     const totalScanned = savedAllocations.reduce((sum, alloc) => sum +
                       alloc.testAllocations.reduce((testSum, test) =>
                         testSum + (test.allocatedParts - test.currentAllocatedParts), 0), 0);
@@ -2060,6 +2203,7 @@ const TicketViewPage: React.FC = () => {
                 </div>
               </div>
 
+
               <Table>
                 <TableHeader className="bg-gray-100">
                   <TableRow>
@@ -2082,6 +2226,7 @@ const TicketViewPage: React.FC = () => {
                       const totalRemaining = allocation.testAllocations.reduce((sum, test) => sum + test.currentAllocatedParts, 0);
                       const totalScanned = totalPlanned - totalRemaining;
                       const progressPercentage = totalPlanned > 0 ? ((totalScanned / totalPlanned) * 100).toFixed(1) : 0;
+
 
                       return (
                         <TableRow key={allocation.id} className="hover:bg-gray-50">
@@ -2128,6 +2273,7 @@ const TicketViewPage: React.FC = () => {
                                 <span className="text-xs font-medium text-green-600">{progressPercentage}%</span>
                               </div>
                               <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                <div
                                 <div
                                   className="bg-green-500 h-1.5 rounded-full"
                                   style={{ width: `${progressPercentage}%` }}
@@ -2235,6 +2381,7 @@ const TicketViewPage: React.FC = () => {
                   type="number"
                   value={newTestData.requiredQty}
                   onChange={(e) => setNewTestData({ ...newTestData, requiredQty: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => setNewTestData({ ...newTestData, requiredQty: parseInt(e.target.value) || 0 })}
                   min="1"
                 />
               </div>
@@ -2243,6 +2390,7 @@ const TicketViewPage: React.FC = () => {
                 <Input
                   id="time"
                   value={newTestData.time}
+                  onChange={(e) => setNewTestData({ ...newTestData, time: e.target.value })}
                   onChange={(e) => setNewTestData({ ...newTestData, time: e.target.value })}
                   placeholder="e.g., 2 hours"
                 />
@@ -2254,6 +2402,7 @@ const TicketViewPage: React.FC = () => {
                 id="testCondition"
                 value={newTestData.testCondition}
                 onChange={(e) => setNewTestData({ ...newTestData, testCondition: e.target.value })}
+                onChange={(e) => setNewTestData({ ...newTestData, testCondition: e.target.value })}
               />
             </div>
             <div className="space-y-2">
@@ -2261,6 +2410,7 @@ const TicketViewPage: React.FC = () => {
               <Input
                 id="specification"
                 value={newTestData.specification}
+                onChange={(e) => setNewTestData({ ...newTestData, specification: e.target.value })}
                 onChange={(e) => setNewTestData({ ...newTestData, specification: e.target.value })}
               />
             </div>
@@ -2300,6 +2450,8 @@ const TicketViewPage: React.FC = () => {
             </Button>
             <Button
               onClick={handleAddNewTest}
+            <Button
+              onClick={handleAddNewTest}
               disabled={!newTestData.testName || newTestData.requiredQty <= 0}
             >
               Add Test
@@ -2325,6 +2477,7 @@ const TicketViewPage: React.FC = () => {
                   id="editTestName"
                   value={editingTest.testName}
                   onChange={(e) => setEditingTest({ ...editingTest, testName: e.target.value })}
+                  onChange={(e) => setEditingTest({ ...editingTest, testName: e.target.value })}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -2335,6 +2488,7 @@ const TicketViewPage: React.FC = () => {
                     type="number"
                     value={editingTest.requiredQty}
                     onChange={(e) => setEditingTest({ ...editingTest, requiredQty: parseInt(e.target.value) || 0 })}
+                    onChange={(e) => setEditingTest({ ...editingTest, requiredQty: parseInt(e.target.value) || 0 })}
                     min="1"
                   />
                 </div>
@@ -2343,6 +2497,7 @@ const TicketViewPage: React.FC = () => {
                   <Input
                     id="editTime"
                     value={editingTest.time}
+                    onChange={(e) => setEditingTest({ ...editingTest, time: e.target.value })}
                     onChange={(e) => setEditingTest({ ...editingTest, time: e.target.value })}
                   />
                 </div>
@@ -2353,6 +2508,7 @@ const TicketViewPage: React.FC = () => {
                   id="editTestCondition"
                   value={editingTest.testCondition}
                   onChange={(e) => setEditingTest({ ...editingTest, testCondition: e.target.value })}
+                  onChange={(e) => setEditingTest({ ...editingTest, testCondition: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -2360,6 +2516,7 @@ const TicketViewPage: React.FC = () => {
                 <Input
                   id="editSpecification"
                   value={editingTest.specification}
+                  onChange={(e) => setEditingTest({ ...editingTest, specification: e.target.value })}
                   onChange={(e) => setEditingTest({ ...editingTest, specification: e.target.value })}
                 />
               </div>
@@ -2385,6 +2542,8 @@ const TicketViewPage: React.FC = () => {
                   value={editingTest.status.toString()}
                   onValueChange={(value) =>
                     setEditingTest({ ...editingTest, status: parseInt(value) })
+                  onValueChange={(value) =>
+                    setEditingTest({ ...editingTest, status: parseInt(value) })
                   }
                 >
                   <SelectTrigger>
@@ -2403,6 +2562,7 @@ const TicketViewPage: React.FC = () => {
                 <Input
                   id="editNotes"
                   value={editingTest.notes || ''}
+                  onChange={(e) => setEditingTest({ ...editingTest, notes: e.target.value })}
                   onChange={(e) => setEditingTest({ ...editingTest, notes: e.target.value })}
                   placeholder="Add any notes..."
                 />
