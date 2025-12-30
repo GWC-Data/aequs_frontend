@@ -1032,7 +1032,7 @@ const InspectionDataViewer = () => {
                 </div>
 
                 {/* Information Panel */}
-                <div className="mt-8 bg-white rounded-2xl shadow-xl p-6">
+                {/* <div className="mt-8 bg-white rounded-2xl shadow-xl p-6">
                     <h2 className="text-xl font-bold text-gray-800 mb-4">Export Information</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="bg-blue-50 p-4 rounded-lg">
@@ -1059,7 +1059,7 @@ const InspectionDataViewer = () => {
                             </ul>
                         </div>
                     </div>
-                </div>
+                </div> */}
             </div>
             {renderHiddenCharts()}
         </div>

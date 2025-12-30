@@ -88,6 +88,19 @@ interface TestAllocation {
   status: number;
   notes?: string;
   isExpanded?: boolean;             // Added for expansion state
+
+  childTests?: {
+    id: string;
+    testName: string;
+    subTestName: string;
+    testCondition: string;
+    specification: string;
+    machineEquipment: string;
+    machineEquipment2: string;
+    time: string;
+    allocatedParts: number;
+    currentAllocatedParts: number;
+  }[];
 }
 
 interface TicketAllocationData {
@@ -613,7 +626,7 @@ const TicketViewPage: React.FC = () => {
     }
   }, [masterTestConfigs, parseProcessStage]);
 
-  // Load master Excel sheet
+  // UPDATED: In your loadMasterExcelSheet function, change the grouping logic:
   const loadMasterExcelSheet = async () => {
     setLoadingMasterSheet(true);
     try {
@@ -621,50 +634,113 @@ const TicketViewPage: React.FC = () => {
       const arrayBuffer = await response.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });
 
-      // Get first sheet
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
-
-      // Convert to JSON with original column names
       const jsonData: ExcelTestConfiguration[] = XLSX.utils.sheet_to_json(worksheet);
 
-      console.log('Excel data loaded:', jsonData.slice(0, 5)); // Debug log - first 5 rows
+      // NEW: First, identify unique tests (by processStage + testName)
+      const uniqueTests = new Map<string, ExcelTestConfiguration[]>();
 
-      // Map to TestConfiguration format, handling the differences
-      const testConfigs: TestConfiguration[] = jsonData.map((row: ExcelTestConfiguration) => {
-        // Clean up process stage - remove leading/trailing spaces
+      jsonData.forEach((row: ExcelTestConfiguration) => {
         const processStage = row['Processes Stage']?.toString().trim() || '';
+        const testName = row['Test Name']?.toString().trim() || '';
 
-        // Extract numeric quantity from "10pcs/build"
-        const qtyString = row['Qty']?.toString() || '';
-        const qtyMatch = qtyString.match(/\d+/);
-        const numericQty = qtyMatch ? qtyMatch[0] : '0';
+        if (!processStage || !testName) return;
 
-        return {
-          processStage: processStage,
-          testName: row['Test Name']?.toString().trim() || '',
-          testCondition: row['Test Condition']?.toString().trim() || '',
-          qty: numericQty, // Store as just "10" instead of "10pcs/build"
-          specification: row['Specification']?.toString().trim() || '',
-          machineEquipment: row['Machine / Eqipment-2']?.toString().trim() || '',
-          machineEquipment2: row['Machine / Eqipment-2']?.toString().trim() || '',
-          time: row['Time']?.toString().trim() || ''  // Added .toString().trim()
-        };
-      }).filter(config => config.processStage); // Filter out empty process stages
+        const key = `${processStage}||${testName}`;
+
+        if (!uniqueTests.has(key)) {
+          uniqueTests.set(key, []);
+        }
+        uniqueTests.get(key)!.push(row);
+      });
+
+      // Process each unique test
+      const testConfigs: TestConfiguration[] = [];
+
+      uniqueTests.forEach((rows, key) => {
+        const [processStage, testName] = key.split('||');
+
+        if (rows.length === 1) {
+          // Single row - simple test
+          const row = rows[0];
+          const qtyString = row['Qty']?.toString() || '';
+          const qtyMatch = qtyString.match(/\d+/);
+          const numericQty = qtyMatch ? qtyMatch[0] : '0';
+
+          testConfigs.push({
+            processStage,
+            testName,
+            testCondition: row['Test Condition']?.toString().trim() || '',
+            qty: numericQty,
+            specification: row['Specification']?.toString().trim() || '',
+            machineEquipment: row['Machine / Eqipment']?.toString().trim() || '',
+            machineEquipment2: row['Machine / Eqipment-2']?.toString().trim() || '',
+            time: row['Time']?.toString().trim() || ''
+          });
+        } else {
+          // Multiple rows - combined test (like "Heat Soak + Steel Rain")
+          console.log(`Processing combined test: ${testName} with ${rows.length} rows`);
+
+          // For the parent row, we'll create a combined representation
+          const firstRow = rows[0];
+          const qtyString = firstRow['Qty']?.toString() || '';
+          const qtyMatch = qtyString.match(/\d+/);
+          const numericQty = qtyMatch ? qtyMatch[0] : '0';
+
+          // Create parent row with combined equipment names (just "Heat Soak + Steel Rain")
+          const equipmentNames = rows.map(row => {
+            const eq1 = row['Machine / Eqipment']?.toString().trim();
+            const eq2 = row['Machine / Eqipment-2']?.toString().trim();
+            return [eq1, eq2].filter(Boolean);
+          }).flat();
+
+          // Get unique equipment names
+          const uniqueEquipment = [...new Set(equipmentNames.filter(Boolean))];
+
+          // Create parent test (collapsed view)
+          testConfigs.push({
+            processStage,
+            testName,
+            testCondition: firstRow['Test Condition']?.toString().trim() || '',
+            qty: numericQty,
+            specification: firstRow['Specification']?.toString().trim() || '',
+            machineEquipment: testName, // Use test name as equipment for parent
+            machineEquipment2: '', // Leave empty for parent
+            time: '', // Leave empty for parent - will show in children
+          });
+
+          // Create child rows for each individual equipment
+          rows.forEach((row, index) => {
+            const eq1 = row['Machine / Eqipment']?.toString().trim() || '';
+            const eq2 = row['Machine / Eqipment-2']?.toString().trim() || '';
+            const equipment = eq2 || eq1; // Prefer equipment-2 if available
+
+            if (equipment) {
+              testConfigs.push({
+                processStage,
+                testName: `${testName}||child${index}`, // Mark as child
+                testCondition: row['Test Condition']?.toString().trim() || '',
+                qty: numericQty,
+                specification: row['Specification']?.toString().trim() || '',
+                machineEquipment: equipment, // Individual equipment name
+                machineEquipment2: '', // Leave empty for child
+                time: row['Time']?.toString().trim() || '' // Individual time
+              });
+            }
+          });
+        }
+      });
 
       setMasterTestConfigs(testConfigs);
 
-      console.log('-----', testConfigs)
-
       // Parse and store unique process stages
       const uniqueProcessStages = Array.from(
-        new Set(testConfigs.map(config => config.processStage))
+        new Set(testConfigs.filter(config => !config.testName.includes('||child')).map(config => config.processStage))
       );
 
       const parsedStages = uniqueProcessStages.map(stage => parseProcessStage(stage));
       setAvailableProcessStages(parsedStages);
-
-      console.log('Process stages parsed:', parsedStages.slice(0, 10)); // Debug log
 
       toast({
         title: "Master Sheet Loaded",
@@ -775,14 +851,20 @@ const TicketViewPage: React.FC = () => {
 
     console.log('Matched stage:', matchingStage.original);
 
-    // Filter configs for the matched process stage
-    const stageConfigs = masterTestConfigs.filter(
-      config => config.processStage === matchingStage.original
+    // Get parent tests (exclude child rows)
+    const parentConfigs = masterTestConfigs.filter(
+      config => config.processStage === matchingStage.original &&
+        !config.testName.includes('||child')
     );
+
+    // Filter configs for the matched process stage
+    // const stageConfigs = masterTestConfigs.filter(
+    //   config => config.processStage === matchingStage.original
+    // );
 
     // Get all test names for this process stage
     const allTestNames = Array.from(
-      new Set(stageConfigs.map(config => config.testName))
+      new Set(parentConfigs.map(config => config.testName))
     );
 
     if (allTestNames.length === 0) {
@@ -799,7 +881,7 @@ const TicketViewPage: React.FC = () => {
     const selectedTests = allTestNames;
 
     // Calculate total required quantity
-    const selectedConfigs = stageConfigs.filter(config =>
+    const selectedConfigs = parentConfigs.filter(config =>
       selectedTests.includes(config.testName)
     );
 
@@ -816,6 +898,12 @@ const TicketViewPage: React.FC = () => {
       const allocatedPartsRaw = proportion * totalAvailableParts;
       let allocatedParts = Math.round(allocatedPartsRaw);
 
+      // Get child rows for this test
+      const childConfigs = masterTestConfigs.filter(
+        child => child.processStage === config.processStage &&
+          child.testName.startsWith(`${config.testName}||child`)
+      );
+
       allocations.push({
         id: `test-${Date.now()}-${index}`,
         testName: config.testName,
@@ -828,7 +916,26 @@ const TicketViewPage: React.FC = () => {
         machineEquipment2: config.machineEquipment2,
         time: config.time,
         status: 1, // Default status
-        isExpanded: false
+        isExpanded: false,
+
+        childTests: childConfigs.length > 0 ? childConfigs.map((child, childIndex) => {
+          // Extract the actual equipment name from machineEquipment
+          const subTestName = child.machineEquipment || config.testName;
+
+          return {
+            id: `child-${Date.now()}-${index}-${childIndex}`,
+            testName: config.testName, // Parent test name
+            subTestName: subTestName, // Individual equipment name (e.g., "Heat Soak", "Steel Rain")
+            testCondition: child.testCondition || config.testCondition,
+            specification: child.specification || config.specification,
+            machineEquipment: child.machineEquipment,
+            machineEquipment2: child.machineEquipment2,
+            time: child.time,
+            allocatedParts: allocatedParts,
+            currentAllocatedParts: allocatedParts
+          };
+        }) : undefined
+
       });
     });
 
@@ -893,10 +1000,12 @@ const TicketViewPage: React.FC = () => {
   }, [masterTestConfigs, availableProcessStages, findMatchingProcessStage]);
 
   // Handle row expansion
-  // Handle row expansion (only for tests with + in name)
-  const handleTestNameClick = (testId: string, testName: string) => {
-    // Only allow expansion if test name contains +
-    if (!hasMultipleTests(testName)) return;
+  const handleTestNameClick = (testId: string, test: TestAllocation) => {
+    // Check if equipment has multiple machines OR test has child tests
+    const hasMultipleEquipmentInTest = hasMultipleEquipment(test.machineEquipment, test.machineEquipment2);
+    const hasChildren = test.childTests && test.childTests.length > 0;
+
+    if (!hasMultipleEquipmentInTest && !hasChildren) return;
 
     const newExpandedRows = new Set(expandedRows);
 
@@ -1310,6 +1419,12 @@ const TicketViewPage: React.FC = () => {
   };
 
   // Render test allocation rows with expansion
+
+  const hasMultipleEquipment = (equipment1: string, equipment2: string): boolean => {
+    const combined = combineMachineLists(equipment1, equipment2);
+    return combined.includes('+');
+  };
+
   const renderTestAllocationRows = () => {
     if (!allocationData) return null;
 
@@ -1322,33 +1437,38 @@ const TicketViewPage: React.FC = () => {
         ? ((scannedPartsCount / test.currentAllocatedParts) * 100).toFixed(1)
         : 0;
 
-      // Check if test name has multiple tests (contains +)
-      const hasMultipleTestNames = hasMultipleTests(test.testName);
-      const individualTestNames = hasMultipleTestNames ? splitTestName(test.testName) : [test.testName];
 
-      // Get individual machines from combined machine list
+      const hasMultipleEquipment = (equipment1: string, equipment2: string): boolean => {
+        const combined = combineMachineLists(equipment1, equipment2);
+        return combined.includes('+');
+      };
+      // Check if test has child tests
+      const hasChildTests = test.childTests && test.childTests.length > 0;
+      const hasMultipleEquipmentInTest = hasMultipleEquipment(test.machineEquipment, test.machineEquipment2);
+      const shouldExpand = hasMultipleEquipmentInTest || hasChildTests;
+
+      // Combine machines for parent row
       const combinedMachines = combineMachineLists(test.machineEquipment, test.machineEquipment2);
       const combinedDuration = getCombinedDuration(test.time);
-      console.log('combinedDuration', test.time)
 
-      // Parent Row (collapsed state)
+      // Parent Row
       rows.push(
         <TableRow key={`parent-${test.id}`} className="hover:bg-gray-50">
           {/* Test Name Column - Clickable */}
-          {/* Test Name Column - Clickable only if has + */}
           <TableCell className="font-medium">
             <div
-              className={`flex items-center ${hasMultipleTestNames ? 'cursor-pointer hover:text-blue-600' : ''}`}
-              onClick={() => hasMultipleTestNames && handleTestNameClick(test.id, test.testName)}
+              className={`flex items-center ${shouldExpand ? 'cursor-pointer hover:text-blue-600' : ''}`}
+              // onClick={() => shouldExpand && handleTestNameClick(test.id, test.testName)}
+              onClick={() => shouldExpand && handleTestNameClick(test.id, test)}
             >
-              {hasMultipleTestNames && (
+              {shouldExpand && (
                 isExpanded ? (
                   <ChevronDown className="h-4 w-4 mr-2" />
                 ) : (
                   <ChevronRight className="h-4 w-4 mr-2" />
                 )
               )}
-              {!hasMultipleTestNames && <div className="w-6"></div>}
+              {!shouldExpand && <div className="w-6"></div>}
               <span className="font-semibold">{test.testName}</span>
             </div>
             {test.notes && (
@@ -1366,12 +1486,12 @@ const TicketViewPage: React.FC = () => {
                 planned parts
               </div>
               <div className="text-xs text-blue-600">
-                {Math.round((test.allocatedParts / allocationData.totalQuantity) * 100)}% of total
+                {Math.round((test.currentAllocatedParts / allocationData.totalQuantity) * 100)}% of total
               </div>
             </div>
           </TableCell>
 
-          {/* Status Column - Shows DYNAMIC current status */}
+          {/* Remaining Parts Column */}
           <TableCell>
             <div className="flex flex-col gap-1">
               <div className="font-bold text-xl text-green-700">
@@ -1381,7 +1501,7 @@ const TicketViewPage: React.FC = () => {
                 remaining
               </div>
               <div className="text-xs text-green-600">
-                {Math.round((test.currentAllocatedParts / test.allocatedParts) * 100)}% remaining
+                {Math.round((test.allocatedParts / test.currentAllocatedParts) * 100)}% remaining
               </div>
             </div>
           </TableCell>
@@ -1446,81 +1566,106 @@ const TicketViewPage: React.FC = () => {
         </TableRow>
       );
 
-      // Child Rows (expanded state) - Only if test name has + 
-      if (isExpanded && hasMultipleTestNames && individualTestNames.length > 1) {
-        individualTestNames.forEach((testName, index) => {
+      // Child Rows - Show if expanded and has child tests
+      if (isExpanded && hasChildTests && test.childTests) {
+        test.childTests.forEach((childTest) => {
+          // Calculate child-specific progress
+          const childScannedParts = childTest.allocatedParts - childTest.currentAllocatedParts;
+          const childProgressPercentage = childTest.allocatedParts > 0
+            ? ((childScannedParts / childTest.allocatedParts) * 100).toFixed(1)
+            : '0';
+
+          // Get child-specific equipment and duration
+          const childMachines = combineMachineLists(childTest.machineEquipment, childTest.machineEquipment2);
+          const childDuration = getCombinedDuration(childTest.time);
+
           rows.push(
-            <TableRow key={`child-${test.id}-${index}`} className="bg-gray-50 hover:bg-gray-100">
-              {/* Test Name Column - Indented */}
+            <TableRow key={childTest.id} className="bg-gray-50 hover:bg-gray-100">
               <TableCell className="font-medium">
                 <div className="flex items-center ml-6">
-                  <div className="w-4 mr-2"></div> {/* Spacer for alignment */}
-                  <span className="text-gray-600">{testName}</span>
+                  <div className="w-4 mr-2"></div>
+                  <span className="text-gray-600">{childTest.subTestName}</span>
                 </div>
               </TableCell>
 
-              {/* Planned Parts Column - Same as parent */}
               <TableCell>
                 <div className="flex flex-col gap-1">
                   <div className="font-bold text-xl text-blue-700">
-                    {test.allocatedParts}
+                    {childTest.allocatedParts}
                   </div>
                   <div className="text-xs text-gray-500">
                     planned parts
                   </div>
+                  <div className="text-xs text-blue-600">
+                    {Math.round((childTest.allocatedParts / allocationData.totalQuantity) * 100)}% of total
+                  </div>
                 </div>
               </TableCell>
 
-              {/* Remaining Parts Column - Same as parent */}
               <TableCell>
                 <div className="flex flex-col gap-1">
                   <div className="font-bold text-xl text-green-700">
-                    {test.currentAllocatedParts}
+                    {childTest.currentAllocatedParts}
                   </div>
                   <div className="text-xs text-gray-500">
                     remaining
                   </div>
+                  <div className="text-xs text-green-600">
+                    {childTest.allocatedParts > 0 ? Math.round((childTest.currentAllocatedParts / childTest.allocatedParts) * 100) : 0}% remaining
+                  </div>
                 </div>
               </TableCell>
 
-              {/* Progress Column - Same as parent */}
-              {/* Test Condition Column */}
+              {/* CHILD ROW: Show child's test condition */}
               <TableCell className="text-sm">
-                {test.testCondition}
+                {childTest.testCondition || test.testCondition}
               </TableCell>
 
-              {/* Machine Name Column - Show combined machines */}
+              {/* CHILD ROW: Show child's equipment */}
               <TableCell className="text-sm">
-                {combinedMachines}
+                {childTest.machineEquipment}
               </TableCell>
 
-              {/* Duration Column */}
+              {/* CHILD ROW: Show child's duration */}
               <TableCell className="text-sm">
-                {combinedDuration}
+                {getCombinedDuration(childTest.time)}
               </TableCell>
 
-              {/* Progress Column - Same as parent */}
-              <TableCell>                <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">Progress:</span>
-                  <span className="text-xs font-medium text-blue-600">
-                    {scannedPartsCount}/{test.allocatedParts}
-                  </span>
+              {/* Progress Column for child */}
+              <TableCell>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-600">Progress:</span>
+                    <span className="text-xs font-medium text-blue-600">
+                      {childScannedParts}/{childTest.allocatedParts}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${childProgressPercentage}%` }}
+                    ></div>
+                  </div>
+                  <div className="text-xs text-gray-500 text-center">
+                    {childProgressPercentage}% scanned
+                  </div>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${progressPercentage}%` }}
-                  ></div>
-                </div>
-                <div className="text-xs text-gray-500 text-center">
-                  {progressPercentage}% scanned
-                </div>
-              </div>
               </TableCell>
-              {/* Actions Column - Empty for child rows */}
+
               <TableCell className="text-right">
-                {/* Child rows are read-only, no actions */}
+                {/* Child rows are read-only */}
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEditTest(test)}
+                    className="h-8 w-8 p-0 opacity-50 cursor-not-allowed"
+                    disabled
+                    title="Edit parent test to modify child tests"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           );
