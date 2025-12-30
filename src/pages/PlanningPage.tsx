@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, FileSpreadsheet, X, Scan, Search, Info, Clock, Calendar, Grid, Upload, Image as ImageIcon, TestTube, User, AlertCircle, CheckCircle, Trash2, Filter, Eye, Settings, Thermometer, Droplets } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -45,6 +44,9 @@ const GanttChart = () => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [timerDuration, setTimerDuration] = useState(24);
 
+  // Pause states
+  const [pausedTimers, setPausedTimers] = useState({});
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -90,7 +92,7 @@ const GanttChart = () => {
 
       return chamberLoads.map(load => {
         // If timer is started, ensure timerStatus is 'start'
-        if (load.timerStartTime && load.timerStatus !== 'start') {
+        if (load.timerStartTime && load.timerStatus !== 'start' && load.timerStatus !== 'paused') {
           const startTime = new Date(load.timerStartTime);
           const now = new Date();
           const elapsedMs = now - startTime;
@@ -139,18 +141,43 @@ const GanttChart = () => {
 
     if (machineLoads.length === 0) return null;
 
-    const activeLoad = machineLoads.find(load => load.timerStatus === 'start');
+    const activeLoad = machineLoads.find(load =>
+      load.timerStatus === 'start' || load.timerStatus === 'paused'
+    );
+
     if (activeLoad) {
       const startTime = new Date(activeLoad.timerStartTime);
       const now = new Date();
-      const elapsed = Math.floor((now - startTime) / 1000);
 
-      return {
-        status: 'running',
-        startTime: activeLoad.timerStartTime,
-        duration: activeLoad.duration,
-        elapsed: elapsed
-      };
+      // If paused, use paused elapsed time
+      if (activeLoad.timerStatus === 'paused' && activeLoad.pausedElapsedTime) {
+        return {
+          status: 'paused',
+          startTime: activeLoad.timerStartTime,
+          duration: activeLoad.duration,
+          elapsed: activeLoad.pausedElapsedTime,
+          lastPausedAt: activeLoad.lastPausedAt,
+          totalPausedTime: activeLoad.totalPausedTime || 0
+        };
+      }
+
+      // If running, calculate elapsed considering pauses
+      if (activeLoad.timerStatus === 'start') {
+        let elapsed = Math.floor((now - startTime) / 1000);
+
+        // Subtract total paused time if any
+        if (activeLoad.totalPausedTime) {
+          elapsed -= activeLoad.totalPausedTime;
+        }
+
+        return {
+          status: 'running',
+          startTime: activeLoad.timerStartTime,
+          duration: activeLoad.duration,
+          elapsed: elapsed,
+          totalPausedTime: activeLoad.totalPausedTime || 0
+        };
+      }
     }
 
     return { status: 'stopped' };
@@ -209,6 +236,124 @@ const GanttChart = () => {
     alert(`Timer stopped for ${selectedChamber}.`);
   };
 
+  // Pause Timer Handler Function
+  const handlePauseTimer = (machineName) => {
+    const chamberLoads = getChamberLoadsFromStorage();
+
+    // Find active load for this machine
+    const activeLoad = chamberLoads.find(load =>
+      load.chamber === machineName &&
+      load.status === 'loaded' &&
+      load.timerStatus === 'start'
+    );
+
+    if (!activeLoad) {
+      alert('No active test found to pause');
+      return;
+    }
+
+    // Calculate elapsed time so far
+    const startTime = new Date(activeLoad.timerStartTime);
+    const now = new Date();
+    let elapsed = Math.floor((now - startTime) / 1000);
+
+    // Subtract any previously accumulated paused time
+    if (activeLoad.totalPausedTime) {
+      elapsed -= activeLoad.totalPausedTime;
+    }
+
+    // Update the load with pause information
+    const updatedLoads = chamberLoads.map(load => {
+      if (load.id === activeLoad.id) {
+        return {
+          ...load,
+          timerStatus: 'paused',
+          lastPausedAt: new Date().toISOString(),
+          pausedElapsedTime: elapsed,
+          totalPausedTime: activeLoad.totalPausedTime || 0
+        };
+      }
+      return load;
+    });
+
+    localStorage.setItem('chamberLoads', JSON.stringify(updatedLoads));
+
+    // Update local state for paused timers
+    setPausedTimers(prev => ({
+      ...prev,
+      [machineName]: {
+        pausedAt: new Date().toISOString(),
+        elapsedBeforePause: elapsed
+      }
+    }));
+
+    // Refresh data
+    setTimeout(() => {
+      const tests = loadRunningTests();
+      loadMachineData(tests);
+      calculateMachineAvailability();
+    }, 100);
+
+    alert(`Test paused for ${machineName}. Elapsed time: ${formatTime(elapsed)}`);
+  };
+
+  // Resume Timer Handler Function
+  const handleResumeTimer = (machineName) => {
+    const chamberLoads = getChamberLoadsFromStorage();
+
+    // Find paused load for this machine
+    const pausedLoad = chamberLoads.find(load =>
+      load.chamber === machineName &&
+      load.status === 'loaded' &&
+      load.timerStatus === 'paused'
+    );
+
+    if (!pausedLoad) {
+      alert('No paused test found to resume');
+      return;
+    }
+
+    // Calculate new start time by adjusting for pause duration
+    const originalStartTime = new Date(pausedLoad.timerStartTime);
+    const now = new Date();
+    const timePaused = Math.floor((now - new Date(pausedLoad.lastPausedAt)) / 1000);
+    const newTotalPausedTime = (pausedLoad.totalPausedTime || 0) + timePaused;
+
+    // Update the load to resume
+    const updatedLoads = chamberLoads.map(load => {
+      if (load.id === pausedLoad.id) {
+        return {
+          ...load,
+          timerStatus: 'start',
+          // Keep original start time but track total paused time
+          timerStartTime: pausedLoad.timerStartTime,
+          totalPausedTime: newTotalPausedTime,
+          lastPausedAt: null,
+          pausedElapsedTime: null
+        };
+      }
+      return load;
+    });
+
+    localStorage.setItem('chamberLoads', JSON.stringify(updatedLoads));
+
+    // Update local state
+    setPausedTimers(prev => {
+      const newState = { ...prev };
+      delete newState[machineName];
+      return newState;
+    });
+
+    // Refresh data
+    setTimeout(() => {
+      const tests = loadRunningTests();
+      loadMachineData(tests);
+      calculateMachineAvailability();
+    }, 100);
+
+    alert(`Test resumed for ${machineName}`);
+  };
+
   // Function to open machine details modal
   const handleViewMachineDetails = (machine) => {
     const foundMachine = data.find(m => m.machine_description === machine.machine_description);
@@ -230,6 +375,59 @@ const GanttChart = () => {
     }
   };
 
+  // const calculateMachineAvailability = () => {
+  //   const availability = {};
+  //   const chamberLoads = getChamberLoadsFromStorage();
+
+  //   data.forEach(machine => {
+  //     const machineName = machine.machine_description;
+  //     const machineId = machine.machine_id;
+
+  //     const activeLoads = chamberLoads.filter(load =>
+  //       load.chamber === machineName || load.chamber === machineId
+  //     );
+
+  //     let status = 'available';
+
+  //     if (chamberLoadingStatus[machineName] && selectedChamber === machineName) {
+  //       status = 'loading';
+  //     }
+  //     else if (activeLoads.length > 0) {
+  //       const now = new Date();
+
+  //       const hasRunningTimer = activeLoads.some(load =>
+  //         load.timerStatus === 'start' &&
+  //         load.timerStartTime &&
+  //         load.estimatedCompletion &&
+  //         new Date(load.estimatedCompletion) > now
+  //       );
+
+  //       if (hasRunningTimer) {
+  //         status = 'occupied';
+  //       } else if (activeLoads.some(load => load.status === 'loaded')) {
+  //         status = 'available';
+  //       }
+  //     }
+
+  //     const activePartsCount = activeLoads.reduce((sum, load) => sum + load.parts.length, 0);
+  //     const runningTimers = activeLoads.filter(load => load.timerStatus === 'start').length;
+  //     const pausedTimersCount = activeLoads.filter(load => load.timerStatus === 'paused').length;
+
+  //     availability[machineName] = {
+  //       status,
+  //       activeLoads: activeLoads.length,
+  //       activeParts: activePartsCount,
+  //       runningTimers: runningTimers,
+  //       pausedTimers: pausedTimersCount,
+  //       lastUpdated: new Date().toLocaleTimeString(),
+  //       machineId: machineId,
+  //       machineDescription: machineName
+  //     };
+  //   });
+
+  //   setMachineAvailability(availability);
+  // };
+
   const calculateMachineAvailability = () => {
     const availability = {};
     const chamberLoads = getChamberLoadsFromStorage();
@@ -250,15 +448,16 @@ const GanttChart = () => {
       else if (activeLoads.length > 0) {
         const now = new Date();
 
-        const hasRunningTimer = activeLoads.some(load =>
-          load.timerStatus === 'start' &&
+        // Check for running OR paused timers - both should show as occupied
+        const hasActiveTimer = activeLoads.some(load =>
+          (load.timerStatus === 'start' || load.timerStatus === 'paused') &&
           load.timerStartTime &&
           load.estimatedCompletion &&
           new Date(load.estimatedCompletion) > now
         );
 
-        if (hasRunningTimer) {
-          status = 'occupied';
+        if (hasActiveTimer) {
+          status = 'occupied'; // Keep as occupied even when paused
         } else if (activeLoads.some(load => load.status === 'loaded')) {
           status = 'available';
         }
@@ -266,12 +465,14 @@ const GanttChart = () => {
 
       const activePartsCount = activeLoads.reduce((sum, load) => sum + load.parts.length, 0);
       const runningTimers = activeLoads.filter(load => load.timerStatus === 'start').length;
+      const pausedTimersCount = activeLoads.filter(load => load.timerStatus === 'paused').length;
 
       availability[machineName] = {
         status,
         activeLoads: activeLoads.length,
         activeParts: activePartsCount,
         runningTimers: runningTimers,
+        pausedTimers: pausedTimersCount,
         lastUpdated: new Date().toLocaleTimeString(),
         machineId: machineId,
         machineDescription: machineName
@@ -383,18 +584,6 @@ const GanttChart = () => {
 
   const handleNavigateToTestingForPart = (load, testGroup) => {
     const record = {
-      // loadId: load.id,
-      // chamber: load.chamber,
-      // parts: testGroup.parts,
-      // totalParts: testGroup.parts.length,
-      // machineDetails: load.machineDetails || {},
-      // loadedAt: load.loadedAt,
-      // estimatedCompletion: load.estimatedCompletion,
-      // duration: load.duration,
-      // testRecords: testGroup.parts,
-      // timerStatus: load.timerStatus,
-      // timerStartTime: load.timerStartTime,
-      // selectedPart: testGroup.parts[0]
       loadId: load.id,
       chamber: load.chamber,
       parts: testGroup.parts,
@@ -518,21 +707,27 @@ const GanttChart = () => {
     return `${hours}h`;
   };
 
-  const calculateTimeRemaining = (estimatedCompletion) => {
-    const end = new Date(estimatedCompletion);
-    const now = new Date();
-    const diffMs = end - now;
-
-    if (diffMs <= 0) return 'Completed';
-
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffHours / 24);
-    const remainingHours = diffHours % 24;
-
-    if (diffDays > 0) {
-      return `${diffDays}d ${remainingHours}h`;
+  const calculateTimeRemaining = (load) => {
+    if (load.timerStatus === 'paused') {
+      return 'Paused';
     }
-    return `${diffHours}h`;
+
+    if (load.timerStatus !== 'start' || !load.timerStartTime) return null;
+
+    const now = new Date();
+    const startTime = new Date(load.timerStartTime);
+    const durationInMs = parseFloat(load.duration) * 60 * 60 * 1000;
+
+    // Adjust for total paused time
+    const adjustedDuration = durationInMs - ((load.totalPausedTime || 0) * 1000);
+    const endTime = new Date(startTime.getTime() + adjustedDuration);
+
+    if (now > endTime) return 'Completed';
+
+    const remainingMs = endTime - now;
+    const remainingDays = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
+
+    return `${remainingDays} days remaining`;
   };
 
   const getStatusInfo = (load) => {
@@ -542,6 +737,8 @@ const GanttChart = () => {
 
     if (load.status === 'completed') {
       return { label: 'Completed', color: 'bg-green-100 text-green-800', icon: 'CheckCircle' };
+    } else if (load.timerStatus === 'paused') {
+      return { label: 'Paused', color: 'bg-yellow-100 text-yellow-800', icon: 'Pause' };
     } else if (timeRemaining <= 0) {
       return { label: 'Expired', color: 'bg-red-100 text-red-800', icon: 'XCircle' };
     } else if (timeRemaining < 24 * 60 * 60 * 1000) {
@@ -1332,12 +1529,19 @@ const GanttChart = () => {
   };
 
   const calculateRemainingTime = (load) => {
+    if (load.timerStatus === 'paused') {
+      return 'Paused';
+    }
+
     if (load.timerStatus !== 'start' || !load.timerStartTime) return null;
 
     const now = new Date();
     const startTime = new Date(load.timerStartTime);
     const durationInMs = parseFloat(load.duration) * 60 * 60 * 1000;
-    const endTime = new Date(startTime.getTime() + durationInMs);
+
+    // Adjust for total paused time
+    const adjustedDuration = durationInMs - ((load.totalPausedTime || 0) * 1000);
+    const endTime = new Date(startTime.getTime() + adjustedDuration);
 
     if (now > endTime) return 'Completed';
 
@@ -1613,9 +1817,10 @@ const GanttChart = () => {
                             <div className={`text-sm font-medium ${statusInfo.label === 'Active' ? 'text-blue-600' :
                               statusInfo.label === 'Finishing Soon' ? 'text-yellow-600' :
                                 statusInfo.label === 'Completed' ? 'text-green-600' :
-                                  'text-red-600'
+                                  statusInfo.label === 'Paused' ? 'text-yellow-600' :
+                                    'text-red-600'
                               }`}>
-                              {calculateTimeRemaining(load.estimatedCompletion)}
+                              {calculateTimeRemaining(load)}
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -1777,7 +1982,8 @@ const GanttChart = () => {
                   <div>
                     <span className="text-gray-500">Status:</span>
                     <span className="font-medium ml-2">
-                      {loadToDelete?.timerStatus === 'start' ? 'Test Running' : 'Loaded'}
+                      {loadToDelete?.timerStatus === 'start' ? 'Test Running' :
+                        loadToDelete?.timerStatus === 'paused' ? 'Test Paused' : 'Loaded'}
                     </span>
                   </div>
                   {loadToDelete?.parts?.map((part, index) => (
@@ -1839,9 +2045,9 @@ const GanttChart = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Parts in Chamber
                 </th>
-                {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Timer Status
-                </th> */}
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Last Updated
                 </th>
@@ -1904,12 +2110,20 @@ const GanttChart = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {availability.activeParts}
                     </td>
-                    {/* <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {timerStatus ? (
                         timerStatus.status === 'running' ? (
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                             <span className="text-sm font-medium text-green-600">Running</span>
+                            <span className="text-xs text-gray-500">
+                              {formatTime(timerStatus.elapsed)}
+                            </span>
+                          </div>
+                        ) : timerStatus.status === 'paused' ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                            <span className="text-sm font-medium text-yellow-600">Paused</span>
                             <span className="text-xs text-gray-500">
                               {formatTime(timerStatus.elapsed)}
                             </span>
@@ -1923,7 +2137,7 @@ const GanttChart = () => {
                       ) : (
                         <span className="text-sm text-gray-500">No Load</span>
                       )}
-                    </td> */}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {availability.lastUpdated}
                     </td>
@@ -1954,6 +2168,24 @@ const GanttChart = () => {
                         Testing
                       </button>
 
+                      {/* Pause/Resume Controls */}
+                      {hasLoadedParts && timerStatus && timerStatus.status === 'running' ? (
+                        <button
+                          onClick={() => handlePauseTimer(machine.machine_description)}
+                          className="px-3 py-1.5 rounded text-xs font-medium bg-yellow-600 text-white hover:bg-yellow-700 transition-colors"
+                          title="Pause Test"
+                        >
+                          Pause
+                        </button>
+                      ) : hasLoadedParts && timerStatus && timerStatus.status === 'paused' ? (
+                        <button
+                          onClick={() => handleResumeTimer(machine.machine_description)}
+                          className="px-3 py-1.5 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+                          title="Resume Test"
+                        >
+                          Resume
+                        </button>
+                      ) : null}
                     </td>
                   </tr>
                 );
@@ -2009,15 +2241,6 @@ const GanttChart = () => {
                       <div className="font-semibold">{machine.machine_description}</div>
                       <div className="text-xs text-gray-500">ID: {machine.machine_id}</div>
                     </div>
-                    {/* <div className="flex space-x-1">
-                      <button
-                        onClick={() => handleViewMachineDetails(machine)}
-                        className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
-                        title="View Machine Details"
-                      >
-                        <Eye size={16} />
-                      </button>
-                    </div> */}
                     {activeMachineLoads.length > 0 && (
                       <div className="ml-2 flex items-center text-xs text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded">
                         <Clock size={12} className="mr-1" />
@@ -2107,6 +2330,11 @@ const GanttChart = () => {
                         const durationInMs = parseFloat(load.duration) * 60 * 60 * 1000;
                         endTime = new Date(startTime.getTime() + durationInMs);
                         shouldShowRed = true;
+                      } else if (load.timerStatus === 'paused' && load.timerStartTime) {
+                        startTime = new Date(load.timerStartTime);
+                        const durationInMs = parseFloat(load.duration) * 60 * 60 * 1000;
+                        endTime = new Date(startTime.getTime() + durationInMs);
+                        shouldShowRed = true; // Show paused tests too
                       } else {
                         startTime = new Date(load.loadedAt);
                         endTime = new Date(load.loadedAt);
@@ -2159,6 +2387,11 @@ const GanttChart = () => {
                         barColor = '#f44336';
                         borderColor = '#d32f2f';
                         statusText = 'Test Started';
+                      } else if (load.timerStatus === 'paused') {
+                        verticalColor = '#FFEB3B';
+                        barColor = '#f44336';
+                        borderColor = '#d32f2f';
+                        statusText = 'Test Paused';
                       } else {
                         verticalColor = '#9E9E9E';
                         barColor = '#9E9E9E';
@@ -2178,7 +2411,9 @@ const GanttChart = () => {
                                 width: '3px',
                                 marginLeft: '-1.5px',
                                 backgroundColor: verticalColor,
-                                boxShadow: `0 0 5px 2px ${verticalColor === '#FFEB3B' ? 'rgba(255, 235, 59, 0.5)' : 'rgba(158, 158, 158, 0.5)'}`,
+                                boxShadow: `0 0 5px 2px ${verticalColor === '#FFEB3B' ? 'rgba(255, 235, 59, 0.5)' :
+                                  verticalColor === '#FF9800' ? 'rgba(255, 152, 0, 0.5)' :
+                                    'rgba(158, 158, 158, 0.5)'}`,
                                 pointerEvents: 'auto'
                               }}
                               title={`${statusText}\nMachine: ${load.chamber}\nStart Time: ${startTime.toLocaleString()}\nEnd Time: ${endTime.toLocaleString()}\nDuration: ${load.duration} hours\nStatus: ${load.timerStatus}\nParts: ${load.parts.map(p => p.partNumber).join(', ')}\n${remainingTime ? `Remaining: ${remainingTime}` : ''}`}
@@ -2196,7 +2431,7 @@ const GanttChart = () => {
                                 borderRadius: '0 4px 4px 0',
                                 border: `1px solid ${borderColor}`
                               }}
-                              title={`Test Running\nMachine: ${load.chamber}\nStatus: ${load.timerStatus}\nStarted: ${startTime.toLocaleString()}\nEnds: ${endTime.toLocaleString()}\nDuration: ${load.duration} hours\nRemaining: ${Math.ceil((endTime - new Date()) / (1000 * 60 * 60 * 24))} days\nParts: ${load.parts.map(p => p.partNumber).join(', ')}`}
+                              title={`${load.timerStatus === 'paused' ? 'Test Paused' : 'Test Running'}\nMachine: ${load.chamber}\nStatus: ${load.timerStatus}\nStarted: ${startTime.toLocaleString()}\nEnds: ${endTime.toLocaleString()}\nDuration: ${load.duration} hours\nRemaining: ${Math.ceil((endTime - new Date()) / (1000 * 60 * 60 * 24))} days\nParts: ${load.parts.map(p => p.partNumber).join(', ')}`}
                             >
                               {barAdjustedWidth > 3 && (
                                 <div className="px-1 text-center">
@@ -2458,6 +2693,10 @@ const GanttChart = () => {
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-4 rounded-lg" style={{ backgroundColor: '#f44336' }}></div>
                     <span className="text-sm text-gray-700">Test Started (Active)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-4 rounded-lg" style={{ backgroundColor: '#FF9800' }}></div>
+                    <span className="text-sm text-gray-700">Test Paused</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-4 rounded-lg" style={{ backgroundColor: '#e57373' }}></div>

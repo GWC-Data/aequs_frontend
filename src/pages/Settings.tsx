@@ -144,6 +144,7 @@ const STATUS_OPTIONS = [
 // Master Excel file path
 const MASTER_EXCEL_PATH = '/master_sheet.xlsx';
 
+
 // LocalStorage utility functions for array storage
 const saveAllocationToStorage = (allocation: TicketAllocationData): void => {
   try {
@@ -635,6 +636,8 @@ const TicketViewPage: React.FC = () => {
         const qtyMatch = qtyString.match(/\d+/);
         const numericQty = qtyMatch ? qtyMatch[0] : '0';
 
+        console.log(row.Time)
+
         return {
           processStage: processStage,
           testName: row['Test Name']?.toString().trim() || '',
@@ -643,11 +646,13 @@ const TicketViewPage: React.FC = () => {
           specification: row['Specification']?.toString().trim() || '',
           machineEquipment: row['Machine / Eqipment-2']?.toString().trim() || '',
           machineEquipment2: row['Machine / Eqipment-2']?.toString().trim() || '',
-          time: row['Time']?.toString().trim() || '',
+          time: row.Time
         };
       }).filter(config => config.processStage); // Filter out empty process stages
 
       setMasterTestConfigs(testConfigs);
+
+      console.log('-----', testConfigs)
 
       // Parse and store unique process stages
       const uniqueProcessStages = Array.from(
@@ -1310,9 +1315,9 @@ const TicketViewPage: React.FC = () => {
 
     allocationData.testAllocations.forEach((test) => {
       const isExpanded = expandedRows.has(test.id);
-      const scannedPartsCount = test.allocatedParts - test.currentAllocatedParts;
-      const progressPercentage = test.allocatedParts > 0
-        ? ((scannedPartsCount / test.allocatedParts) * 100).toFixed(1)
+      const scannedPartsCount = test.currentAllocatedParts - test.allocatedParts;
+      const progressPercentage = test.currentAllocatedParts > 0
+        ? ((scannedPartsCount / test.currentAllocatedParts) * 100).toFixed(1)
         : 0;
 
       // Check if test name has multiple tests (contains +)
@@ -1322,6 +1327,7 @@ const TicketViewPage: React.FC = () => {
       // Get individual machines from combined machine list
       const combinedMachines = combineMachineLists(test.machineEquipment, test.machineEquipment2);
       const combinedDuration = getCombinedDuration(test.time);
+      console.log('combinedDuration', test.time)
 
       // Parent Row (collapsed state)
       rows.push(
@@ -1352,22 +1358,28 @@ const TicketViewPage: React.FC = () => {
           <TableCell>
             <div className="flex flex-col gap-1">
               <div className="font-bold text-xl text-blue-700">
-                {test.allocatedParts}
+                {test.currentAllocatedParts}
               </div>
               <div className="text-xs text-gray-500">
                 planned parts
               </div>
+              <div className="text-xs text-blue-600">
+                {Math.round((test.allocatedParts / allocationData.totalQuantity) * 100)}% of total
+              </div>
             </div>
           </TableCell>
 
-          {/* Remaining Parts Column */}
+          {/* Status Column - Shows DYNAMIC current status */}
           <TableCell>
             <div className="flex flex-col gap-1">
               <div className="font-bold text-xl text-green-700">
-                {test.currentAllocatedParts}
+                {test.allocatedParts}
               </div>
               <div className="text-xs text-gray-500">
                 remaining
+              </div>
+              <div className="text-xs text-green-600">
+                {Math.round((test.currentAllocatedParts / test.allocatedParts) * 100)}% remaining
               </div>
             </div>
           </TableCell>
@@ -1393,7 +1405,7 @@ const TicketViewPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-600">Progress:</span>
                 <span className="text-xs font-medium text-blue-600">
-                  {scannedPartsCount}/{test.allocatedParts}
+                  {scannedPartsCount}/{test.currentAllocatedParts}
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
