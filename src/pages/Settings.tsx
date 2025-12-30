@@ -71,7 +71,7 @@ interface TestConfiguration {
   specification: string;
   machineEquipment: string;
   machineEquipment2: string;
-  time: string;
+  time: string | number;  // Changed from string to string | number
 }
 
 interface TestAllocation {
@@ -300,17 +300,21 @@ const combineMachineLists = (machine1: string, machine2: string): string => {
 };
 
 // Helper function to get combined duration (take the first valid duration)
-const getCombinedDuration = (time: string): string => {
+// Helper function to get combined duration (take the first valid duration)
+const getCombinedDuration = (time: string | number): string => {
   if (!time) return "";
 
+  // Convert to string if it's a number
+  const timeStr = typeof time === 'string' ? time : String(time);
+
   // Extract numeric value and unit
-  const match = time.match(/(\d+(?:\.\d+)?)\s*(hr|hour|h)?/i);
+  const match = timeStr.match(/(\d+(?:\.\d+)?)\s*(hr|hour|h)?/i);
   if (match) {
     const value = match[1];
     const unit = match[2]?.toLowerCase() || 'hr';
     return `${value} ${unit}`;
   }
-  return time;
+  return timeStr;
 };
 
 const TicketViewPage: React.FC = () => {
@@ -644,7 +648,7 @@ const TicketViewPage: React.FC = () => {
           specification: row['Specification']?.toString().trim() || '',
           machineEquipment: row['Machine / Eqipment-2']?.toString().trim() || '',
           machineEquipment2: row['Machine / Eqipment-2']?.toString().trim() || '',
-          time: row['Time']
+          time: row['Time']?.toString().trim() || ''  // Added .toString().trim()
         };
       }).filter(config => config.processStage); // Filter out empty process stages
 
