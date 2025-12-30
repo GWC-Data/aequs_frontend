@@ -636,8 +636,6 @@ const TicketViewPage: React.FC = () => {
         const qtyMatch = qtyString.match(/\d+/);
         const numericQty = qtyMatch ? qtyMatch[0] : '0';
 
-        console.log(row.Time)
-
         return {
           processStage: processStage,
           testName: row['Test Name']?.toString().trim() || '',
@@ -646,7 +644,7 @@ const TicketViewPage: React.FC = () => {
           specification: row['Specification']?.toString().trim() || '',
           machineEquipment: row['Machine / Eqipment-2']?.toString().trim() || '',
           machineEquipment2: row['Machine / Eqipment-2']?.toString().trim() || '',
-          time: row.Time
+          time: row['Time']
         };
       }).filter(config => config.processStage); // Filter out empty process stages
 
@@ -1924,7 +1922,7 @@ const TicketViewPage: React.FC = () => {
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-green-700">
-                      {allocationData.testAllocations.reduce((sum, test) => sum + (test.allocatedParts - test.currentAllocatedParts), 0)}
+                      {allocationData.testAllocations.reduce((sum, test) => sum + (test.currentAllocatedParts - test.allocatedParts), 0)}
                     </div>
                     <div className="text-sm text-gray-600">Parts Scanned</div>
                   </div>
