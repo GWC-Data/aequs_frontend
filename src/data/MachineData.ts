@@ -8,23 +8,23 @@ export interface MachineItem {
 export const machineData: MachineItem[] = [
     {
         "sr_no": 1,
-        "machine_id": "JORD-001",
-        "machine_description": "DLSM RANDOM DROP"
+        "machine_id": "ORD-001",
+        "machine_description": "0.5M RANDOM DROP"
     },
     {
         "sr_no": 2,
-        "machine_id": "JORD-002",
+        "machine_id": "ORD-002",
         "machine_description": "1.25M RANDOM DROP"
     },
     {
         "sr_no": 3,
-        "machine_id": "JORD-003",
-        "machine_description": "LM RANDOM DROP"
+        "machine_id": "ORD-003",
+        "machine_description": "1M RANDOM DROP"
     },
     {
         "sr_no": 4,
         "machine_id": "4165",
-        "machine_description": "LM CONTROL DROP"
+        "machine_description": "1M RANDOM DROP"
     },
     {
         "sr_no": 5,
@@ -58,37 +58,37 @@ export const machineData: MachineItem[] = [
     },
     {
         "sr_no": 11,
-        "machine_id": "A-192",
+        "machine_id": "M-192",
         "machine_description": "X-RITE SPECTRALIGHT III"
     },
     {
         "sr_no": 12,
-        "machine_id": "AL0000052",
+        "machine_id": "A10000052",
         "machine_description": "HEAT SOAK-01"
     },
     {
         "sr_no": 13,
-        "machine_id": "ACS-U3-01",
+        "machine_id": "AQS-U3-01",
         "machine_description": "HEAT SOAK-02"
     },
     {
         "sr_no": 14,
-        "machine_id": "ACS-U3-02",
+        "machine_id": "AQS-U3-02",
         "machine_description": "THERMAL CYCLE CHAMBER"
     },
     {
         "sr_no": 15,
-        "machine_id": "B2261",
+        "machine_id": "32261",
         "machine_description": "UV CHAMBER"
     },
     {
         "sr_no": 16,
-        "machine_id": "B2259",
+        "machine_id": "32259",
         "machine_description": "SALT SPRAY"
     },
     {
         "sr_no": 17,
-        "machine_id": "Q0231191",
+        "machine_id": "20231191",
         "machine_description": "TABER LINEAR ABRASER"
     },
     {
@@ -98,32 +98,32 @@ export const machineData: MachineItem[] = [
     },
     {
         "sr_no": 19,
-        "machine_id": "ST2024011LHW0301",
+        "machine_id": "SF20240111FW03001",
         "machine_description": "FOOT SURVIVABILITY TEST"
     },
     {
         "sr_no": 20,
-        "machine_id": "34810/200C5001",
-        "machine_description": "OSLR Camera"
+        "machine_id": "348102/ODCS001",
+        "machine_description": "DSLR Camera"
     },
     {
         "sr_no": 21,
-        "machine_id": "BA2041905",
+        "machine_id": "IBA2041905",
         "machine_description": "TAP Immersion"
     },
     {
         "sr_no": 22,
-        "machine_id": "BA2041904",
+        "machine_id": "IBA2041904",
         "machine_description": "POOL Immersion"
     },
     {
         "sr_no": 23,
-        "machine_id": "BA2039109",
+        "machine_id": "IBA2039109",
         "machine_description": "OCEAN Immersion"
     },
     {
         "sr_no": 24,
-        "machine_id": "PCD7323904001",
+        "machine_id": "PCD73239004001",
         "machine_description": "ASI Immersion"
     }
 ]
