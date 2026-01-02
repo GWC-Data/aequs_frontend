@@ -1125,9 +1125,9 @@ function DefaultForm({
                                                                         {/* Show existing cosmetic images from storage first */}
                                                                         {existingImages.cosmeticImages.length > 0 ? (
                                                                             <div className="space-y-2">
-                                                                                <div className="text-xs text-gray-500 mb-1">
+                                                                                {/* <div className="text-xs text-gray-500 mb-1">
                                                                                     Pre-uploaded images ({existingImages.cosmeticImages.length}):
-                                                                                </div>
+                                                                                </div> */}
                                                                                 <div className="grid grid-cols-2 gap-1">
                                                                                     {existingImages.cosmeticImages.map((img, imgIndex) => (
                                                                                         <div key={imgIndex} className="relative group">
@@ -1224,9 +1224,9 @@ function DefaultForm({
                                                                         {/* Show existing non-cosmetic images from storage first */}
                                                                         {existingImages.nonCosmeticImages.length > 0 ? (
                                                                             <div className="space-y-2">
-                                                                                <div className="text-xs text-gray-500 mb-1">
+                                                                                {/* <div className="text-xs text-gray-500 mb-1">
                                                                                     Pre-uploaded images ({existingImages.nonCosmeticImages.length}):
-                                                                                </div>
+                                                                                </div> */}
                                                                                 <div className="grid grid-cols-2 gap-1">
                                                                                     {existingImages.nonCosmeticImages.map((img, imgIndex) => (
                                                                                         <div key={imgIndex} className="relative group">

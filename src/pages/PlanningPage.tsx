@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, FileSpreadsheet, X, Scan, Search, Info, Clock, Calendar, Grid, Upload, Image as ImageIcon, TestTube, User, AlertCircle, CheckCircle, Trash2, Filter, Eye, Settings, Thermometer, Droplets } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -85,7 +86,6 @@ const GanttChart = () => {
   }, [timerStatus, timerStartTime]);
 
   // Function to get chamber loads from localStorage with timer calculations
-
   const getChamberLoadsFromStorage = () => {
     try {
       const chamberLoads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
@@ -132,11 +132,21 @@ const GanttChart = () => {
     }
   };
 
-  // Function to get timer status for a specific machine
-  const getMachineTimerStatus = (machineName) => {
+  // Function to get timer status for a specific machine (by ID or description)
+  const getMachineTimerStatus = (machineIdentifier) => {
     const chamberLoads = getChamberLoadsFromStorage();
+
+    // Try to find machine by ID first, then by description
+    const machine = data.find(m =>
+      m.machine_id === machineIdentifier ||
+      m.machine_description === machineIdentifier
+    );
+
+    if (!machine) return null;
+
     const machineLoads = chamberLoads.filter(load =>
-      load.chamber === machineName && load.status === 'loaded'
+      load.chamber === machine.machine_id ||
+      load.chamber === machine.machine_description
     );
 
     if (machineLoads.length === 0) return null;
@@ -183,6 +193,24 @@ const GanttChart = () => {
     return { status: 'stopped' };
   };
 
+  // Helper function to get status for specific equipment
+  const getEquipmentStatus = (machineId) => {
+    const machine = data.find(m => m.machine_id === machineId);
+    if (!machine) return null;
+
+    const availability = machineAvailability[machine.machine_description]?.[machineId];
+    return availability || {
+      status: 'available',
+      activeLoads: 0,
+      activeParts: 0,
+      runningTimers: 0,
+      pausedTimers: 0,
+      lastUpdated: 'N/A',
+      machineId: machineId,
+      machineDescription: machine.machine_description
+    };
+  };
+
   // Format time to HH:MM:SS
   const formatTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
@@ -200,18 +228,12 @@ const GanttChart = () => {
     alert(`Timer will start when you confirm the load. Duration: ${timerDuration} hours.`);
   };
 
-  // Add this helper function to get machine ID from machineData
-  const getMachineId = (machineDescription) => {
-    const machine = data.find(m => m.machine_description === machineDescription);
-    return machine ? machine.machine_id : null;
-  };
-
   // Handle timer stop
   const handleStopTimer = () => {
     setTimerStatus('stop');
 
     // Update the load in localStorage with timer stop
-    const chamberLoads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
+    const chamberLoads = getChamberLoadsFromStorage();
     const updatedLoads = chamberLoads.map(load => {
       if (load.chamber === selectedChamber && load.status === 'loaded') {
         return {
@@ -237,12 +259,12 @@ const GanttChart = () => {
   };
 
   // Pause Timer Handler Function
-  const handlePauseTimer = (machineName) => {
+  const handlePauseTimer = (machineIdentifier) => {
     const chamberLoads = getChamberLoadsFromStorage();
 
     // Find active load for this machine
     const activeLoad = chamberLoads.find(load =>
-      load.chamber === machineName &&
+      (load.chamber === machineIdentifier) &&
       load.status === 'loaded' &&
       load.timerStatus === 'start'
     );
@@ -281,7 +303,7 @@ const GanttChart = () => {
     // Update local state for paused timers
     setPausedTimers(prev => ({
       ...prev,
-      [machineName]: {
+      [machineIdentifier]: {
         pausedAt: new Date().toISOString(),
         elapsedBeforePause: elapsed
       }
@@ -294,16 +316,16 @@ const GanttChart = () => {
       calculateMachineAvailability();
     }, 100);
 
-    alert(`Test paused for ${machineName}. Elapsed time: ${formatTime(elapsed)}`);
+    alert(`Test paused for ${machineIdentifier}. Elapsed time: ${formatTime(elapsed)}`);
   };
 
   // Resume Timer Handler Function
-  const handleResumeTimer = (machineName) => {
+  const handleResumeTimer = (machineIdentifier) => {
     const chamberLoads = getChamberLoadsFromStorage();
 
     // Find paused load for this machine
     const pausedLoad = chamberLoads.find(load =>
-      load.chamber === machineName &&
+      (load.chamber === machineIdentifier) &&
       load.status === 'loaded' &&
       load.timerStatus === 'paused'
     );
@@ -340,7 +362,7 @@ const GanttChart = () => {
     // Update local state
     setPausedTimers(prev => {
       const newState = { ...prev };
-      delete newState[machineName];
+      delete newState[machineIdentifier];
       return newState;
     });
 
@@ -351,7 +373,7 @@ const GanttChart = () => {
       calculateMachineAvailability();
     }, 100);
 
-    alert(`Test resumed for ${machineName}`);
+    alert(`Test resumed for ${machineIdentifier}`);
   };
 
   // Function to open machine details modal
@@ -367,66 +389,17 @@ const GanttChart = () => {
         chamberId: 'HS-01',
         labTemperature: '19°C',
         labHumidity: '40%',
-        notes: 'Strictly this data should remain with Aequa'
+        notes: 'Strictly this data should remain with Aequa',
+        // Get all equipment IDs for this description
+        allEquipmentIds: data
+          .filter(m => m.machine_description === foundMachine.machine_description)
+          .map(m => m.machine_id)
       };
 
       setSelectedMachineDetails(machineDetails);
       setShowMachineDetailsModal(true);
     }
   };
-
-  // const calculateMachineAvailability = () => {
-  //   const availability = {};
-  //   const chamberLoads = getChamberLoadsFromStorage();
-
-  //   data.forEach(machine => {
-  //     const machineName = machine.machine_description;
-  //     const machineId = machine.machine_id;
-
-  //     const activeLoads = chamberLoads.filter(load =>
-  //       load.chamber === machineName || load.chamber === machineId
-  //     );
-
-  //     let status = 'available';
-
-  //     if (chamberLoadingStatus[machineName] && selectedChamber === machineName) {
-  //       status = 'loading';
-  //     }
-  //     else if (activeLoads.length > 0) {
-  //       const now = new Date();
-
-  //       const hasRunningTimer = activeLoads.some(load =>
-  //         load.timerStatus === 'start' &&
-  //         load.timerStartTime &&
-  //         load.estimatedCompletion &&
-  //         new Date(load.estimatedCompletion) > now
-  //       );
-
-  //       if (hasRunningTimer) {
-  //         status = 'occupied';
-  //       } else if (activeLoads.some(load => load.status === 'loaded')) {
-  //         status = 'available';
-  //       }
-  //     }
-
-  //     const activePartsCount = activeLoads.reduce((sum, load) => sum + load.parts.length, 0);
-  //     const runningTimers = activeLoads.filter(load => load.timerStatus === 'start').length;
-  //     const pausedTimersCount = activeLoads.filter(load => load.timerStatus === 'paused').length;
-
-  //     availability[machineName] = {
-  //       status,
-  //       activeLoads: activeLoads.length,
-  //       activeParts: activePartsCount,
-  //       runningTimers: runningTimers,
-  //       pausedTimers: pausedTimersCount,
-  //       lastUpdated: new Date().toLocaleTimeString(),
-  //       machineId: machineId,
-  //       machineDescription: machineName
-  //     };
-  //   });
-
-  //   setMachineAvailability(availability);
-  // };
 
   const calculateMachineAvailability = () => {
     const availability = {};
@@ -436,13 +409,14 @@ const GanttChart = () => {
       const machineName = machine.machine_description;
       const machineId = machine.machine_id;
 
+      // Check loads for both machine description and specific ID
       const activeLoads = chamberLoads.filter(load =>
         load.chamber === machineName || load.chamber === machineId
       );
 
       let status = 'available';
 
-      if (chamberLoadingStatus[machineName] && selectedChamber === machineName) {
+      if (chamberLoadingStatus[machineId] && selectedChamber === machineId) {
         status = 'loading';
       }
       else if (activeLoads.length > 0) {
@@ -457,7 +431,7 @@ const GanttChart = () => {
         );
 
         if (hasActiveTimer) {
-          status = 'occupied'; // Keep as occupied even when paused
+          status = 'occupied';
         } else if (activeLoads.some(load => load.status === 'loaded')) {
           status = 'available';
         }
@@ -467,7 +441,13 @@ const GanttChart = () => {
       const runningTimers = activeLoads.filter(load => load.timerStatus === 'start').length;
       const pausedTimersCount = activeLoads.filter(load => load.timerStatus === 'paused').length;
 
-      availability[machineName] = {
+      // Initialize the availability object for this machine description if it doesn't exist
+      if (!availability[machineName]) {
+        availability[machineName] = {};
+      }
+
+      // Store availability for this specific equipment ID
+      availability[machineName][machineId] = {
         status,
         activeLoads: activeLoads.length,
         activeParts: activePartsCount,
@@ -543,14 +523,14 @@ const GanttChart = () => {
     });
   };
 
-  const handleOpenTestingModal = (machineDescription) => {
+  const handleOpenTestingModal = (machineIdentifier) => {
     const chamberLoads = getChamberLoadsFromStorage();
     const activeMachineLoads = chamberLoads.filter(load =>
-      load.chamber === machineDescription
+      load.chamber === machineIdentifier
     );
 
     if (activeMachineLoads.length === 0) {
-      alert('No loads found for this machine');
+      alert('No loads found for this equipment');
       return;
     }
 
@@ -558,7 +538,7 @@ const GanttChart = () => {
       new Date(b.loadedAt) - new Date(a.loadedAt)
     );
 
-    setSelectedChamberForTesting(machineDescription);
+    setSelectedChamberForTesting(machineIdentifier);
     setChamberLoadDetails(sortedLoads);
     setShowTestingModal(true);
   };
@@ -646,7 +626,6 @@ const GanttChart = () => {
     alert('Load marked as complete successfully!');
   };
 
-
   const loadMachineData = (tests) => {
     // Check if tests is an array
     if (!Array.isArray(tests)) {
@@ -657,7 +636,7 @@ const GanttChart = () => {
     const machineMap = new Map();
 
     machineData.forEach(machine => {
-      machineMap.set(machine.machine_description, {
+      machineMap.set(machine.machine_id, {
         ...machine,
         tests: []
       });
@@ -669,12 +648,14 @@ const GanttChart = () => {
 
       let matchedMachine = null;
 
+      // Try to find exact match by machine ID first
       if (machineMap.has(testMachineName)) {
         matchedMachine = machineMap.get(testMachineName);
       } else {
-        for (const [machineDesc, machine] of machineMap.entries()) {
-          if (testMachineName.toLowerCase().includes(machineDesc.toLowerCase()) ||
-            machineDesc.toLowerCase().includes(testMachineName.toLowerCase())) {
+        // Try to find by machine description
+        for (const [machineId, machine] of machineMap.entries()) {
+          if (testMachineName.toLowerCase().includes(machine.machine_description.toLowerCase()) ||
+            machine.machine_description.toLowerCase().includes(testMachineName.toLowerCase())) {
             matchedMachine = machine;
             break;
           }
@@ -782,12 +763,41 @@ const GanttChart = () => {
 
     const matchedMachine = machineData.find(machine =>
       machine.machine_description.toLowerCase().includes(name) ||
-      name.includes(machine.machine_description.toLowerCase())
+      name.includes(machine.machine_description.toLowerCase()) ||
+      machine.machine_id.toLowerCase() === name
     );
 
     return matchedMachine ? matchedMachine.machine_description : name;
   };
 
+  // const handleLoadChamber = (machineIdentifier) => {
+  //   const machine = data.find(m => m.machine_id === machineIdentifier || m.machine_description === machineIdentifier);
+  //   if (!machine) {
+  //     alert('Equipment not found');
+  //     return;
+  //   }
+
+  //   setSelectedChamber(machineIdentifier);
+  //   setScannedParts([]);
+  //   setPartInput('');
+  //   setSelectedTest('');
+  //   setAvailableTests([]);
+  //   setMachineDetails(null);
+  //   setShowLoadModal(true);
+
+  //   // Reset timer state
+  //   setTimerStatus('stop');
+  //   setTimerStartTime(null);
+  //   setElapsedTime(0);
+  //   setTimerDuration(24);
+
+  //   setChamberLoadingStatus(prev => ({
+  //     ...prev,
+  //     [machineIdentifier]: true
+  //   }));
+  // };
+
+  // In the handleLoadChamber function or where you set up the modal
   const handleLoadChamber = (machineDescription) => {
     setSelectedChamber(machineDescription);
     setScannedParts([]);
@@ -801,13 +811,46 @@ const GanttChart = () => {
     setTimerStatus('stop');
     setTimerStartTime(null);
     setElapsedTime(0);
-    setTimerDuration(24);
+
+    // NEW CODE: Find matching test from allocations and set duration
+    const allocations = JSON.parse(localStorage.getItem('ticket_allocations_array') || '[]');
+
+    let matchedDuration = 24; // Default fallback
+
+    // Loop through allocations to find matching machine
+    for (const allocation of allocations) {
+      if (allocation.testAllocations && Array.isArray(allocation.testAllocations)) {
+        const matchingTest = allocation.testAllocations.find(test => {
+          // Check if machineEquipment or machineEquipment2 matches the selected chamber
+          const machineMatch =
+            test.machineEquipment?.toLowerCase().includes(machineDescription.toLowerCase()) ||
+            machineDescription.toLowerCase().includes(test.machineEquipment?.toLowerCase()) ||
+            test.machineEquipment2?.toLowerCase().includes(machineDescription.toLowerCase()) ||
+            machineDescription.toLowerCase().includes(test.machineEquipment2?.toLowerCase());
+
+          return machineMatch;
+        });
+
+        if (matchingTest && matchingTest.time && matchingTest.time !== 'TBA') {
+          // Parse the time value
+          const parsedTime = parseFloat(matchingTest.time);
+          if (!isNaN(parsedTime) && parsedTime > 0) {
+            matchedDuration = parsedTime;
+            break; // Found first match, break the loop
+          }
+        }
+      }
+    }
+
+    // Set the timer duration to the matched value (or default 24)
+    setTimerDuration(matchedDuration);
 
     setChamberLoadingStatus(prev => ({
       ...prev,
       [machineDescription]: true
     }));
   };
+
 
   const handleImageUpload = (partId, imageType, file) => {
     setUploadingImages(prev => ({
@@ -910,7 +953,7 @@ const GanttChart = () => {
         return;
       }
 
-      const existingLoads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
+      const existingLoads = getChamberLoadsFromStorage();
       const alreadyLoaded = existingLoads.some(load =>
         load.parts.some(part => part.partNumber === partNumber)
       );
@@ -922,7 +965,20 @@ const GanttChart = () => {
       }
 
       const allocations = JSON.parse(localStorage.getItem('ticket_allocations_array') || '[]');
-      const normalizedChamber = normalizeMachineName(selectedChamber);
+
+      // Find the machine details
+      const machine = data.find(m =>
+        m.machine_id === selectedChamber ||
+        m.machine_description === selectedChamber
+      );
+
+      if (!machine) {
+        alert('Equipment not found');
+        setScanning(false);
+        return;
+      }
+
+      const normalizedChamber = normalizeMachineName(machine.machine_description);
 
       const ticketAllocations = allocations.filter(allocation =>
         allocation.ticketCode === foundTicketCode
@@ -970,7 +1026,7 @@ const GanttChart = () => {
       });
 
       if (matchingTests.length === 0) {
-        alert(`No available tests found for ${selectedChamber} in ticket ${foundTicketCode} or all tests are fully allocated!`);
+        alert(`No available tests found for ${machine.machine_description} in ticket ${foundTicketCode} or all tests are fully allocated!`);
         setScanning(false);
         return;
       }
@@ -996,7 +1052,7 @@ const GanttChart = () => {
       setScannedParts([...scannedParts, newScannedPart]);
       setPartInput('');
 
-      updateMachineDetails(matchingTests);
+      updateMachineDetails(matchingTests, machine);
 
     } catch (error) {
       console.error('Error scanning part:', error);
@@ -1016,13 +1072,14 @@ const GanttChart = () => {
     }
   };
 
-  const updateMachineDetails = (tests) => {
+  const updateMachineDetails = (tests, machine) => {
     if (tests.length > 0) {
       const firstTest = tests[0];
       const totalDuration = Math.max(...tests.map(t => parseFloat(t.time) || 0));
 
       setMachineDetails({
-        machine: selectedChamber,
+        machine: machine.machine_description,
+        machineId: machine.machine_id,
         ticketCode: firstTest.ticketCode,
         project: firstTest.project,
         build: firstTest.build,
@@ -1063,209 +1120,6 @@ const GanttChart = () => {
     setLoadToDelete(load);
     setShowDeleteConfirm(true);
   };
-
-
-  // const handleConfirmLoad = () => {
-  //   if (scannedParts.length === 0) {
-  //     alert('No parts scanned!');
-  //     return;
-  //   }
-
-  //   const partsWithoutTests = scannedParts.filter(part => !part.selectedTestId);
-  //   if (partsWithoutTests.length > 0) {
-  //     alert('Please select tests for all parts before loading');
-  //     return;
-  //   }
-
-  //   const allocations = JSON.parse(localStorage.getItem('ticket_allocations_array') || '[]');
-  //   const updatedAllocations = [...allocations];
-  //   let hasCapacityIssues = false;
-  //   let totalDuration = 0;
-
-  //   const allocationSummary = {};
-
-  //   // Validate capacity
-  //   scannedParts.forEach(part => {
-  //     const selectedTest = part.availableTests.find(t => t.id === part.selectedTestId);
-  //     if (selectedTest) {
-  //       const allocationIndex = updatedAllocations.findIndex(a => a.ticketCode === part.ticketCode);
-  //       if (allocationIndex !== -1) {
-  //         const testIndex = updatedAllocations[allocationIndex].testAllocations?.findIndex(
-  //           t => t.id === part.selectedTestId
-  //         );
-
-  //         if (testIndex !== -1) {
-  //           const test = updatedAllocations[allocationIndex].testAllocations[testIndex];
-  //           const remainingToAllocate = test.allocatedParts || 0;
-
-  //           if (remainingToAllocate <= 0) {
-  //             hasCapacityIssues = true;
-  //             alert(`Test "${test.testName}" has no remaining capacity!`);
-  //           }
-  //         }
-  //       }
-  //     }
-  //   });
-
-  //   if (hasCapacityIssues) {
-  //     return;
-  //   }
-
-  //   // Update allocations
-  //   scannedParts.forEach(part => {
-  //     const selectedTest = part.availableTests.find(t => t.id === part.selectedTestId);
-  //     if (selectedTest) {
-  //       const allocationIndex = updatedAllocations.findIndex(a => a.ticketCode === part.ticketCode);
-  //       if (allocationIndex !== -1) {
-  //         const testIndex = updatedAllocations[allocationIndex].testAllocations?.findIndex(
-  //           t => t.id === part.selectedTestId
-  //         );
-
-  //         if (testIndex !== -1) {
-  //           const test = updatedAllocations[allocationIndex].testAllocations[testIndex];
-  //           const oldAllocatedCount = test.allocatedParts || 0;
-  //           const requiredQty = test.requiredQty || 0;
-
-  //           const newAllocatedCount = Math.max(0, oldAllocatedCount - 1);
-  //           updatedAllocations[allocationIndex].testAllocations[testIndex].allocatedParts = newAllocatedCount;
-
-  //           const actuallyAllocatedSoFar = requiredQty - newAllocatedCount;
-
-  //           if (updatedAllocations[allocationIndex].testAllocations[testIndex].status === 1) {
-  //             updatedAllocations[allocationIndex].testAllocations[testIndex].status = 2;
-  //           }
-
-  //           if (!allocationSummary[test.testName]) {
-  //             allocationSummary[test.testName] = {
-  //               count: 0,
-  //               oldValue: oldAllocatedCount,
-  //               newValue: newAllocatedCount,
-  //               requiredQty: requiredQty,
-  //               actuallyAllocated: actuallyAllocatedSoFar
-  //             };
-  //           }
-  //           allocationSummary[test.testName].count++;
-  //           allocationSummary[test.testName].newValue = newAllocatedCount;
-  //           allocationSummary[test.testName].actuallyAllocated = actuallyAllocatedSoFar;
-
-  //           totalDuration = Math.max(totalDuration, parseFloat(test.time) || 0);
-  //         }
-  //       }
-  //     }
-  //   });
-
-  //   localStorage.setItem('ticket_allocations_array', JSON.stringify(updatedAllocations));
-
-  //   // Save part images
-  //   const partImagesData = JSON.parse(localStorage.getItem('partImagesData') || '{}');
-
-  //   scannedParts.forEach(part => {
-  //     if (part.cosmeticImages?.length > 0 || part.nonCosmeticImages?.length > 0) {
-  //       partImagesData[part.partNumber] = {
-  //         cosmeticImages: part.cosmeticImages || [],
-  //         nonCosmeticImages: part.nonCosmeticImages || [],
-  //         uploadedAt: new Date().toISOString()
-  //       };
-  //     }
-  //   });
-
-  //   localStorage.setItem('partImagesData', JSON.stringify(partImagesData));
-
-  //   // Create the load data - THIS IS THE ONLY PLACE WE CREATE A LOAD
-  //   const loadTime = new Date();
-  //   const actualTimerStartTime = timerStatus === 'start' && timerStartTime ? timerStartTime : null;
-  //   const actualTimerStatus = timerStatus === 'start' ? 'start' : 'stop';
-  //   const actualTestStatus = timerStatus === 'start' ? 'start' : 'not_started';
-
-  //   let estimatedCompletion = null;
-  //   if (actualTimerStatus === 'start' && actualTimerStartTime) {
-  //     const durationInMs = (timerDuration || 24) * 60 * 60 * 1000;
-  //     estimatedCompletion = new Date(actualTimerStartTime.getTime() + durationInMs).toISOString();
-  //   }
-
-  //   const loadData = {
-  //     id: Date.now(),
-  //     chamber: selectedChamber,
-  //     parts: scannedParts.map(part => ({
-  //       partNumber: part.partNumber,
-  //       serialNumber: part.serialNumber,
-  //       ticketCode: part.ticketCode,
-  //       testId: part.selectedTestId,
-  //       testName: part.availableTests.find(t => t.id === part.selectedTestId)?.testName || 'Unknown',
-  //       loadedAt: new Date().toISOString(),
-  //       scanStatus: part.scanStatus,
-  //       duration: part.availableTests.find(t => t.id === part.selectedTestId)?.time || 0,
-  //       cosmeticImages: part.cosmeticImages || [],
-  //       nonCosmeticImages: part.nonCosmeticImages || [],
-  //       hasImages: (part.cosmeticImages?.length > 0 || part.nonCosmeticImages?.length > 0)
-  //     })),
-  //     machineDetails: machineDetails,
-  //     loadedAt: loadTime.toISOString(),
-  //     duration: timerDuration || totalDuration,
-  //     status: 'loaded',
-  //     testStatus: actualTestStatus,
-  //     timerStatus: actualTimerStatus,
-  //     timerStartTime: actualTimerStartTime ? actualTimerStartTime.toISOString() : null,
-  //     estimatedCompletion: estimatedCompletion,
-  //     actualStartTime: actualTimerStatus === 'start' && actualTimerStartTime ? actualTimerStartTime.toISOString() : null
-  //   };
-
-  //   // Save to localStorage - ONLY ONCE
-  //   const existingLoads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
-  //   existingLoads.push(loadData);
-  //   localStorage.setItem('chamberLoads', JSON.stringify(existingLoads));
-
-  //   // Build success message
-  //   let summary = `Successfully loaded ${scannedParts.length} parts into ${selectedChamber}\n\n`;
-
-  //   if (actualTimerStatus === 'start') {
-  //     summary += `Timer started! Duration: ${timerDuration} hours\n`;
-  //     summary += `Will complete at: ${new Date(estimatedCompletion).toLocaleString()}\n\n`;
-  //   } else {
-  //     summary += `Parts loaded. Timer not started.\n\n`;
-  //   }
-
-  //   summary += 'Allocation Summary:\n';
-
-  //   Object.entries(allocationSummary).forEach(([testName, data]) => {
-  //     summary += `- ${testName}: ${data.count} part(s) allocated. `;
-  //     summary += `Allocated count decreased from ${data.oldValue} to ${data.newValue}. `;
-  //     summary += `Now ${data.actuallyAllocated}/${data.requiredQty} allocated.\n`;
-  //   });
-
-  //   const partsWithImages = scannedParts.filter(part =>
-  //     part.cosmeticImages?.length > 0 || part.nonCosmeticImages?.length > 0
-  //   ).length;
-
-  //   if (partsWithImages > 0) {
-  //     summary += `\nImages uploaded for ${partsWithImages} part(s).`;
-  //   }
-
-  //   alert(summary);
-
-  //   // Reset states
-  //   setChamberLoadingStatus(prev => ({
-  //     ...prev,
-  //     [selectedChamber]: false
-  //   }));
-
-  //   setShowLoadModal(false);
-  //   setScannedParts([]);
-  //   setPartInput('');
-  //   setSelectedTest('');
-  //   setTimerStatus('stop');
-  //   setTimerStartTime(null);
-  //   setElapsedTime(0);
-  //   setTimerDuration(24);
-
-  //   // Refresh data
-  //   setTimeout(() => {
-  //     loadRunningTests().then(tests => {
-  //       loadMachineData(tests);
-  //       calculateMachineAvailability();
-  //     });
-  //   }, 100);
-  // };
 
   const handleConfirmLoad = () => {
     if (scannedParts.length === 0) {
@@ -1373,14 +1227,16 @@ const GanttChart = () => {
 
     localStorage.setItem('partImagesData', JSON.stringify(partImagesData));
 
-    // Get machine ID and description from your data array
-    const machineInfo = data.find(machine =>
-      machine.machine_description === selectedChamber
+    // Get machine details
+    const machine = data.find(m =>
+      m.machine_id === selectedChamber ||
+      m.machine_description === selectedChamber
     );
 
-    // Set default values if machineInfo is not found
-    const machineId = machineInfo ? machineInfo.machine_id : '';
-    const machineDescription = machineInfo ? machineInfo.machine_description : selectedChamber;
+    if (!machine) {
+      alert('Equipment not found');
+      return;
+    }
 
     // Create the load data
     const loadTime = new Date();
@@ -1397,8 +1253,8 @@ const GanttChart = () => {
     const loadData = {
       id: Date.now(),
       chamber: selectedChamber,
-      machineId: machineId, // Add machine ID
-      machineDescription: machineDescription, // Add machine description
+      machineId: machine.machine_id,
+      machineDescription: machine.machine_description,
       parts: scannedParts.map(part => ({
         partNumber: part.partNumber,
         serialNumber: part.serialNumber,
@@ -1414,8 +1270,8 @@ const GanttChart = () => {
       })),
       machineDetails: {
         ...machineDetails,
-        machineId: machineId,
-        machineDescription: machineDescription
+        machineId: machine.machine_id,
+        machineDescription: machine.machine_description
       },
       loadedAt: loadTime.toISOString(),
       duration: timerDuration || totalDuration,
@@ -1428,14 +1284,13 @@ const GanttChart = () => {
     };
 
     // Save to localStorage
-    const existingLoads = JSON.parse(localStorage.getItem('chamberLoads') || '[]');
+    const existingLoads = getChamberLoadsFromStorage();
     existingLoads.push(loadData);
     localStorage.setItem('chamberLoads', JSON.stringify(existingLoads));
 
     // Build success message
-    let summary = `Successfully loaded ${scannedParts.length} parts into ${selectedChamber}\n`;
-    summary += `Machine ID: ${machineId}\n`;
-    summary += `Machine Description: ${machineDescription}\n\n`;
+    let summary = `Successfully loaded ${scannedParts.length} parts into ${machine.machine_description}\n`;
+    summary += `Equipment ID: ${machine.machine_id}\n\n`;
 
     if (actualTimerStatus === 'start') {
       summary += `Timer started! Duration: ${timerDuration} hours\n`;
@@ -1485,7 +1340,6 @@ const GanttChart = () => {
       });
     }, 100);
   };
-
 
   const generateDateHeaders = (days) => {
     const headers = [];
@@ -1551,9 +1405,16 @@ const GanttChart = () => {
     return `${remainingDays} days remaining`;
   };
 
-  // Machine Details Modal Component
   const MachineDetailsModal = () => {
     if (!showMachineDetailsModal || !selectedMachineDetails) return null;
+
+    // Get the current equipment status
+    const equipmentStatus = getEquipmentStatus(selectedMachineDetails.machine_id);
+
+    // Get all equipment IDs for the same description
+    const allEquipmentIds = data
+      .filter(m => m.machine_description === selectedMachineDetails.machine_description)
+      .map(m => m.machine_id);
 
     return (
       <Dialog open={showMachineDetailsModal} onOpenChange={setShowMachineDetailsModal}>
@@ -1562,16 +1423,84 @@ const GanttChart = () => {
             <DialogTitle className="text-xl font-bold text-gray-800">
               <div className="flex items-center gap-3">
                 <Settings className="text-blue-600" size={24} />
-                <span>Machine Details</span>
+                <span>Equipment Details</span>
               </div>
             </DialogTitle>
             <DialogDescription className="text-sm text-gray-600 mt-1">
-              {selectedMachineDetails.machine_description} ({selectedMachineDetails.machine_id})
+              {selectedMachineDetails.machine_id} - {selectedMachineDetails.machine_description}
             </DialogDescription>
           </DialogHeader>
 
           <div className="mt-4">
-            <div className="border border-gray-300 rounded-lg overflow-hidden mb-6">
+            {/* Equipment Info Section */}
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                <Settings size={18} />
+                Equipment Information
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-sm text-gray-600">Equipment ID:</span>
+                  <span className="text-sm font-medium text-gray-800 ml-2">{selectedMachineDetails.machine_id}</span>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-600">Description:</span>
+                  <span className="text-sm font-medium text-gray-800 ml-2">{selectedMachineDetails.machine_description}</span>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-600">Serial Number:</span>
+                  <span className="text-sm font-medium text-gray-800 ml-2">{selectedMachineDetails.sr_no}</span>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-600">Current Status:</span>
+                  <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${equipmentStatus?.status === 'available' ? 'bg-green-100 text-green-800' :
+                    equipmentStatus?.status === 'occupied' ? 'bg-red-100 text-red-800' :
+                      equipmentStatus?.status === 'loading' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
+                    }`}>
+                    {getStatusText(equipmentStatus?.status || 'unknown')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Related Equipment Section */}
+            {allEquipmentIds.length > 1 && (
+              <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                <h4 className="text-sm font-semibold text-purple-800 mb-3 flex items-center gap-2">
+                  <Grid size={18} />
+                  Related Equipment
+                </h4>
+                <p className="text-sm text-gray-600 mb-3">
+                  Other equipment with the same description:
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {allEquipmentIds.map((equipmentId, index) => {
+                    if (equipmentId === selectedMachineDetails.machine_id) return null;
+                    const status = getEquipmentStatus(equipmentId);
+                    return (
+                      <div key={equipmentId} className="p-3 bg-white border border-purple-100 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-sm font-medium text-gray-800">{equipmentId}</div>
+                          <div className={`w-2 h-2 rounded-full ${status?.status === 'available' ? 'bg-green-500' :
+                            status?.status === 'occupied' ? 'bg-red-500' :
+                              status?.status === 'loading' ? 'bg-yellow-500' : 'bg-gray-500'
+                            }`}></div>
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          <div>Status: {getStatusText(status?.status || 'available')}</div>
+                          <div>Loads: {status?.activeLoads || 0}</div>
+                          <div>Parts: {status?.activeParts || 0}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Equipment Specifications */}
+            <div className="mb-6 border border-gray-300 rounded-lg overflow-hidden">
               <table className="min-w-full divide-y divide-gray-300">
                 <thead>
                   <tr>
@@ -1579,14 +1508,14 @@ const GanttChart = () => {
                       {selectedMachineDetails.machine_description} ({selectedMachineDetails.machine_id})
                     </th>
                     <th className="px-4 py-3 bg-blue-50 text-left text-sm font-semibold text-gray-700 w-1/2">
-                      Notes (as needed)
+                      Specifications
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="bg-white">
                     <td className="px-4 py-3 border-r border-gray-300">
-                      <div className="text-sm font-semibold text-gray-700">Results / Parameter</div>
+                      <div className="text-sm font-semibold text-gray-700">Results / Parameters</div>
                     </td>
                     <td className="px-4 py-3"></td>
                   </tr>
@@ -1598,7 +1527,7 @@ const GanttChart = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-gray-900">{selectedMachineDetails.lastCalibration}</div>
+                      <div className="text-sm font-medium text-gray-900">{selectedMachineDetails.lastCalibration || '26-04-2025'}</div>
                     </td>
                   </tr>
                   <tr className="bg-white">
@@ -1609,7 +1538,7 @@ const GanttChart = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-gray-900">{selectedMachineDetails.nextCalibration}</div>
+                      <div className="text-sm font-medium text-gray-900">{selectedMachineDetails.nextCalibration || '26-04-2026'}</div>
                     </td>
                   </tr>
                   <tr className="bg-gray-50">
@@ -1620,13 +1549,14 @@ const GanttChart = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-gray-900">{selectedMachineDetails.lastChamberCleaning}</div>
+                      <div className="text-sm font-medium text-gray-900">{selectedMachineDetails.lastChamberCleaning || '09-12-2025'}</div>
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
 
+            {/* Important Note */}
             <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div className="flex items-center gap-2">
                 <AlertCircle className="text-yellow-600" size={20} />
@@ -1636,7 +1566,8 @@ const GanttChart = () => {
               </div>
             </div>
 
-            <div className="border border-gray-300 rounded-lg overflow-hidden">
+            {/* Environmental Conditions */}
+            <div className="mb-6 border border-gray-300 rounded-lg overflow-hidden">
               <table className="min-w-full divide-y divide-gray-300">
                 <tbody>
                   <tr className="bg-white">
@@ -1647,7 +1578,7 @@ const GanttChart = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-gray-900">{selectedMachineDetails.chamberId}</div>
+                      <div className="text-sm font-medium text-gray-900">{selectedMachineDetails.chamberId || 'HS-01'}</div>
                     </td>
                   </tr>
                   <tr className="bg-gray-50">
@@ -1660,8 +1591,8 @@ const GanttChart = () => {
                         <span className="text-sm text-gray-500">(temperature)</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-gray-900">{selectedMachineDetails.labTemperature}</div>
+                    <td className="px-6 py-3">
+                      <div className="text-sm font-medium text-gray-900">{selectedMachineDetails.labTemperature || '19°C'}</div>
                     </td>
                   </tr>
                   <tr className="bg-white">
@@ -1674,45 +1605,103 @@ const GanttChart = () => {
                         <span className="text-sm text-gray-500">(humidity)</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-gray-900">{selectedMachineDetails.labHumidity}</div>
+                    <td className="px-6 py-3">
+                      <div className="text-sm font-medium text-gray-900">{selectedMachineDetails.labHumidity || '40%'}</div>
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
 
+            {/* Current Status Details */}
             <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">Current Machine Status</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="text-sm text-gray-600">Status:</span>
-                  <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${machineAvailability[selectedMachineDetails.machine_description]?.status === 'available' ? 'bg-green-100 text-green-800' :
-                    machineAvailability[selectedMachineDetails.machine_description]?.status === 'occupied' ? 'bg-red-100 text-red-800' :
-                      machineAvailability[selectedMachineDetails.machine_description]?.status === 'loading' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Current Equipment Status</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-3 bg-white border rounded-lg">
+                  <div className="text-sm font-medium text-gray-800 mb-2">Status</div>
+                  <div className={`text-sm font-semibold ${equipmentStatus?.status === 'available' ? 'text-green-600' :
+                    equipmentStatus?.status === 'occupied' ? 'text-red-600' :
+                      equipmentStatus?.status === 'loading' ? 'text-yellow-600' :
+                        'text-gray-600'
                     }`}>
-                    {getStatusText(machineAvailability[selectedMachineDetails.machine_description]?.status || 'unknown')}
-                  </span>
+                    {getStatusText(equipmentStatus?.status || 'unknown')}
+                  </div>
                 </div>
-                <div>
-                  <span className="text-sm text-gray-600">Active Loads:</span>
-                  <span className="ml-2 text-sm font-medium text-gray-900">
-                    {machineAvailability[selectedMachineDetails.machine_description]?.activeLoads || 0}
-                  </span>
+                <div className="p-3 bg-white border rounded-lg">
+                  <div className="text-sm font-medium text-gray-800 mb-2">Active Loads</div>
+                  <div className="text-lg font-bold text-blue-600">{equipmentStatus?.activeLoads || 0}</div>
                 </div>
-                <div>
-                  <span className="text-sm text-gray-600">Parts in Chamber:</span>
-                  <span className="ml-2 text-sm font-medium text-gray-900">
-                    {machineAvailability[selectedMachineDetails.machine_description]?.activeParts || 0}
-                  </span>
+                <div className="p-3 bg-white border rounded-lg">
+                  <div className="text-sm font-medium text-gray-800 mb-2">Parts in Chamber</div>
+                  <div className="text-lg font-bold text-blue-600">{equipmentStatus?.activeParts || 0}</div>
                 </div>
-                <div>
-                  <span className="text-sm text-gray-600">Last Updated:</span>
-                  <span className="ml-2 text-sm font-medium text-gray-900">
-                    {machineAvailability[selectedMachineDetails.machine_description]?.lastUpdated || 'N/A'}
-                  </span>
+                <div className="p-3 bg-white border rounded-lg">
+                  <div className="text-sm font-medium text-gray-800 mb-2">Last Updated</div>
+                  <div className="text-sm text-gray-900">{equipmentStatus?.lastUpdated || 'N/A'}</div>
                 </div>
+              </div>
+
+              {/* Timer Status */}
+              {equipmentStatus?.runningTimers > 0 && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Clock className="text-green-600" size={18} />
+                    <span className="text-sm font-medium text-green-800">
+                      Timer Active: {equipmentStatus.runningTimers} timer(s) running
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {equipmentStatus?.pausedTimers > 0 && (
+                <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="text-yellow-600" size={18} />
+                    <span className="text-sm font-medium text-yellow-800">
+                      Timer Paused: {equipmentStatus.pausedTimers} timer(s) paused
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Actions */}
+            <div className="mt-6 p-4 bg-white border border-gray-200 rounded-lg">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Quick Actions</h4>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    setShowMachineDetailsModal(false);
+                    handleLoadChamber(selectedMachineDetails.machine_id);
+                  }}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                  Load Equipment
+                </button>
+                {getChamberLoadsFromStorage().some(load =>
+                  load.chamber === selectedMachineDetails.machine_id &&
+                  load.status === 'loaded' &&
+                  load.parts?.length > 0
+                ) && (
+                    <button
+                      onClick={() => {
+                        setShowMachineDetailsModal(false);
+                        handleOpenTestingModal(selectedMachineDetails.machine_id);
+                      }}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                    >
+                      View Testing
+                    </button>
+                  )}
+                <button
+                  onClick={() => {
+                    // Add functionality to view maintenance history
+                    alert(`Maintenance history for ${selectedMachineDetails.machine_id}`);
+                  }}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                >
+                  Maintenance History
+                </button>
               </div>
             </div>
           </div>
@@ -1776,6 +1765,7 @@ const GanttChart = () => {
                                   Load #{loadIndex + 1} - ID: {load.id}
                                 </div>
                                 <div className="text-xs text-gray-600 mt-1">
+                                  Equipment: {load.machineId} |
                                   Ticket: {load.machineDetails?.ticketCode || 'N/A'} |
                                   Project: {load.machineDetails?.project || 'N/A'} / {load.machineDetails?.build || 'N/A'} |
                                   Colour: {load.machineDetails?.colour || 'N/A'}
@@ -1793,7 +1783,7 @@ const GanttChart = () => {
                               {load.chamber}
                             </div>
                             <div className="text-xs text-gray-500">
-                              Load ID: {load.id}
+                              Equipment ID: {load.machineId}
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -1879,7 +1869,7 @@ const GanttChart = () => {
             {chamberLoadDetails.length === 0 && (
               <div className="text-center py-12">
                 <AlertCircle className="mx-auto text-gray-400 mb-4" size={48} />
-                <p className="text-gray-500 text-lg">No loads found for this chamber</p>
+                <p className="text-gray-500 text-lg">No loads found for this equipment</p>
               </div>
             )}
           </div>
@@ -1968,8 +1958,8 @@ const GanttChart = () => {
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-left">
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <span className="text-gray-500">Chamber:</span>
-                    <span className="font-medium ml-2">{loadToDelete?.chamber}</span>
+                    <span className="text-gray-500">Equipment:</span>
+                    <span className="font-medium ml-2">{loadToDelete?.machineId || loadToDelete?.chamber}</span>
                   </div>
                   <div>
                     <span className="text-gray-500">Parts:</span>
@@ -2027,90 +2017,79 @@ const GanttChart = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   SR No
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Machine ID
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Equipment ID
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Machine Description
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Active Loads
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Parts in Chamber
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Timer Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Last Updated
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {data.map((machine, index) => {
-                const availability = machineAvailability[machine.machine_description] || {
-                  status: 'available',
-                  activeLoads: 0,
-                  activeParts: 0,
-                  lastUpdated: 'N/A'
-                };
+                const status = getEquipmentStatus(machine.machine_id);
+                const timerStatus = getMachineTimerStatus(machine.machine_id);
 
                 const hasLoadedParts = getChamberLoadsFromStorage().some(load =>
-                  (load.chamber === machine.machine_description || load.chamber === machine.machine_id) &&
+                  load.chamber === machine.machine_id &&
                   load.status === 'loaded' &&
                   load.parts?.length > 0
                 );
 
-                const timerStatus = getMachineTimerStatus(machine.machine_description);
-
                 return (
                   <tr key={machine.sr_no} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
                         {machine.sr_no}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
                         {machine.machine_id}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <div
-                          className="w-3 h-3 rounded-full mr-3"
-                          style={{ backgroundColor: getStatusColor(availability.status) }}
-                        ></div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {machine.machine_description}
-                        </div>
+                    <td className="px-3 py-4">
+                      <div className="text-sm font-medium text-gray-900">
+                        {machine.machine_description}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${availability.status === 'available' ? 'bg-green-100 text-green-800' :
-                        availability.status === 'occupied' ? 'bg-red-100 text-red-800' :
-                          'bg-yellow-100 text-yellow-800'
+                    <td className="px-3 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${status?.status === 'available' ? 'bg-green-100 text-green-800' :
+                        status?.status === 'occupied' ? 'bg-red-100 text-red-800' :
+                          status?.status === 'loading' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
                         }`}>
-                        {getStatusText(availability.status)}
+                        {getStatusText(status?.status || 'available')}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {availability.activeLoads}
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {status?.activeLoads || 0}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {availability.activeParts}
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {status?.activeParts || 0}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-4 whitespace-nowrap">
                       {timerStatus ? (
                         timerStatus.status === 'running' ? (
                           <div className="flex items-center gap-2">
@@ -2135,55 +2114,61 @@ const GanttChart = () => {
                           </div>
                         )
                       ) : (
-                        <span className="text-sm text-gray-500">No Load</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+                          <span className="text-sm font-medium text-gray-600">No Load</span>
+                        </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {availability.lastUpdated}
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {status?.lastUpdated || new Date().toLocaleTimeString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                    <td className="px-3 py-4 whitespace-nowrap text-sm font-medium space-x-2 flex">
                       <button
-                        onClick={() => handleLoadChamber(machine.machine_description)}
-                        className="px-3 py-1.5 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
-                        title="Load Chamber"
+                        onClick={() => handleLoadChamber(machine.machine_id)}
+                        className="px-3 py-1.5 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors mb-1 text-left"
+                        title="Load Equipment"
                       >
                         Load Chamber
                       </button>
+
                       <button
                         onClick={() => handleViewMachineDetails(machine)}
-                        className="px-3 py-1.5 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                        className="px-2 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors mb-1"
                         title="View Machine Details"
                       >
                         <Eye size={14} className="inline-block" />
                       </button>
+
                       <button
-                        onClick={() => handleOpenTestingModal(machine.machine_description)}
+                        onClick={() => handleOpenTestingModal(machine.machine_id)}
                         disabled={!hasLoadedParts}
-                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${hasLoadedParts
+                        className={`px-2 py-1 rounded text-xs font-medium transition-colors block text-left flex items-center gap-2 ${hasLoadedParts
                           ? 'bg-purple-600 text-white hover:bg-purple-700'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           }`}
-                        title={hasLoadedParts ? 'View Testing Options' : 'No parts loaded in this machine'}
+                        title={hasLoadedParts ? `View Testing for ${machine.machine_id}` : 'No parts loaded in this equipment'}
                       >
+                        <TestTube size={14} />
                         Testing
                       </button>
 
                       {/* Pause/Resume Controls */}
                       {hasLoadedParts && timerStatus && timerStatus.status === 'running' ? (
                         <button
-                          onClick={() => handlePauseTimer(machine.machine_description)}
-                          className="px-3 py-1.5 rounded text-xs font-medium bg-yellow-600 text-white hover:bg-yellow-700 transition-colors"
+                          onClick={() => handlePauseTimer(machine.machine_id)}
+                          className="px-3 py-1 rounded text-xs font-medium bg-yellow-600 text-white hover:bg-yellow-700 transition-colors text-left mt-1"
                           title="Pause Test"
                         >
-                          Pause
+                          Pause Timer
                         </button>
                       ) : hasLoadedParts && timerStatus && timerStatus.status === 'paused' ? (
                         <button
-                          onClick={() => handleResumeTimer(machine.machine_description)}
-                          className="px-3 py-1.5 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+                          onClick={() => handleResumeTimer(machine.machine_id)}
+                          className="px-3 py-1 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors text-left mt-1"
                           title="Resume Test"
                         >
-                          Resume
+                          Resume Timer
                         </button>
                       ) : null}
                     </td>
@@ -2223,7 +2208,7 @@ const GanttChart = () => {
           {data.map((machine, rowIdx) => {
             const chamberLoads = getChamberLoadsFromStorage();
             const activeMachineLoads = chamberLoads.filter(load =>
-              (load.chamber === machine.machine_description || load.chamber === machine.machine_id) &&
+              (load.chamber === machine.machine_id || load.chamber === machine.machine_description) &&
               load.status === 'loaded'
             ).sort((a, b) => new Date(a.loadedAt) - new Date(b.loadedAt));
 
@@ -2234,12 +2219,12 @@ const GanttChart = () => {
                     <div
                       className="w-3 h-3 rounded-full mr-3"
                       style={{
-                        backgroundColor: getStatusColor(machineAvailability[machine.machine_description]?.status || 'available')
+                        backgroundColor: getStatusColor(getEquipmentStatus(machine.machine_id)?.status || 'available')
                       }}
                     ></div>
                     <div className="flex-1">
-                      <div className="font-semibold">{machine.machine_description}</div>
-                      <div className="text-xs text-gray-500">ID: {machine.machine_id}</div>
+                      <div className="font-semibold">{machine.machine_id}</div>
+                      <div className="text-xs text-gray-500">{machine.machine_description}</div>
                     </div>
                     {activeMachineLoads.length > 0 && (
                       <div className="ml-2 flex items-center text-xs text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded">
@@ -2320,7 +2305,7 @@ const GanttChart = () => {
                   })}
 
                   {getChamberLoadsFromStorage()
-                    .filter(load => load.chamber === machine.machine_description || load.chamber === machine.machine_id)
+                    .filter(load => load.chamber === machine.machine_id || load.chamber === machine.machine_description)
                     .map((load, loadIdx) => {
 
                       let startTime, endTime, shouldShowRed = false;
@@ -2416,7 +2401,7 @@ const GanttChart = () => {
                                     'rgba(158, 158, 158, 0.5)'}`,
                                 pointerEvents: 'auto'
                               }}
-                              title={`${statusText}\nMachine: ${load.chamber}\nStart Time: ${startTime.toLocaleString()}\nEnd Time: ${endTime.toLocaleString()}\nDuration: ${load.duration} hours\nStatus: ${load.timerStatus}\nParts: ${load.parts.map(p => p.partNumber).join(', ')}\n${remainingTime ? `Remaining: ${remainingTime}` : ''}`}
+                              title={`${statusText}\nEquipment: ${load.machineId || load.chamber}\nStart Time: ${startTime.toLocaleString()}\nEnd Time: ${endTime.toLocaleString()}\nDuration: ${load.duration} hours\nStatus: ${load.timerStatus}\nParts: ${load.parts.map(p => p.partNumber).join(', ')}\n${remainingTime ? `Remaining: ${remainingTime}` : ''}`}
                             />
                           )}
 
@@ -2431,7 +2416,7 @@ const GanttChart = () => {
                                 borderRadius: '0 4px 4px 0',
                                 border: `1px solid ${borderColor}`
                               }}
-                              title={`${load.timerStatus === 'paused' ? 'Test Paused' : 'Test Running'}\nMachine: ${load.chamber}\nStatus: ${load.timerStatus}\nStarted: ${startTime.toLocaleString()}\nEnds: ${endTime.toLocaleString()}\nDuration: ${load.duration} hours\nRemaining: ${Math.ceil((endTime - new Date()) / (1000 * 60 * 60 * 24))} days\nParts: ${load.parts.map(p => p.partNumber).join(', ')}`}
+                              title={`${load.timerStatus === 'paused' ? 'Test Paused' : 'Test Running'}\nEquipment: ${load.machineId || load.chamber}\nStatus: ${load.timerStatus}\nStarted: ${startTime.toLocaleString()}\nEnds: ${endTime.toLocaleString()}\nDuration: ${load.duration} hours\nRemaining: ${Math.ceil((endTime - new Date()) / (1000 * 60 * 60 * 24))} days\nParts: ${load.parts.map(p => p.partNumber).join(', ')}`}
                             >
                               {barAdjustedWidth > 3 && (
                                 <div className="px-1 text-center">
@@ -2715,7 +2700,7 @@ const GanttChart = () => {
                 <div className="text-sm text-gray-500">
                   {viewMode === 'calendar'
                     ? `Showing ${numberOfDays} days • ${runningTests.length} active test(s)`
-                    : `${data.length} machines • Last updated: ${new Date().toLocaleTimeString()}`
+                    : `${data.length} equipment units • Last updated: ${new Date().toLocaleTimeString()}`
                   }
                 </div>
               </div>
@@ -2724,14 +2709,24 @@ const GanttChart = () => {
         )}
       </div>
 
-      {/* Load Machine Modal */}
+      {/* Load Equipment Modal */}
       {showLoadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-green-50 to-white sticky top-0">
               <div>
-                <h3 className="text-xl font-bold text-gray-800">Load Machine: {selectedChamber}</h3>
-                <p className="text-sm text-gray-600 mt-1">Scan parts, upload images, and select tests</p>
+                <h3 className="text-xl font-bold text-gray-800">Load Equipment: {selectedChamber}</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  {(() => {
+                    const machine = data.find(m =>
+                      m.machine_id === selectedChamber ||
+                      m.machine_description === selectedChamber
+                    );
+                    return machine
+                      ? `${machine.machine_description} (${machine.machine_id})`
+                      : selectedChamber;
+                  })()}
+                </p>
               </div>
               <button
                 onClick={() => {
@@ -2752,9 +2747,13 @@ const GanttChart = () => {
                 <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="flex items-center gap-2 mb-3">
                     <Info className="text-blue-600" size={20} />
-                    <h4 className="font-semibold text-blue-800">Machine Details</h4>
+                    <h4 className="font-semibold text-blue-800">Equipment Details</h4>
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-600">Equipment ID:</span>
+                      <span className="font-medium ml-2">{machineDetails.machineId}</span>
+                    </div>
                     <div>
                       <span className="text-gray-600">Machine:</span>
                       <span className="font-medium ml-2">{machineDetails.machine}</span>
@@ -2770,6 +2769,10 @@ const GanttChart = () => {
                     <div>
                       <span className="text-gray-600">Colour:</span>
                       <span className="font-medium ml-2">{machineDetails.colour}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Available Tests:</span>
+                      <span className="font-medium ml-2">{machineDetails.totalTests}</span>
                     </div>
                   </div>
                   {machineDetails.tests.length > 0 && (
@@ -2806,13 +2809,18 @@ const GanttChart = () => {
                     <input
                       type="number"
                       value={timerDuration}
-                      onChange={(e) => setTimerDuration(parseInt(e.target.value) || 24)}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 24;
+                        setTimerDuration(value);
+                      }}
                       min="1"
                       max="720"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       disabled={timerStatus === 'start'}
                     />
-                    <p className="text-xs text-gray-500 mt-1">Default: 24 hours</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {timerDuration === 24 ? 'Default: 24 hours' : `Set from allocation: ${timerDuration} hours`}
+                    </p>
                   </div>
 
                   <div>
@@ -2945,7 +2953,6 @@ const GanttChart = () => {
                           </div>
 
                           {renderImageUploadSection(part)}
-
 
                         </div>
                       ))}

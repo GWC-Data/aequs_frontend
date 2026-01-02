@@ -31,7 +31,7 @@ const navigationItems = [
   { title: "Planning Dashboard", url: "/planning-detail", icon: Calendar },
   // { title: "Chamber Load Dashboard", url: "/", icon: Home },
   { title: "Testing", url: "/form-default", icon: Settings },
-  { title: "Report Dashboard", url: "/report-dashboard", icon: ClipboardMinus },
+  // { title: "Report Dashboard", url: "/report-dashboard", icon: ClipboardMinus },
 
 ];
 

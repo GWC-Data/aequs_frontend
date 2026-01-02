@@ -1,4 +1,3 @@
-
 export interface MachineItem {
     sr_no: number;
     machine_id: string;
@@ -8,123 +7,137 @@ export interface MachineItem {
 export const machineData: MachineItem[] = [
     {
         "sr_no": 1,
-        "machine_id": "ORD-001",
-        "machine_description": "0.5M RANDOM DROP"
+        "machine_id": "AQS-ORT-ASI-1",
+        "machine_description": "ASI Immersion"
     },
     {
         "sr_no": 2,
-        "machine_id": "ORD-002",
-        "machine_description": "1.25M RANDOM DROP"
+        "machine_id": "AQS-ORT-ASI-2",
+        "machine_description": "ASI Immersion"
     },
     {
         "sr_no": 3,
-        "machine_id": "ORD-003",
-        "machine_description": "1M RANDOM DROP"
+        "machine_id": "AQS-ORT-Ctl-1",
+        "machine_description": "Control Drop 1M"
     },
     {
         "sr_no": 4,
-        "machine_id": "4165",
-        "machine_description": "1M RANDOM DROP"
+        "machine_id": "AQS-ORT-FS-1",
+        "machine_description": "Foot Survivability"
     },
     {
         "sr_no": 5,
-        "machine_id": "ORT-001",
-        "machine_description": "ROCK TUMBLER"
+        "machine_id": "AQS-ORT-HRD-1",
+        "machine_description": "Hardness machine"
     },
     {
         "sr_no": 6,
-        "machine_id": "ORT-002",
-        "machine_description": "ROCK TUMBLER"
+        "machine_id": "AQS-ORT-THC-1",
+        "machine_description": "Heat Soak"
     },
     {
         "sr_no": 7,
-        "machine_id": "ORT-003",
-        "machine_description": "ROCK TUMBLER"
+        "machine_id": "AQS-ORT-THC-2",
+        "machine_description": "Heat Soak"
     },
     {
         "sr_no": 8,
-        "machine_id": "ORT-D04",
-        "machine_description": "ROCK TUMBLER"
+        "machine_id": "AQS-ORT-OCI-1",
+        "machine_description": "Ocean Immersion"
     },
     {
         "sr_no": 9,
-        "machine_id": "ORT-005",
-        "machine_description": "ROCK TUMBLER"
+        "machine_id": "AQS-ORT-OCI-2",
+        "machine_description": "Ocean Immersion"
     },
     {
         "sr_no": 10,
-        "machine_id": "ORT-006",
-        "machine_description": "ROCK TUMBLER"
+        "machine_id": "AQS-ORT-PI-1",
+        "machine_description": "Pool Immersion"
     },
     {
         "sr_no": 11,
-        "machine_id": "M-192",
-        "machine_description": "X-RITE SPECTRALIGHT III"
+        "machine_id": "AQS-ORT-PI-2",
+        "machine_description": "Pool Immersion"
     },
     {
         "sr_no": 12,
-        "machine_id": "A10000052",
-        "machine_description": "HEAT SOAK-01"
+        "machine_id": "AQS-ORT-RD-1",
+        "machine_description": "Random Drop 1.25M"
     },
     {
         "sr_no": 13,
-        "machine_id": "AQS-U3-01",
-        "machine_description": "HEAT SOAK-02"
+        "machine_id": "AQS-ORT-RD-2",
+        "machine_description": "Random Drop 1M"
     },
     {
         "sr_no": 14,
-        "machine_id": "AQS-U3-02",
-        "machine_description": "THERMAL CYCLE CHAMBER"
+        "machine_id": "AQS-ORT-RD-3",
+        "machine_description": "Random Drop 0.5M"
     },
     {
         "sr_no": 15,
-        "machine_id": "32261",
-        "machine_description": "UV CHAMBER"
+        "machine_id": "AQS-ORT-RT-1",
+        "machine_description": "Rock Tumble"
     },
     {
         "sr_no": 16,
-        "machine_id": "32259",
-        "machine_description": "SALT SPRAY"
+        "machine_id": "AQS-ORT-RT-2",
+        "machine_description": "Rock Tumble"
     },
     {
         "sr_no": 17,
-        "machine_id": "20231191",
-        "machine_description": "TABER LINEAR ABRASER"
+        "machine_id": "AQS-ORT-RT-3",
+        "machine_description": "Rock Tumble"
     },
     {
         "sr_no": 18,
-        "machine_id": "M-125",
-        "machine_description": "ELECTROMECHANICAL UTM INSTRON"
+        "machine_id": "AQS-ORT-RT-4",
+        "machine_description": "Rock Tumble"
     },
     {
         "sr_no": 19,
-        "machine_id": "SF20240111FW03001",
-        "machine_description": "FOOT SURVIVABILITY TEST"
+        "machine_id": "AQS-ORT-RT-5",
+        "machine_description": "Rock Tumble"
     },
     {
         "sr_no": 20,
-        "machine_id": "348102/ODCS001",
-        "machine_description": "DSLR Camera"
+        "machine_id": "AQS-ORT-SST-1",
+        "machine_description": "Salt Spray"
     },
     {
         "sr_no": 21,
-        "machine_id": "IBA2041905",
-        "machine_description": "TAP Immersion"
+        "machine_id": "AQS-ORT-SR-1",
+        "machine_description": "Steel Rain"
     },
     {
         "sr_no": 22,
-        "machine_id": "IBA2041904",
-        "machine_description": "POOL Immersion"
+        "machine_id": "AQS-ORT-SR-1",
+        "machine_description": "Taber Leanear abbraster"
     },
     {
         "sr_no": 23,
-        "machine_id": "IBA2039109",
-        "machine_description": "OCEAN Immersion"
+        "machine_id": "AQS-ORT-TI-1",
+        "machine_description": "Tap Immersion"
     },
     {
         "sr_no": 24,
-        "machine_id": "PCD73239004001",
-        "machine_description": "ASI Immersion"
+        "machine_id": "AQS-ORT-TI-2",
+        "machine_description": "Tap Immersion"
+    },
+    {
+        "sr_no": 25,
+        "machine_id": "AQS-ORT-TC-1",
+        "machine_description": "Thermal Cycle"
+    },
+    {
+        "sr_no": 26,
+        "machine_id": "AQS-ORT-UTM-1",
+        "machine_description": "UTM"
+    },
+    {
+        "sr_no": 27,
+        "machine_id": "AQS-ORT-UV-1",
+        "machine_description": "UV"
     }
 ]
-

@@ -51,7 +51,7 @@ const App = () => (
                   <Route path="/planning-detail" element={<PlanningModule />} />
                   <Route path="/ort-lab-details" element={<ORTLabDetailsPage />} />
                   <Route path="/ort-lab-form" element={<ORTLabPage />} />
-                  <Route path="/report-dashboard" element={<ReportDashboard />} />
+                  {/* <Route path="/report-dashboard" element={<ReportDashboard />} /> */}
                   <Route path="/" element={<Home />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
